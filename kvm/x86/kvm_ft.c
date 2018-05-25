@@ -3549,7 +3549,9 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
     if (ret <= 0) { 
         ctx->bd_last_dp_num = dlist->put_off;
     }    
-    
+   
+    if(epoch_run_time > 5 * 1000) return 0;
+ 
     return ret; 
 }
 

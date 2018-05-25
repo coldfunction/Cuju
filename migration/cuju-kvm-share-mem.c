@@ -28,6 +28,7 @@
 #include <smmintrin.h>
 #include <immintrin.h>
 #include <malloc.h>
+#include <sys/syscall.h>
 
 #define TIMEVAL_TO_DOUBLE(tv)   ((tv).tv_sec + \
 								((double)(tv).tv_usec) / 1000000)
@@ -742,6 +743,39 @@ static inline int gather_512(char *orig_page, char *curr_page, char *output)
 }
 
 #define VMFT_CPUSET_DIR	"/dev/cgroup/vmft/"
+int cpuset_attach_thread(pid_t pid, int cpu_id)
+{
+  char fname[64];
+  int len; 
+  //int fd;
+    FILE *fd; 
+//  cpu_set_t cpuset;
+
+  len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
+  fname[len] = 0; 
+
+  //fd = fopen(fname, O_WRONLY);
+  fd = fopen(fname, "w");
+//  if (fd == -1) {
+  if (fd == NULL) {
+    perror("open cgroup.tasks: ");
+    return -1;
+  }
+
+  if (pid == 0) { 
+    printf("attach %ld to cpu %d\n", (long)syscall(SYS_gettid), cpu_id);
+  } else {
+    printf("attach %ld to cpu %d\n", (long)pid, cpu_id);
+  }
+
+    fprintf(fd, "%ld", (long)syscall(SYS_gettid));
+
+  fclose(fd);
+  return 0;
+}
+
+
+
 
 
 static void compress_init(void)
@@ -1162,12 +1196,16 @@ static void thread_set_realtime(void)
     }
 }
 
+
+
+
 static void* trans_ram_conn_thread_func(void *opaque)
 {
     struct trans_ram_conn_descriptor *d = opaque;
     MigrationState *s;
     int ret;
 
+    assert(!cpuset_attach_thread(0, 7)); 
     thread_set_realtime();
 
     while (1) {

@@ -74,4 +74,5 @@ void bd_update_stat(int dirty_num, double tran_time_s, double delay_time_s, doub
 void bd_reset_epoch_timer(void);
 bool bd_timer_func(void);
 
+int cpuset_attach_thread(pid_t pid, int cpu_id) ;
 #endif

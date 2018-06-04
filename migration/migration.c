@@ -44,6 +44,9 @@
 #include "qemu/main-loop.h"
 #include "migration/event-tap.h"
 #include "hw/virtio/virtio-blk.h"
+#include <sys/syscall.h>
+int cpuset_attach_thread3(pid_t pid, int cpu_id);
+static void thread_set_realtime3(void);
 
 //#define DEBUG_MIGRATION
 
@@ -2254,19 +2257,51 @@ static void kvmft_flush_output(MigrationState *s)
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
-   FILE *pFile;
-      pFile = fopen("myprofile.txt", "a");
-      char pbuf[200];
+#ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
 
-      if(pFile != NULL){
-       sprintf(pbuf, "%d\n", runtime_us);
-       fputs(pbuf, pFile);                                                                                                                      
-       }    
-       else
-           printf("no profile\n");
+    uint64_t kernel_time_us = 0;
+    //uint64_t kernel_time_start_us = 0;
+    kvm_shm_get_time_mark_from_kernel(&kernel_time_us);
+    //printf("cocotion test get kernel time = %lu\n", kernel_time_us);
+    //int real_runtime_us = kernel_time_us - s->run_real_start_time * 1000000;
+    //kvm_shm_get_time_mark_from_kernel_start(&kernel_time_start_us);
+    //int real_runtime_us = kernel_time_us - kernel_time_start_us;
+    int real_runtime_us = (int)kernel_time_us;
 
-       fclose(pFile); 
 
+    FILE *pFile, *pFile2/*, *pFile3*/;
+    pFile = fopen("myprofile.txt", "a");
+    pFile2 = fopen("myprofile2.txt", "a");
+    //pFile3 = fopen("myprofile3.txt", "a");
+    char pbuf[200];
+    if(pFile != NULL){
+        sprintf(pbuf, "%d\n", runtime_us);
+        fputs(pbuf, pFile);                                                                                                                      
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile); 
+
+
+    if(pFile2 != NULL){
+        //sprintf(pbuf, "%d\n", trans_us);
+        sprintf(pbuf, "%d\n", real_runtime_us);
+        fputs(pbuf, pFile2);                                                                                                                      
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile2);
+ #endif
+
+/*
+    if(pFile3 != NULL){
+        sprintf(pbuf, "%d\n", latency_us);
+        fputs(pbuf, pFile3);                                                                                                                      
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile3); 
+*/
     assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
 
     bd_update_stat(s->dirty_pfns_len, s->flush_start_time-s->transfer_start_time,
@@ -2863,7 +2898,10 @@ out:
 
 static void migrate_run(MigrationState *s)
 {
-    static unsigned long run_serial = 0;
+    //assert(!cpuset_attach_thread3(0, 7));
+    //thread_set_realtime3();
+ 
+   static unsigned long run_serial = 0;
 
     FTPRINTF("%s %d\n", __func__, s->cur_off);
 
@@ -2889,6 +2927,8 @@ static void migrate_run(MigrationState *s)
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
 
+    //cocotion test
+    thread_set_realtime3();
     s->run_real_start_time = time_in_double();
 
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
@@ -2899,13 +2939,77 @@ static void migrate_run(MigrationState *s)
 #endif
 }
 
+
+/*
+//#define VMFT_CPUSET_DIR "/dev/cgroup/vmft3/"
+int cpuset_attach_thread3(pid_t pid, int cpu_id)
+{
+//  char fname[64];                                                                                                                                 
+ // int len; 
+  //int fd;
+  //  FILE *fd; 
+  cpu_set_t cpuset;
+
+  //len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
+  //fname[len] = 0; 
+
+  //fd = fopen(fname, O_WRONLY);
+  //fd = fopen(fname, "w+");
+//  if (fd == -1) {
+ // if (fd == NULL) {
+  //  perror("open cgroup.tasks: ");
+   // return -1;
+  //}
+
+
+
+ CPU_ZERO(&cpuset);
+  CPU_SET(cpu_id, &cpuset);
+  if (sched_setaffinity(pid, sizeof(cpuset), &cpuset) != 0) {
+    perror("setaffinity: ");
+    return -1;
+  }
+    //fprintf(fd, "%ld", (long)syscall(SYS_gettid));
+
+  //fclose(fd);
+  return 0;
+}
+*/
+
+
+
+
+static void thread_set_realtime3(void)
+{
+    int err;                                                                                         
+    struct sched_param param = {
+        .sched_priority = 99 
+    };   
+
+    err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (err != 0) { 
+        printf("%s pthread_setschedparam failed\n", __func__);
+        exit(-1);
+    }    
+}
+
+
 static void migrate_timer(void *opaque)
 {
+ //   assert(!cpuset_attach_thread2(0, 7));
+  //  thread_set_realtime2();
+
     static unsigned long trans_serial = 0;
     MigrationState *s = opaque;
+    
+    if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
+        return ;
+    
+    migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
+    s->snapshot_start_time = time_in_double();
 
     assert(s == migrate_get_current());
-
+/*
 #ifndef ft_debug_mode_enable
     if ((trans_serial & 0x03f) == 0) {
         printf("\n%s tick %lu\n", __func__, trans_serial);
@@ -2914,7 +3018,7 @@ static void migrate_timer(void *opaque)
     printf("\n%s %p(%d) runstage(ms) %d\n", __func__, s, migrate_get_index(s),
         (int)((s->snapshot_start_time - s->run_real_start_time) * 1000));
 #endif
-
+*/
     migrate_token_owner = NULL;
 
     s->trans_serial = ++trans_serial;
@@ -2972,30 +3076,71 @@ static void migrate_timer(void *opaque)
     qemu_mutex_unlock_iothread();
 }
 
-static void ft_tick_func(void)
+//static void* ft_tick_func(void *d)
+/*static void ft_tick_func(void )
 {
+    //assert(!cpuset_attach_thread(0, 7));
+    MigrationState *s;
+
+    if (!migrate_token_owner)
+        return;
+        //return NULL;
+
+    s = migrate_token_owner;
+    if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
+        return;
+        //return NULL;
+
+    migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
+    s->snapshot_start_time = time_in_double();
+
+    migrate_timer(s);
+    //return NULL;
+}*/
+
+void kvmft_tick_func(void)
+{
+ 
+    FTPRINTF("\n\n%s %d\n", __func__, migrate_token_owner ?
+        migrate_token_owner->cur_off : -1);
+
+    //if (!migrate_token_owner)
+     //   return;
     MigrationState *s;
 
     if (!migrate_token_owner)
         return;
 
     s = migrate_token_owner;
-    if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
-        return;
 
-    migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
-    s->snapshot_start_time = time_in_double();
+//    QemuThread thread;
+ //   qemu_thread_create(&thread,
+  //                          "ft_migrate_timer",
+   //                         migrate_timer,
+    //                        s,   
+     //                       QEMU_THREAD_JOINABLE);
+
+    //double snapshot_start = time_in_double();
+
+
+
+    //s->snapshot_start_time = time_in_double();
+    //s->snapshot_start_time = snapshot_start;
+    
+
+
+   // if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
+   // {
+    //    return;
+        //return NULL;
+   // }
+
+    //migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
+    //s->snapshot_start_time = time_in_double();
 
     migrate_timer(s);
-}
 
-void kvmft_tick_func(void)
-{
-    FTPRINTF("\n\n%s %d\n", __func__, migrate_token_owner ?
-        migrate_token_owner->cur_off : -1);
 
-    if (!migrate_token_owner)
-        return;
 
-    ft_tick_func();
+   // ft_tick_func();
 }

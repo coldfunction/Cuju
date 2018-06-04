@@ -30,7 +30,7 @@ static int bd_calc_left_runtime(void)
 
 
 //static FILE *bdofile = NULL; 
-static FILE *ofile = NULL;
+//static FILE *ofile = NULL;
 
 void bd_update_stat(int dirty_num, 
                     double tran_time_s, 
@@ -58,14 +58,15 @@ void bd_update_stat(int dirty_num,
         kvmft_bd_set_alpha(bd_alpha);
     }   
 
-    if (ofile == NULL) {
+/*    if (ofile == NULL) {
         ofile = fopen("/tmp/bd_delay", "w");
         assert(ofile);
     }   
-
+*/
     //if (dirty_num < 500)
     //    return;
 
+/*
     fprintf(ofile, "%.4lf\t%.4lf\t%.4lf\t%.4lf\t%.4lf\t%d\t%d\t%d\t%d\t%d\n", delay_time_s * 1000,
         tran_time_s * 1000,
         run_time_s * 1000,
@@ -76,7 +77,7 @@ void bd_update_stat(int dirty_num,
         ram_len / (dirty_num?dirty_num:1),
         average_predict,
         bd_alpha);
-
+*/
 }
 
 
@@ -134,11 +135,11 @@ bool bd_timer_func(void)
 
     ++count;
                                                                                                                                                                                                                     
-    if (ofile == NULL) {
+/*    if (ofile == NULL) {
         ofile = fopen("/tmp/bd_delay", "w");
         assert(ofile);
     }
-
+*/
     if (EPOCH_TIME_IN_MS >= 10) {
         if (count < EPOCH_TIME_IN_MS/2) {
             kvm_shmem_start_timer();
@@ -182,6 +183,16 @@ bool bd_timer_func(void)
         kvm_shmem_start_timer();
         return true;
     } else {
+      
+//cocotion test 
+        int predtime = bd_calc_left_runtime();
+        if (predtime <= 200) {
+            count = 0;
+            return false;
+        } 
+
+
+
         if (count < 5) {
             kvm_shmem_start_timer();
             return true;
@@ -212,7 +223,10 @@ bool bd_timer_func(void)
                 count = 0;
                 //last_dirty_bytes = 0;
                 return false;
-            } else if (lefttime < EPOCH_TIME_IN_MS*1000/10) {
+            } 
+
+
+            else if (lefttime < EPOCH_TIME_IN_MS*1000/10) {
                 Error *err = NULL;
                 qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);
             }
@@ -221,6 +235,7 @@ bool bd_timer_func(void)
                 Error *err = NULL;
                 qmp_cuju_adjust_epoch(EPOCH_TIME_IN_MS*1000/10-300, &err);
             }
+
         }
                                                                                                                                                                                                                     
         kvm_shmem_start_timer();

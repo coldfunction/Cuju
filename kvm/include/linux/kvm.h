@@ -1392,8 +1392,8 @@ struct kvmft_update_latency {
 #define KVMFT_BD_SET_ALPHA                _IOW(KVMIO, 0xd3, __u32)
 #define KVMFT_BD_CALC_LEFT_RUNTIME        _IO(KVMIO, 0xd4)
 
-
-
+#define KVM_SHM_GET_TIME_MARK             _IO(KVMIO, 0xd5)
+#define KVM_SHM_GET_TIME_MARK_START       _IO(KVMIO, 0xd6)
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)

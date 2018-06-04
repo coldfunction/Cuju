@@ -191,6 +191,15 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         struct hrtimer *timer)
 {
+        //cocotion test
+    extern ktime_t global_mark_time, global_mark_start_time;
+    extern u64 runtime_difftime;
+    //ktime_t val; 
+    global_mark_time = ktime_get();
+    //global_mark_time = ktime_to_ns(val) / 1000;
+    ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
+    runtime_difftime = ktime_to_us(diff);
+
     struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
 
     spcl_kthread_notify_abandon(vcpu->kvm);
@@ -1645,7 +1654,7 @@ int kvm_vm_ioctl_adjust_dirty_tracking(struct kvm* kvm, int diff)
 int kvm_vm_ioctl_adjust_epoch(struct kvm* kvm, unsigned long newepoch)
 {
     epoch_time_in_us = newepoch;
-    printk("%s new epoch is %lu\n", __func__, newepoch);
+    //printk("%s new epoch is %lu\n", __func__, newepoch);
 
     return 0;
 }
@@ -3514,6 +3523,11 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    if(epoch_run_time > 10000) printk("epoch_run_time = %ld\n", epoch_run_time);  
+
+ 
+    //cocotion test 
+    if(epoch_run_time > 5 * 1000) return 0;
 
     // if average dirty bytes raise a lot, more time to transfer
     int factor = 100; 
@@ -3549,8 +3563,7 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
     if (ret <= 0) { 
         ctx->bd_last_dp_num = dlist->put_off;
     }    
-   
-    if(epoch_run_time > 5 * 1000) return 0;
+  
  
     return ret; 
 }

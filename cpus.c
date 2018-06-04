@@ -69,6 +69,9 @@
 
 #endif /* CONFIG_LINUX */
 
+#include <sys/syscall.h>
+int cpuset_attach_thread2(pid_t pid, int cpu_id);
+
 int64_t max_delay;
 int64_t max_advance;
 
@@ -967,9 +970,55 @@ static void qemu_kvm_wait_io_event(CPUState *cpu)
     qemu_kvm_eat_signals(cpu);
     qemu_wait_io_event_common(cpu);
 }
+/*
+#define VMFT_CPUSET_DIR "/dev/cgroup/vmft/"
+int cpuset_attach_thread2(pid_t pid, int cpu_id)
+{
+  char fname[64];                                                                                                                                 
+  int len; 
+  //int fd;
+    FILE *fd; 
+//  cpu_set_t cpuset;
 
+  len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
+  fname[len] = 0; 
+
+  //fd = fopen(fname, O_WRONLY);
+  fd = fopen(fname, "w");
+//  if (fd == -1) {
+  if (fd == NULL) {
+    perror("open cgroup.tasks: ");
+    return -1;
+  }
+    fprintf(fd, "%ld", (long)syscall(SYS_gettid));
+
+  fclose(fd);
+  return 0;
+}
+
+static void thread_set_realtime2(void)
+{
+    int err;                                                                                         
+    struct sched_param param = {
+        .sched_priority = 99 
+    };   
+
+    err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (err != 0) { 
+        printf("%s pthread_setschedparam failed\n", __func__);
+        exit(-1);
+    }    
+}
+*/
 static void *qemu_kvm_cpu_thread_fn(void *arg)
 {
+    //cocotion test
+//    assert(!cpuset_attach_thread2(0, 7));
+ //   thread_set_realtime2();
+
+
+
+
     CPUState *cpu = arg;
     int r;
 

@@ -145,7 +145,7 @@ void qmp_cuju_failover(Error **errp)
 }
 
 void qmp_cuju_adjust_epoch(uint32_t epoch, Error **errp) {
-    printf("new epoch size is %u ms.\n", epoch);
+    //printf("new epoch size is %u ms.\n", epoch);
     epoch_time_in_us = epoch;
 
     uint32_t value = epoch_time_in_us;
@@ -743,7 +743,7 @@ static inline int gather_512(char *orig_page, char *curr_page, char *output)
 }
 
 #define VMFT_CPUSET_DIR	"/dev/cgroup/vmft/"
-int cpuset_attach_thread(pid_t pid, int cpu_id)
+/*int cpuset_attach_thread(pid_t pid, int cpu_id)
 {
   char fname[64];
   int len; 
@@ -761,19 +761,12 @@ int cpuset_attach_thread(pid_t pid, int cpu_id)
     perror("open cgroup.tasks: ");
     return -1;
   }
-
-  if (pid == 0) { 
-    printf("attach %ld to cpu %d\n", (long)syscall(SYS_gettid), cpu_id);
-  } else {
-    printf("attach %ld to cpu %d\n", (long)pid, cpu_id);
-  }
-
     fprintf(fd, "%ld", (long)syscall(SYS_gettid));
 
   fclose(fd);
   return 0;
 }
-
+*/
 
 
 
@@ -1181,7 +1174,7 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
     len += socket_send_all(fd, page, TARGET_PAGE_SIZE);
     return len;
 }
-
+/*
 static void thread_set_realtime(void)
 {
     int err;
@@ -1195,7 +1188,7 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 }
-
+*/
 
 
 
@@ -1205,8 +1198,8 @@ static void* trans_ram_conn_thread_func(void *opaque)
     MigrationState *s;
     int ret;
 
-    assert(!cpuset_attach_thread(0, 7)); 
-    thread_set_realtime();
+    //assert(!cpuset_attach_thread(0, 7)); 
+    //thread_set_realtime();
 
     while (1) {
         qemu_mutex_lock(&d->mutex);
@@ -1528,6 +1521,16 @@ int kvmft_set_master_slave_sockets(MigrationState *s, int nsocks)
 
     return kvm_vm_ioctl(kvm_state, KVMFT_SET_MASTER_SLAVE_SOCKETS, &socks);
 }
+
+int kvm_shm_get_time_mark_from_kernel(uint64_t *kernel_time)
+{
+    return kvm_vm_ioctl(kvm_state, KVM_SHM_GET_TIME_MARK, kernel_time);
+}                     
+
+int kvm_shm_get_time_mark_from_kernel_start(uint64_t *kernel_time)
+{
+    return kvm_vm_ioctl(kvm_state, KVM_SHM_GET_TIME_MARK_START, kernel_time);
+}                     
 
 void kvmft_update_epoch_flush_time_linear(double time_s)
 {

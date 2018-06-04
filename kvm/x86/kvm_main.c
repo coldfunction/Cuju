@@ -158,6 +158,10 @@ EXPORT_SYMBOL_GPL(kvm_rebooting);
 
 static bool largepages_enabled = true;
 
+ktime_t global_mark_time ;
+ktime_t global_mark_start_time ;
+u64 runtime_difftime;
+
 bool kvm_is_reserved_pfn(pfn_t pfn)
 {
 	if (pfn_valid(pfn))
@@ -3194,6 +3198,11 @@ static long kvm_vm_ioctl(struct file *filp,
         break;
     }
     case KVM_SHM_START_TIMER: {
+#ifdef MEASURE_EACH_TIME_SLOT_VIA_KERNEL
+      //cocotion test
+      global_mark_start_time = ktime_get();
+#endif
+
       r = 0;
       kvm_shm_start_timer(kvm->vcpus[0]);
       break;
@@ -3506,6 +3515,20 @@ out_free_irq_routing:
         r = kvmft_ioctl_bd_set_alpha(kvm, (int)alpha);
         break;
     }  
+    case KVM_SHM_GET_TIME_MARK: {
+
+        if(copy_to_user(argp, &runtime_difftime, sizeof runtime_difftime))
+            printk("cocotion test copy error\n");
+        r = 0;
+        break;
+    }
+    case KVM_SHM_GET_TIME_MARK_START: {
+        printk("cocotion test global_mark_start_time = %llu\n", global_mark_start_time);
+        if(copy_to_user(argp, &global_mark_start_time, sizeof global_mark_start_time))
+            printk("cocotion test copy error\n");
+        r = 0;
+        break;
+    }
 
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);

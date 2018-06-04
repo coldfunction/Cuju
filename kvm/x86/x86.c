@@ -6826,10 +6826,7 @@ static inline bool kvm_vcpu_running(struct kvm_vcpu *vcpu)
 
 static int vcpu_run(struct kvm_vcpu *vcpu)
 {
-	int r;
-	struct kvm *kvm = vcpu->kvm;
-
-	vcpu->srcu_idx = srcu_read_lock(&kvm->srcu);
+	int r; struct kvm *kvm = vcpu->kvm; vcpu->srcu_idx = srcu_read_lock(&kvm->srcu);
 
 	for (;;) {
 		if (kvm_vcpu_running(vcpu)) {

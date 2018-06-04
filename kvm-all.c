@@ -41,6 +41,8 @@
 
 #include "hw/boards.h"
 
+#include <sys/syscall.h>
+
 // sync with the one in qemu
 #define KVM_SHM_INIT_INDEX  1
 
@@ -1921,9 +1923,52 @@ void kvm_cpu_synchronize_post_init(CPUState *cpu)
 {
     run_on_cpu(cpu, do_kvm_cpu_synchronize_post_init, RUN_ON_CPU_NULL);
 }
+/*
+#define VMFT_CPUSET_DIR "/dev/cgroup/vmft/"
+int cpuset_attach_thread2(pid_t pid, int cpu_id)
+{
+  char fname[64];                                                                                                                                 
+  int len; 
+  //int fd;
+    FILE *fd; 
+//  cpu_set_t cpuset;
+
+  len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
+  fname[len] = 0; 
+
+  //fd = fopen(fname, O_WRONLY);
+  fd = fopen(fname, "w");
+//  if (fd == -1) {
+  if (fd == NULL) {
+    perror("open cgroup.tasks: ");
+    return -1;
+  }
+    fprintf(fd, "%ld", (long)syscall(SYS_gettid));
+
+  fclose(fd);
+  return 0;
+}
+
+static void thread_set_realtime2(void)
+{
+    int err;                                                                                         
+    struct sched_param param = {
+        .sched_priority = 99 
+    };   
+
+    err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (err != 0) { 
+        printf("%s pthread_setschedparam failed\n", __func__);
+        exit(-1);
+    }    
+}
+*/
 
 int kvm_cpu_exec(CPUState *cpu)
 {
+//        assert(!cpuset_attach_thread2(0, 7));
+ //       thread_set_realtime2();
+
     struct kvm_run *run = cpu->kvm_run;
     int ret, run_ret;
 
@@ -2041,7 +2086,7 @@ int kvm_cpu_exec(CPUState *cpu)
             }
             break;
         case KVM_EXIT_HRTIMER:
-            if(!bd_timer_func())
+            //if(!bd_timer_func())
                 kvmft_tick_func();
             ret = EXCP_FT;
             break;

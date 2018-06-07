@@ -3491,13 +3491,38 @@ out_free_irq_routing:
         r = kvmft_ioctl_bd_calc_left_runtime(kvm);                                                                                                                                                                  
         break;
     }
+    case KVMFT_BD_RUNTIME_EXCEEDS: {
+        int epoch_runtime;
+        r = kvmft_ioctl_bd_runtime_exceeds(kvm, &epoch_runtime);           
+        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
+        break;
+    }
+    case KVMFT_BD_GET_RUNTIME: {
+        unsigned int epoch_runtime;
+        kvmft_ioctl_bd_get_runtime(kvm, &epoch_runtime);
+        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
+        r = 0; 
+    }
+
     case KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER: {                                                                                                                                                                        
         r = kvmft_ioctl_bd_check_dirty_page_number(kvm);
         if (r)
             goto out; 
         break;
-    }    
-                                                                                                                                                                                                           
+    }  
+    case KVMFT_BD_PREDIC_STOP: {                                                                                                                                                                        
+        r = kvmft_ioctl_bd_predic_stop(kvm);
+        break;
+    }
+    case KVMFT_BD_PERCEPTRON: {
+        int latency_us;
+        r = -EFAULT;
+        if (copy_from_user(&latency_us, argp, sizeof latency_us))                                                                                 
+            goto out; 
+        r = 0; 
+        kvmft_ioctl_bd_perceptron(latency_us);
+        break;
+    }  
     case KVMFT_BD_UPDATE_LATENCY: {
         struct kvmft_update_latency update;                                                                                                                                                                         
         r = -EFAULT;

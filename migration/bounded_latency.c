@@ -6,8 +6,10 @@
 #include "qmp-commands.h"
 
 
-static int bd_target = EPOCH_TIME_IN_MS * 1000;                                                                                                                                                                     
+static int bd_target = EPOCH_TIME_IN_MS * 1000;
 static int bd_alpha = 1000; // initial alpha is 1 ms
+static float bd_time_slot_us;                                                                                                                                                                     
+
 
 int kvmft_bd_set_alpha(int alpha); 
 
@@ -16,11 +18,17 @@ int kvmft_bd_set_alpha(int alpha)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_SET_ALPHA, &alpha);
 }                                                                                                                                                                                                                   
-
+/*
 static int kvmft_bd_check_dirty_page_number(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER);
 }                                                                                                                                                                                                                   
+*/
+static int kvmft_bd_predic_stop(void)
+{
+    return kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP);
+}
+
 
 static int bd_calc_left_runtime(void)                                                                                                                                                                               
 {
@@ -80,6 +88,10 @@ void bd_update_stat(int dirty_num,
 */
 }
 
+int kvmft_bd_perceptron(int latency_us)
+{
+    return kvm_vm_ioctl(kvm_state, KVMFT_BD_PERCEPTRON, &latency_us);
+}
 
 int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)
 {
@@ -111,35 +123,77 @@ static int bd_is_last_count(int count)
 void bd_reset_epoch_timer(void)
 {
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
-    float nvalue = 1000;
     if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
-        nvalue = EPOCH_TIME_IN_MS*1000/10;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
 
     Error *err = NULL;
-    qmp_cuju_adjust_epoch((unsigned int)nvalue, &err);                                                                                                                                                                             
+    qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             
     if (err) {
         error_report_err(err);
         return;
     }    
 
 }
+/*
+static int is_epoch_run_time_exceeds_target_latency(unsigned int *pass_time_us)
+{
+    return kvm_vm_ioctl(kvm_state, KVMFT_BD_RUNTIME_EXCEEDS, pass_time_us);
+}
+*/
+static int get_pass_time_us(unsigned int *pass_time_us)
+{
+    return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_RUNTIME, pass_time_us);
+}
+
 
 bool bd_timer_func(void)
 {
+    unsigned int pass_time_us;
+    //if(is_epoch_run_time_exceeds_target_latency(&pass_time_us))
+     //   return false;
 
+    get_pass_time_us(&pass_time_us);
+    if(pass_time_us >= bd_target) return false;
+ 
     static int count = 0;
-    //int dirty_bytes;
     MigrationState *s = migrate_get_current();
 
-    //static int last_dirty_bytes = 0;
-
     ++count;
-                                                                                                                                                                                                                    
-/*    if (ofile == NULL) {
-        ofile = fopen("/tmp/bd_delay", "w");
-        assert(ofile);
+/*                                                                                                                                                                                                                    
+    printf("======================\n");
+    printf("cocotion test count = %d\n", count);
+    printf("cocotion test pass_time_us = %d\n", pass_time_us);
+ */   
+    if(pass_time_us < (bd_target/2)){
+  //      printf("cocotion test keep go\n");
+        kvm_shmem_start_timer();
+        return true;
     }
-*/
+    else if(pass_time_us >= (bd_target/2)){
+        //average dirty bytes per page
+        s->average_dirty_bytes = bd_calc_dirty_bytes();
+        if(bd_is_last_count(count) || kvmft_bd_predic_stop())  {
+   //         printf("cocotion test bd_is_last_count(count) || kvmft_bd_predic_stop()\n");
+            count = 0;
+            return false;
+        }
+        int lefttime = bd_target - bd_calc_left_runtime() ;
+        if(lefttime <= bd_time_slot_us){
+    //        printf("cocotion test lefttime <= 200??? lefttime = %d\n", lefttime);
+            count = 0;
+            return false;
+        }// else if (lefttime < bd_time_slot_us) {
+          //  Error *err = NULL;
+           // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
+        //} 
+        kvm_shmem_start_timer();
+        return true;                                                                                                                                                                                                      
+    }
+    kvm_shmem_start_timer();
+    return true;
+
+
+/*
     if (EPOCH_TIME_IN_MS >= 10) {
         if (count < EPOCH_TIME_IN_MS/2) {
             kvm_shmem_start_timer();
@@ -244,8 +298,7 @@ bool bd_timer_func(void)
     }
 
 
-
-    return 0;
+    return 0;*/
 }
 
 

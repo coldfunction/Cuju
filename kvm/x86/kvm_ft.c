@@ -107,8 +107,22 @@ extern unsigned long address_to_pte(unsigned long addr);
 
 #define MS_TO_NS(x) (((unsigned int)x) * ((unsigned int)1E6))
 
+static long int target_latency_us;
 static unsigned long epoch_time_in_us;
 static unsigned long pages_per_ms;
+
+static int w_a = 10;
+static int w_b = -1;
+static int w_c = -6;
+static int w_d = -9;
+static int x_a, x_b, x_c, x_d;
+static long int p_out;
+static long int p_out_max = 0;
+static long int p_out_min = 0;
+static long int p_left_time = 3000;
+static long int p_rang = 700;
+//static int alpha = 1;
+
 
 // TODO each VM should its own.
 static struct mm_struct *child_mm;
@@ -932,6 +946,62 @@ void kvmft_prepare_upcall(struct kvm_vcpu *vcpu)
         gfn_list[i+1] = (uint32_t)dlist->pages[i];
 }
 
+static int bd_predic_stop(struct kvm *kvm,
+    struct kvmft_dirty_list *dlist, int put_off)
+{
+    struct kvmft_context *ctx;
+    ctx = &kvm->ft_context;
+    
+    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    int left_time = target_latency_us - epoch_run_time;
+
+
+    p_out = (w_a * (left_time/100)) + //(w_b * (ctx->bd_average_rate/10000)) + 
+(w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
+/*
+    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printk("cocotion test w_a = %d\n", w_a);
+    printk("cocotion test left_time = %d\n", left_time);
+    printk("cocotion test w_b = %d\n", w_b);
+    printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
+    printk("cocotion test w_c = %d\n", w_c);
+    printk("cocotion test bd_average_dirty_bytes = %d\n", ctx->bd_average_dirty_bytes);
+    printk("cocotion test w_d = %d\n", w_d);
+    printk("cocotion test put_off = %ld\n", put_off);
+
+    printk("cocotion test p_out = %d\n", p_out);
+   
+    printk("epoch_run_time = %d\n", epoch_run_time);
+ 
+    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+*/
+//    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
+
+        x_a = left_time;
+        x_b = ctx->bd_average_rate;
+        x_c = ctx->bd_average_dirty_bytes;
+        x_d = put_off;
+
+
+//    if(/*left_time <= 200 ||*/  (p_out >= ((-2)*target_latency_us)) && (p_out <= 2*target_latency_us)  ) {
+    if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
+        //x_a = left_time;
+        //x_b = ctx->bd_average_rate;
+        //x_c = ctx->bd_average_dirty_bytes;
+        //x_d = put_off;
+//   printk("cocotion test p_out = %ld, p_out_min = %ld, p_out_max = %ld\n", p_out, p_out_min, p_out_max);
+ //   printk("cocotion test left_time = %d\n", left_time) ;
+ //   printk("epoch_run_time = %d\n", epoch_run_time);
+//    printk("cocotion test p_left_time = %ld\n", p_left_time);
+        return 1;
+    }
+    return 0;
+}
+
+
+
+
+
 #define FACTOR_SHOOTUP 130
 
 static bool __bd_check_dirty_page_number(struct kvm *kvm,
@@ -944,6 +1014,18 @@ static bool __bd_check_dirty_page_number(struct kvm *kvm,
     ctx = &kvm->ft_context;
 
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+/*
+    s64 left_time = target_latency_us - epoch_run_time;
+
+
+    int p_out = w_a * left_time + w_b * bd_average_rate + w_c * bd_average_dirty_bytes + w_d * put_off; 
+
+    if(p_out <= 0) return true;
+
+    return false;
+
+*/
+
     // alpha
     //s64 left_time = max_latency - ctx->bd_alpha - (int)epoch_run_time;
     // const
@@ -1002,11 +1084,12 @@ static void __bd_average_update(struct kvmft_context *ctx)
     ctx->bd_average_const = sum_const / BD_HISTORY_MAX;
     ctx->bd_average_latency = sum_latency / BD_HISTORY_MAX;
     ctx->bd_average_rate = sum_rate / BD_HISTORY_MAX;
-
+/*
     if (ctx->bd_average_rate >= 500000)
         ctx->bd_average_rate = 500000;
     else if (ctx->bd_average_rate < 50000)
-        ctx->bd_average_rate = 50000;                                                                                                             
+        ctx->bd_average_rate = 50000;
+*/                                                                                                             
 }
 
 
@@ -3377,6 +3460,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     ctx->max_desc_count = KVM_DIRTY_BITMAP_INIT_COUNT;
 
+    target_latency_us = info->epoch_time_in_ms * 1000;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 
@@ -3503,16 +3587,41 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
         kernel_fpu_end();
     }
 
-
     if (count > 0) {
         ctx->bd_average_dirty_bytes = dirty_bytes / count;
-        if (ctx->bd_average_dirty_bytes < 100)
-            ctx->bd_average_dirty_bytes = 100;
+        //if (ctx->bd_average_dirty_bytes < 100)
+            //ctx->bd_average_dirty_bytes = 100;
         return ctx->bd_average_dirty_bytes;
     }
 
     return 0;
 }
+
+int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, unsigned int *epoch_runtime)
+{
+    struct kvmft_context *ctx = &kvm->ft_context;
+    struct kvmft_dirty_list *dlist;
+    int ret; 
+
+    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+    *epoch_runtime = time_in_us() - dlist->epoch_start_time;
+}
+
+int kvmft_ioctl_bd_runtime_exceeds(struct kvm *kvm, int *epoch_runtime)
+{
+    struct kvmft_context *ctx = &kvm->ft_context;
+    struct kvmft_dirty_list *dlist;
+    int ret; 
+
+    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+    *epoch_runtime = time_in_us() - dlist->epoch_start_time;
+        printk("cocotion test epoch_runtim = %d\n", *epoch_runtime);
+    if(*epoch_runtime >= target_latency_us)
+     return 1;
+    else return 0; 
+
+}
+
 
 int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
 {
@@ -3523,6 +3632,12 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    return epoch_run_time;
+
+/*
+
+
+
     if(epoch_run_time > 10000) printk("epoch_run_time = %ld\n", epoch_run_time);  
 
  
@@ -3550,7 +3665,7 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
         if (factor != 100) 
             ret -= dlist->put_off;
     }    
-
+*/
         /*   
     if (dlist->put_off >= ctx->bd_last_dp_num*140/100) {
         // 4/3 is for slave loading time prediction
@@ -3559,13 +3674,97 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
         ret = max_latency - epoch_run_time - dlist->put_off * ctx->bd_average_dirty_bytes * 1000 / (ctx->bd_average_rate * 100 / 100);
     }
     */
-
+/*
     if (ret <= 0) { 
         ctx->bd_last_dp_num = dlist->put_off;
     }    
   
  
-    return ret; 
+    return ret;*/ 
+}
+
+int kvmft_ioctl_bd_predic_stop(struct kvm *kvm)
+{
+    struct kvmft_context *ctx;
+    struct kvmft_dirty_list *dlist;
+    int put_index;
+
+    ctx = &kvm->ft_context;
+    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+   
+    return bd_predic_stop(kvm, dlist, dlist->put_off); 
+ 
+}
+
+void updateW(int e)
+{
+    w_a = w_a + (x_a/10 * e);
+    w_b = w_b + (x_b/10000 * e);
+    w_c = w_c + (x_c/10 * e);
+    w_d = w_d + (x_d/10 * e);
+/*
+    printk("cocotion test w_a = %d\n", w_a);
+    printk("cocotion test w_b = %d\n", w_b);
+    printk("cocotion test w_c = %d\n", w_c);
+    printk("cocotion test w_d = %d\n", w_d);
+    printk("=============================\n");*/
+}
+
+int kvmft_ioctl_bd_perceptron(int latency_us)
+{
+/*
+    if(latency_us > target_latency_us)
+        updateW(1);
+    else if(latency_us <= target_latency_us && latency_us >= (target_latency_us - 700)){
+        updateW(0);
+    }        
+    else {
+        updateW(-1);
+    }
+*/
+    //printk("cocotion test p_out = %ld, latency_us = %d\n", p_out, latency_us);
+    
+
+/*
+ 
+    if((latency_us <= target_latency_us) && (latency_us >= (target_latency_us - 700))){
+        updateW(0);
+    }
+    else if((latency_us > target_latency_us) && (p_out > target_latency_us+1000))
+        updateW(-1);
+    else if((latency_us > target_latency_us) && (p_out < (-2)*target_latency_us)) 
+        updateW(1);
+    else if((latency_us < (target_latency_us - 700)) && (p_out > target_latency_us+1000)) 
+        updateW(-1);
+    else
+        updateW(1);
+*/
+    //printk("@@@@cocotion test p_out = %ld\n", p_out);
+    if((latency_us <= target_latency_us) && (latency_us >= (target_latency_us - p_rang))){
+        if(p_out > p_out_max) p_out_max = p_out;
+        if(p_out < p_out_min) p_out_min = p_out;
+        //printk("cocotion test p_out_min = %ld, p_out_max = %ld\n", p_out_min, p_out_max);
+    }
+    else if(p_out > p_out_max)
+        updateW(-1);
+    else if(p_out < p_out_min)
+        updateW(1);
+    else if(latency_us > target_latency_us) { 
+        p_out_max-=latency_us;
+        p_out_min-=latency_us;
+        p_left_time += 500; 
+        //p_rang+=100;
+       // updateW(1);
+    }
+    else {
+        p_out_max+=latency_us;
+        p_out_min+=latency_us;
+        p_left_time -= 10; 
+        //p_rang-=100;
+        //updateW(-1);
+    }
+
+    return 1;
 }
 
 

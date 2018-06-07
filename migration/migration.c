@@ -46,7 +46,7 @@
 #include "hw/virtio/virtio-blk.h"
 #include <sys/syscall.h>
 int cpuset_attach_thread3(pid_t pid, int cpu_id);
-static void thread_set_realtime3(void);
+//static void thread_set_realtime3(void);
 
 //#define DEBUG_MIGRATION
 
@@ -2257,6 +2257,19 @@ static void kvmft_flush_output(MigrationState *s)
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
+    kvmft_bd_perceptron(latency_us);
+
+    FILE *pFile;
+    pFile = fopen("myprofile.txt", "a");
+    char pbuf[200];
+    if(pFile != NULL){
+        sprintf(pbuf, "%d\n", latency_us);
+        fputs(pbuf, pFile);                                                                                                                      
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile); 
+
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
 
     uint64_t kernel_time_us = 0;
@@ -2928,7 +2941,7 @@ static void migrate_run(MigrationState *s)
     vm_start_mig();
 
     //cocotion test
-    thread_set_realtime3();
+    //thread_set_realtime3();
     s->run_real_start_time = time_in_double();
 
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
@@ -2977,7 +2990,7 @@ int cpuset_attach_thread3(pid_t pid, int cpu_id)
 */
 
 
-
+/*
 
 static void thread_set_realtime3(void)
 {
@@ -2992,7 +3005,7 @@ static void thread_set_realtime3(void)
         exit(-1);
     }    
 }
-
+*/
 
 static void migrate_timer(void *opaque)
 {

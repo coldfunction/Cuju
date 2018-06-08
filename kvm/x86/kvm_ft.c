@@ -956,11 +956,12 @@ static int bd_predic_stop(struct kvm *kvm,
     int left_time = target_latency_us - epoch_run_time;
 
 
-    p_out = (w_a * (left_time/100)) + //(w_b * (ctx->bd_average_rate/10000)) + 
+    p_out = (w_a * (left_time/100)) + (w_b * (ctx->bd_average_rate/10000)) + 
 (w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
 /*
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("cocotion test w_a = %d\n", w_a);
+
     printk("cocotion test left_time = %d\n", left_time);
     printk("cocotion test w_b = %d\n", w_b);
     printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
@@ -3745,24 +3746,27 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
         if(p_out < p_out_min) p_out_min = p_out;
         //printk("cocotion test p_out_min = %ld, p_out_max = %ld\n", p_out_min, p_out_max);
     }
-    else if(p_out > p_out_max)
-        updateW(-1);
-    else if(p_out < p_out_min)
-        updateW(1);
-    else if(latency_us > target_latency_us) { 
-        p_out_max-=latency_us;
-        p_out_min-=latency_us;
-        p_left_time += 500; 
-        //p_rang+=100;
-       // updateW(1);
-    }
     else {
-        p_out_max+=latency_us;
-        p_out_min+=latency_us;
-        p_left_time -= 10; 
-        //p_rang-=100;
-        //updateW(-1);
-    }
+        if(p_out > p_out_max)
+            updateW(-1);
+        else if(p_out < p_out_min)
+            updateW(1);
+    
+        if(latency_us > target_latency_us) { 
+            p_out_max-=latency_us;
+            p_out_min-=latency_us;
+            p_left_time += 500; 
+            //p_rang+=100;
+            // updateW(1);
+        }
+        else {
+            p_out_max+=latency_us;
+            p_out_min+=latency_us;
+            p_left_time -= 10; 
+            //p_rang-=1;
+            //updateW(-1);
+        }
+     }
 
     return 1;
 }

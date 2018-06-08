@@ -163,14 +163,19 @@ bool bd_timer_func(void)
     printf("======================\n");
     printf("cocotion test count = %d\n", count);
     printf("cocotion test pass_time_us = %d\n", pass_time_us);
- */   
-    if(pass_time_us < (bd_target/3)){
+ */  
+    if(pass_time_us >= 2000)
+        goto predic;
+ 
+    if(pass_time_us < (bd_target/2)){
   //      printf("cocotion test keep go\n");
         kvm_shmem_start_timer();
         return true;
     }
-    else if(pass_time_us >= (bd_target/3)){
+    //else if(pass_time_us >= (bd_target/2)){
+    else {
         //average dirty bytes per page
+predic:
         s->average_dirty_bytes = bd_calc_dirty_bytes();
         if(bd_is_last_count(count) || kvmft_bd_predic_stop())  {
    //         printf("cocotion test bd_is_last_count(count) || kvmft_bd_predic_stop()\n");

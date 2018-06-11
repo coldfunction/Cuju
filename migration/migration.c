@@ -2249,15 +2249,55 @@ static void migrate_ft_trans_flush_cb(void *opaque)
     migrate_run(s);
 }
 
+int target_latency = EPOCH_TIME_IN_MS*1000;
+unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS*1000/2;
+
 static void kvmft_flush_output(MigrationState *s)
 {
     s->flush_start_time = time_in_double();
+
+    static unsigned long count   = 0;
+    static unsigned long exceeds = 0;
+    static unsigned long latency_sum_us = 0;
 
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
     kvmft_bd_perceptron(latency_us);
+
+    if(count == 0) {
+        exceeds = 0;
+        latency_sum_us = 0;
+    }
+    count++;
+    
+    if(latency_us > target_latency) exceeds++;
+
+    float exceeds_rate = (float)exceeds / (float)count;
+
+    if(pass_time_us_threshold > target_latency) pass_time_us_threshold = target_latency;
+
+    if(exceeds_rate > 0.02) {
+            //pass_time_us_threshold-=(exceeds_rate-0.03)*100+1;
+            pass_time_us_threshold--;
+    }
+
+
+
+
+    latency_sum_us += latency_us;
+    float average_latency = latency_sum_us / count;
+
+    float approach_rate = average_latency / (float) target_latency;
+    //if(approach_rate <= 0.90) pass_time_us_threshold+=(0.85-approach_rate)*100+1;
+    //if(approach_rate <= 0.90) pass_time_us_threshold++;
+    if(approach_rate <= 0.90) pass_time_us_threshold+=((0.9-approach_rate)*100);
+
+//    if(exceeds_rate <= 0.03 && approach_rate <= 0.90) pass_time_us_threshold++;
+        
+
+
 
     FILE *pFile;
     pFile = fopen("myprofile.txt", "a");
@@ -2269,6 +2309,8 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
+
+    
 
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
 

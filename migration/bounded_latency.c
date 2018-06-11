@@ -10,6 +10,8 @@ static int bd_target = EPOCH_TIME_IN_MS * 1000;
 static int bd_alpha = 1000; // initial alpha is 1 ms
 static float bd_time_slot_us;                                                                                                                                                                     
 
+extern unsigned long pass_time_us_threshold;
+
 
 int kvmft_bd_set_alpha(int alpha); 
 
@@ -163,8 +165,9 @@ bool bd_timer_func(void)
     printf("======================\n");
     printf("cocotion test count = %d\n", count);
     printf("cocotion test pass_time_us = %d\n", pass_time_us);
- */  
-    if(pass_time_us >= 2000)
+ */ 
+    printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
+    if(pass_time_us >= pass_time_us_threshold)
         goto predic;
  
     if(pass_time_us < (bd_target/2)){

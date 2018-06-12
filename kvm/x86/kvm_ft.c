@@ -1,4 +1,5 @@
 #include <linux/kvm_ft.h>
+            //pass_time_us_threshold -=((exceeds_rate-0.03)*100);
 #include <linux/kvm.h>
 #include <linux/kvm_host.h>
 #include <linux/log2.h>
@@ -959,6 +960,7 @@ static int bd_predic_stop(struct kvm *kvm,
 
     p_out = (w_a * (left_time/100)) + (w_b * (ctx->bd_average_rate/10000)) + 
 (w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
+
 /*
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("cocotion test w_a = %d\n", w_a);
@@ -974,6 +976,7 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("cocotion test p_out = %d\n", p_out);
    
     printk("epoch_run_time = %d\n", epoch_run_time);
+    printk("p_left_time = %d\n", p_left_time);
  
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 */
@@ -984,10 +987,10 @@ static int bd_predic_stop(struct kvm *kvm,
         x_c = ctx->bd_average_dirty_bytes;
         x_d = put_off;
 
-
+    if(left_time > p_left_time) return 0;
 //    if(/*left_time <= 200 ||*/  (p_out >= ((-2)*target_latency_us)) && (p_out <= 2*target_latency_us)  ) {
     if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
-/*    
+ /*   
         printk("#################\n");
         printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
         printk("#################\n");
@@ -3772,6 +3775,7 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
             p_out_max-=latency_us;
             p_out_min-=latency_us;
             p_left_time += 500;
+            //p_left_time += (latency_us - target_latency_us);
 
         
  
@@ -3781,8 +3785,17 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
         else {
             p_out_max+=latency_us;
             p_out_min+=latency_us;
+        
+            //if(target_latency_us < 10000)
+             //   p_left_time -= 50;
+            //else 
+             //   p_left_time -= 500;
+            //p_left_time -= (target_latency_us-latency_us);
+            p_left_time -= 500;
+            
 
-            p_left_time -= 50; 
+
+ 
             if(p_left_time <= 300) p_left_time = 300;
 //            p_left_time -= 80; 
             //p_rang-=1;

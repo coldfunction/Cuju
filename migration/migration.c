@@ -2250,7 +2250,7 @@ static void migrate_ft_trans_flush_cb(void *opaque)
 }
 
 int target_latency = EPOCH_TIME_IN_MS*1000;
-unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS*1000/2;
+unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS-2500;
 
 static void kvmft_flush_output(MigrationState *s)
 {

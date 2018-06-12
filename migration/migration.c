@@ -2263,26 +2263,35 @@ static void kvmft_flush_output(MigrationState *s)
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
+    
+    FILE *pFile;
 
     kvmft_bd_perceptron(latency_us);
+
+//    if(latency_us >= target_latency+5000) goto ignore_count;
 
     if(count == 0) {
         exceeds = 0;
         latency_sum_us = 0;
     }
+
+ //   if(count == 50000) {
+  //      count = 0;
+   //     exceeds = 0;
+    //    latency_sum_us = 0;
+    //}
     count++;
     
     if(latency_us > target_latency) exceeds++;
 
     float exceeds_rate = (float)exceeds / (float)count;
 
-    if(pass_time_us_threshold > target_latency) pass_time_us_threshold = target_latency;
 
-    if(exceeds_rate > 0.02) {
+    if(exceeds_rate > 0.03) {
             //pass_time_us_threshold-=(exceeds_rate-0.03)*100+1;
-            pass_time_us_threshold--;
+            //pass_time_us_threshold--;
+            pass_time_us_threshold -=((exceeds_rate-0.03)*100);
     }
-
 
 
 
@@ -2292,14 +2301,13 @@ static void kvmft_flush_output(MigrationState *s)
     float approach_rate = average_latency / (float) target_latency;
     //if(approach_rate <= 0.90) pass_time_us_threshold+=(0.85-approach_rate)*100+1;
     //if(approach_rate <= 0.90) pass_time_us_threshold++;
-    if(approach_rate <= 0.90) pass_time_us_threshold+=((0.9-approach_rate)*100);
+    //if(approach_rate <= 0.90) pass_time_us_threshold+=((0.9-approach_rate)*100);
+    if(approach_rate <= 0.85) pass_time_us_threshold+=((0.85-approach_rate)*100);
 
-//    if(exceeds_rate <= 0.03 && approach_rate <= 0.90) pass_time_us_threshold++;
-        
+    if(pass_time_us_threshold > target_latency) pass_time_us_threshold = target_latency;
 
+//ignore_count:
 
-
-    FILE *pFile;
     pFile = fopen("myprofile.txt", "a");
     char pbuf[200];
     if(pFile != NULL){

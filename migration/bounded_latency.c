@@ -166,7 +166,7 @@ bool bd_timer_func(void)
     printf("cocotion test count = %d\n", count);
     printf("cocotion test pass_time_us = %d\n", pass_time_us);
  */ 
-    printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
+    //printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
     if(pass_time_us >= pass_time_us_threshold)
         goto predic;
  

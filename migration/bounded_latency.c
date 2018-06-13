@@ -126,7 +126,8 @@ void bd_reset_epoch_timer(void)
 {
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
     if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
-        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
+        //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
     Error *err = NULL;
     qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             

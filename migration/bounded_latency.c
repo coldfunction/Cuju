@@ -111,7 +111,7 @@ static int bd_calc_dirty_bytes(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CALC_DIRTY_BYTES);
 }
-
+/*
 static int bd_is_last_count(int count)
 {
     if (EPOCH_TIME_IN_MS < 10) {
@@ -120,14 +120,18 @@ static int bd_is_last_count(int count)
         return count == EPOCH_TIME_IN_MS;
     }   
 }
-
+*/
 
 void bd_reset_epoch_timer(void)
 {
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
-    if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
+    //if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
         //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
         bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
+    //else
+//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
+    //bd_time_slot_us = 250;
+
 
     Error *err = NULL;
     qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             
@@ -168,6 +172,7 @@ bool bd_timer_func(void)
     printf("cocotion test pass_time_us = %d\n", pass_time_us);
  */ 
     //printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
+    //printf("cocotion test bd_time_slot_us = %lu\n", (unsigned long)bd_time_slot_us) ; 
     if(pass_time_us >= pass_time_us_threshold)
         goto predic;
  
@@ -181,7 +186,7 @@ bool bd_timer_func(void)
         //average dirty bytes per page
 predic:
         s->average_dirty_bytes = bd_calc_dirty_bytes();
-        if(bd_is_last_count(count) || kvmft_bd_predic_stop())  {
+        if(/*bd_is_last_count(count) ||*/ kvmft_bd_predic_stop())  {
    //         printf("cocotion test bd_is_last_count(count) || kvmft_bd_predic_stop()\n");
             count = 0;
             return false;
@@ -195,6 +200,10 @@ predic:
           //  Error *err = NULL;
            // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
         //} 
+        Error *err = NULL;
+        qmp_cuju_adjust_epoch(lefttime/20, &err);                                                                                                                                                              
+
+
         kvm_shmem_start_timer();
         return true;                                                                                                                                                                                                      
     }

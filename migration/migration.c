@@ -2287,14 +2287,6 @@ static void kvmft_flush_output(MigrationState *s)
     float exceeds_rate = (float)exceeds / (float)count;
 
 
-    if(exceeds_rate > 0.03) {
-            //pass_time_us_threshold-=(exceeds_rate-0.03)*100+1;
-            //pass_time_us_threshold--;
-            pass_time_us_threshold -=((exceeds_rate-0.03)*100);
-    }
-
-
-
     latency_sum_us += latency_us;
     float average_latency = latency_sum_us / count;
 
@@ -2302,7 +2294,37 @@ static void kvmft_flush_output(MigrationState *s)
     //if(approach_rate <= 0.90) pass_time_us_threshold+=(0.85-approach_rate)*100+1;
     //if(approach_rate <= 0.90) pass_time_us_threshold++;
     //if(approach_rate <= 0.90) pass_time_us_threshold+=((0.9-approach_rate)*100);
-    if(approach_rate <= 0.85) pass_time_us_threshold+=((0.85-approach_rate)*100);
+
+
+    int exceeds_factor = 0;
+    if(exceeds_rate > 0.03) {
+            //pass_time_us_threshold-=(exceeds_rate-0.03)*100+1;
+            //pass_time_us_threshold--;
+//            pass_time_us_threshold -=((exceeds_rate-0.03)*100);
+        pass_time_us_threshold -=((exceeds_rate-0.03)*100+target_latency/6000);
+    }
+
+
+    if(approach_rate <= 0.85) {
+        pass_time_us_threshold+=((0.85-approach_rate)*100+target_latency/6000);
+        //exceeds_factor = -1*(0.85-approach_rate)*100; 
+    }
+    
+    printf("cocotion test exceeds_rate = %f\n", exceeds_rate);
+    if(count % 500 == 0 && exceeds_rate > 0.02) {
+        exceeds_factor = (exceeds_rate-0.02)*100;
+        //if(approach_rate <= 0.90) 
+            //exceeds_factor = -2;
+    } 
+    if(count % 500 == 0 && exceeds_rate <= 0.02) {
+        if(approach_rate <= 0.95) 
+            exceeds_factor += (-1*(0.95-approach_rate)*100);
+            
+    }
+//    if(approach_rate <= 0.90) {
+ //       exceeds_factor += (-1*(0.90-approach_rate)*100);
+  //  }
+
 
     if(pass_time_us_threshold > target_latency) pass_time_us_threshold = target_latency;
 
@@ -2365,7 +2387,7 @@ static void kvmft_flush_output(MigrationState *s)
         printf("no profile\n");
     fclose(pFile3); 
 */
-    assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
+    assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us, exceeds_factor));
 
     bd_update_stat(s->dirty_pfns_len, s->flush_start_time-s->transfer_start_time,
         s->flush_start_time - s->run_real_start_time,

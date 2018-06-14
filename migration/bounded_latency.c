@@ -95,7 +95,7 @@ int kvmft_bd_perceptron(int latency_us)
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PERCEPTRON, &latency_us);
 }
 
-int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)
+int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us, int exceeds_factor)
 {
     struct kvmft_update_latency update;
 
@@ -103,6 +103,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     update.runtime_us = runtime_us;
     update.trans_us = trans_us;
     update.latency_us = latency_us;
+    update.exceeds_factor = exceeds_factor;
 
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
@@ -127,11 +128,13 @@ void bd_reset_epoch_timer(void)
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
     //if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
         //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
-        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
+//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
     //else
-//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
-    //bd_time_slot_us = 250;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
+//    bd_time_slot_us = 10;
+//    bd_time_slot_us = 250; //best for 10ms
 
+//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/2;
 
     Error *err = NULL;
     qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             
@@ -200,8 +203,12 @@ predic:
           //  Error *err = NULL;
            // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
         //} 
-        Error *err = NULL;
-        qmp_cuju_adjust_epoch(lefttime/20, &err);                                                                                                                                                              
+       Error *err = NULL;
+//       qmp_cuju_adjust_epoch(lefttime/20, &err);                                                                                                                                                              
+//       qmp_cuju_adjust_epoch(100, &err);                                                                                                                                                              
+//        qmp_cuju_adjust_epoch(10, &err);                                                                                                                                                              
+//        qmp_cuju_adjust_epoch(50, &err);                                                                                                                                                              
+        qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
 
 
         kvm_shmem_start_timer();

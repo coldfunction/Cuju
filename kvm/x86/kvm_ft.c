@@ -124,7 +124,7 @@ static long int p_left_time = 2000;
 //int p_left_time_weight = 1;
 static long int p_rang = 700;
 //static int alpha = 1;
-
+static int exceeds_factor = 0;
 
 // TODO each VM should its own.
 static struct mm_struct *child_mm;
@@ -961,7 +961,7 @@ static int bd_predic_stop(struct kvm *kvm,
     p_out = (w_a * (left_time/100)) + (w_b * (ctx->bd_average_rate/10000)) + 
 (w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
 
-/*
+
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("cocotion test w_a = %d\n", w_a);
 
@@ -979,7 +979,7 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("p_left_time = %d\n", p_left_time);
  
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-*/
+
 //    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
         x_a = left_time;
@@ -1143,7 +1143,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
     ctx->bd_average_put_off = (put_off + 1) % BD_HISTORY_MAX;
-    
+ 
+    exceeds_factor = update->exceeds_factor;   
 }
 
 
@@ -3472,6 +3473,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     ctx->max_desc_count = KVM_DIRTY_BITMAP_INIT_COUNT;
 
     target_latency_us = info->epoch_time_in_ms * 1000;
+    p_left_time = 2500;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 
@@ -3774,7 +3776,9 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
         if(latency_us > target_latency_us) { 
             p_out_max-=latency_us;
             p_out_min-=latency_us;
-            p_left_time += 500;
+//            p_left_time += 500;
+            //p_left_time += (500+exceeds_factor);
+//            p_left_time+=exceeds_factor;
             //p_left_time += (latency_us - target_latency_us);
 
         
@@ -3788,19 +3792,20 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
         
             if(target_latency_us < 10000)
                 p_left_time -= 75; //best for 5ms
-            else 
-                p_left_time -= 500;
+          //  else 
+           //     p_left_time -= 500;
             //p_left_time -= (target_latency_us-latency_us);
             //p_left_time -= 500;
             
 
 
  
-            if(p_left_time <= 300) p_left_time = 300;
+ //           if(p_left_time <= 300) p_left_time = 300;
 //            p_left_time -= 80; 
             //p_rang-=1;
             //updateW(-1);
         }
+        p_left_time+=exceeds_factor;
      }
 
     return 1;

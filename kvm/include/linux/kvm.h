@@ -1387,6 +1387,7 @@ struct kvmft_update_latency {
     __u32 runtime_us;
     __u32 trans_us;
     __u32 latency_us;
+    int exceeds_factor;
 };
 #define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)                                                                                                                            
 #define KVMFT_BD_SET_ALPHA                _IOW(KVMIO, 0xd3, __u32)

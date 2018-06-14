@@ -2316,9 +2316,9 @@ static void kvmft_flush_output(MigrationState *s)
         //if(approach_rate <= 0.90) 
             //exceeds_factor = -2;
     } 
-    if(count % 500 == 0 && exceeds_rate <= 0.02) {
-        if(approach_rate <= 0.95) 
-            exceeds_factor += (-1*(0.95-approach_rate)*100);
+    if(count % 500 == 0 && exceeds_rate <= 0.01) {
+        if(approach_rate <= 0.93) 
+            exceeds_factor += (-1*(0.93-approach_rate)*100);
             
     }
 //    if(approach_rate <= 0.90) {

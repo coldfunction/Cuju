@@ -130,7 +130,7 @@ void bd_reset_epoch_timer(void)
         //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
 //        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
     //else
-        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 //    bd_time_slot_us = 10;
 //    bd_time_slot_us = 250; //best for 10ms
 

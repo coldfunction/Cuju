@@ -2311,8 +2311,8 @@ static void kvmft_flush_output(MigrationState *s)
     }
     
     printf("cocotion test exceeds_rate = %f\n", exceeds_rate);
-    if(count % 500 == 0 && exceeds_rate > 0.02) {
-        exceeds_factor = (exceeds_rate-0.02)*100;
+    if(count % 500 == 0 && exceeds_rate > 0.01) {
+        exceeds_factor = (exceeds_rate-0.01)*100;
         //if(approach_rate <= 0.90) 
             //exceeds_factor = -2;
     } 

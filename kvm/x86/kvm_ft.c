@@ -3790,8 +3790,8 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
             p_out_max+=latency_us;
             p_out_min+=latency_us;
         
-            if(target_latency_us < 10000)
-                p_left_time -= 75; //best for 5ms
+//            if(target_latency_us < 10000)
+ //               p_left_time -= 75; //best for 5ms
           //  else 
            //     p_left_time -= 500;
             //p_left_time -= (target_latency_us-latency_us);

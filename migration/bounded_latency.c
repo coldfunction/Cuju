@@ -204,11 +204,16 @@ predic:
            // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
         //} 
        Error *err = NULL;
-//       qmp_cuju_adjust_epoch(lefttime/20, &err);                                                                                                                                                              
+        if(EPOCH_TIME_IN_MS < 10)
+            qmp_cuju_adjust_epoch(lefttime/20, &err); //best for 5ms ?                                                                                                                                                              
+        else
+            qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
+            
+
 //       qmp_cuju_adjust_epoch(100, &err);                                                                                                                                                              
 //        qmp_cuju_adjust_epoch(10, &err);                                                                                                                                                              
 //        qmp_cuju_adjust_epoch(50, &err);                                                                                                                                                              
-        qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
+//        qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
 
 
         kvm_shmem_start_timer();

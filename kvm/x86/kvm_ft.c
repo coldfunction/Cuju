@@ -961,7 +961,7 @@ static int bd_predic_stop(struct kvm *kvm,
     p_out = (w_a * (left_time/100)) + (w_b * (ctx->bd_average_rate/10000)) + 
 (w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
 
-
+/*
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("cocotion test w_a = %d\n", w_a);
 
@@ -980,6 +980,7 @@ static int bd_predic_stop(struct kvm *kvm,
  
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 
+*/
 //    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
         x_a = left_time;
@@ -3628,7 +3629,7 @@ int kvmft_ioctl_bd_runtime_exceeds(struct kvm *kvm, int *epoch_runtime)
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     *epoch_runtime = time_in_us() - dlist->epoch_start_time;
-        printk("cocotion test epoch_runtim = %d\n", *epoch_runtime);
+//        printk("cocotion test epoch_runtim = %d\n", *epoch_runtime);
     if(*epoch_runtime >= target_latency_us)
      return 1;
     else return 0; 

@@ -127,12 +127,12 @@ static int bd_is_last_count(int count)
 void bd_reset_epoch_timer(void)
 {
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
-    //if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
+    if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
         //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
-   //     bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 //    if(EPOCH_TIME_IN_MS < 10)
  //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
-  //  else
+    else
         bd_time_slot_us = p_bd_time_slot_us;
 
     //else
@@ -213,9 +213,9 @@ predic:
            // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
         //} 
        Error *err = NULL;
-//        if(EPOCH_TIME_IN_MS < 10)
- //           qmp_cuju_adjust_epoch(lefttime/20, &err); //best for 5ms ?                                                                                                                                                              
-  //      else
+        if(EPOCH_TIME_IN_MS < 10)
+            qmp_cuju_adjust_epoch(lefttime/20, &err); //best for 5ms ?                                                                                                                                                              
+        else
             qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
             
 

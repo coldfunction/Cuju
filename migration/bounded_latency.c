@@ -7,7 +7,7 @@
 
 
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
-static int bd_alpha = 1000; // initial alpha is 1 ms
+int bd_alpha = 1000; // initial alpha is 1 ms
 float bd_time_slot_us;                                                                                                                                                                     
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
@@ -52,7 +52,8 @@ void bd_update_stat(int dirty_num,
                     int ram_len, 
                     int average_predict)
 {
-
+    kvmft_bd_set_alpha(bd_alpha);
+/*
     if (delay_time_s * 1000 * 1000 > bd_target * 110 / 100) {
         bd_alpha += 200;
         kvmft_bd_set_alpha(bd_alpha);
@@ -68,7 +69,7 @@ void bd_update_stat(int dirty_num,
         bd_alpha -= 25; 
         kvmft_bd_set_alpha(bd_alpha);
     }   
-
+*/
 /*    if (ofile == NULL) {
         ofile = fopen("/tmp/bd_delay", "w");
         assert(ofile);
@@ -185,6 +186,7 @@ bool bd_timer_func(void)
  */ 
     //printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
     //printf("cocotion test bd_time_slot_us = %lu\n", (unsigned long)bd_time_slot_us) ; 
+
     if(pass_time_us >= pass_time_us_threshold)
         goto predic;
  
@@ -218,12 +220,6 @@ predic:
         else
             qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
             
-
-//       qmp_cuju_adjust_epoch(100, &err);                                                                                                                                                              
-//        qmp_cuju_adjust_epoch(10, &err);                                                                                                                                                              
-//        qmp_cuju_adjust_epoch(50, &err);                                                                                                                                                              
-//        qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
-
 
         kvm_shmem_start_timer();
         return true;                                                                                                                                                                                                      

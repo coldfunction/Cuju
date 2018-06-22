@@ -123,7 +123,7 @@ static long int p_out_min = 0;
 static long int p_left_time = 2000;
 //int p_left_time_weight = 1;
 static long int p_rang = 700;
-//static int alpha = 1;
+static int alpha = 100;
 static int exceeds_factor = 0;
 
 // TODO each VM should its own.
@@ -955,11 +955,11 @@ static int bd_predic_stop(struct kvm *kvm,
     ctx = &kvm->ft_context;
     
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
-    int left_time = target_latency_us - epoch_run_time;
+//    int left_time = target_latency_us - epoch_run_time;
 
+    int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
+    
 
-    p_out = (w_a * (left_time/100)) + (w_b * (ctx->bd_average_rate/10000)) + 
-(w_c * (ctx->bd_average_dirty_bytes/100)) + (w_d * (put_off/100)); 
 
 /*
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
@@ -983,14 +983,11 @@ static int bd_predic_stop(struct kvm *kvm,
 */
 //    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
-        x_a = left_time;
-        x_b = ctx->bd_average_rate;
-        x_c = ctx->bd_average_dirty_bytes;
-        x_d = put_off;
+    if((beta + ctx->bd_alpha) <= target_latency_us && (beta + ctx->bd_alpha) >= target_latency_us-700) {
+//    if(left_time > p_left_time) return 0;
+ //   if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
 
-    if(left_time > p_left_time) return 0;
-//    if(/*left_time <= 200 ||*/  (p_out >= ((-2)*target_latency_us)) && (p_out <= 2*target_latency_us)  ) {
-    if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
+
  /*   
         printk("#################\n");
         printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
@@ -3726,47 +3723,11 @@ void updateW(int e)
 
 int kvmft_ioctl_bd_perceptron(int latency_us)
 {
-/*
-    if(latency_us > target_latency_us)
-        updateW(1);
-    else if(latency_us <= target_latency_us && latency_us >= (target_latency_us - 700)){
-        updateW(0);
-    }        
-    else {
-        updateW(-1);
-    }
-*/
-    //printk("cocotion test p_out = %ld, latency_us = %d\n", p_out, latency_us);
-    
 
 /*
- 
-    if((latency_us <= target_latency_us) && (latency_us >= (target_latency_us - 700))){
-        updateW(0);
-    }
-    else if((latency_us > target_latency_us) && (p_out > target_latency_us+1000))
-        updateW(-1);
-    else if((latency_us > target_latency_us) && (p_out < (-2)*target_latency_us)) 
-        updateW(1);
-    else if((latency_us < (target_latency_us - 700)) && (p_out > target_latency_us+1000)) 
-        updateW(-1);
-    else
-        updateW(1);
-*/
-    //printk("@@@@cocotion test p_out = %ld\n", p_out);
-
-/*
-    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-    printk("cocotion test latency_us = %d\n", latency_us);
-    printk("cocotion test p_out = %d, p_out_max = %d, p_out_min = %d \n", p_out, p_out_max, p_out_min);
-    printk("cocotion test p_left_time = %d\n", p_left_time);
-    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-*/
-
     if((latency_us <= target_latency_us) && (latency_us >= (target_latency_us - p_rang))){
         if(p_out > p_out_max) p_out_max = p_out;
         if(p_out < p_out_min) p_out_min = p_out;
-        //printk("cocotion test p_out_min = %ld, p_out_max = %ld\n", p_out_min, p_out_max);
     }
     else {
         if(p_out > p_out_max)
@@ -3777,38 +3738,14 @@ int kvmft_ioctl_bd_perceptron(int latency_us)
         if(latency_us > target_latency_us) { 
             p_out_max-=latency_us;
             p_out_min-=latency_us;
-//            p_left_time += 500;
-            //p_left_time += (500+exceeds_factor);
-//            p_left_time+=exceeds_factor;
-            //p_left_time += (latency_us - target_latency_us);
-
-        
- 
-            //p_rang+=100;
-            // updateW(1);
         }
         else {
             p_out_max+=latency_us;
             p_out_min+=latency_us;
-        
-//            if(target_latency_us < 10000)
- //               p_left_time -= 75; //best for 5ms
-          //  else 
-           //     p_left_time -= 500;
-            //p_left_time -= (target_latency_us-latency_us);
-            //p_left_time -= 500;
-            
-
-
- 
- //           if(p_left_time <= 300) p_left_time = 300;
-//            p_left_time -= 80; 
-            //p_rang-=1;
-            //updateW(-1);
         }
         p_left_time+=exceeds_factor;
      }
-
+*/
     return 1;
 }
 

@@ -2252,6 +2252,7 @@ static void migrate_ft_trans_flush_cb(void *opaque)
 int target_latency = EPOCH_TIME_IN_MS*1000;
 unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS-2500;
 extern float p_bd_time_slot_us;
+extern int bd_alpha;
 
 static void kvmft_flush_output(MigrationState *s)
 {
@@ -2267,7 +2268,8 @@ static void kvmft_flush_output(MigrationState *s)
     
     FILE *pFile;
 
-    kvmft_bd_perceptron(latency_us);
+   // kvmft_bd_set_alpha(bd_alpha);
+    //kvmft_bd_perceptron(latency_us);
 
 //    if(latency_us >= target_latency+5000) goto ignore_count;
 
@@ -2311,6 +2313,19 @@ static void kvmft_flush_output(MigrationState *s)
         //exceeds_factor = -1*(0.85-approach_rate)*100; 
     }
     
+    if(count % 500 == 0 && exceeds_rate >= 0.01)
+    {
+        bd_alpha+=((exceeds_rate-0.01)*2000);
+    }
+    if(latency_us <= (target_latency - 700)){
+        bd_alpha--;
+    }
+    else if (latency_us > target_latency) {
+        bd_alpha++;
+    } 
+    printf("cocotion test alpha = %d\n", bd_alpha);
+    
+
 
     if(count % 500 == 0 && exceeds_rate >= 0.01)
     {
@@ -2318,6 +2333,7 @@ static void kvmft_flush_output(MigrationState *s)
         if(p_bd_time_slot_us <= 1) p_bd_time_slot_us = 1;
     }
     //printf("cocotion test exceeds_rate = %f, bd_time_slot_us = %f\n", exceeds_rate, p_bd_time_slot_us);
+    printf("cocotion test exceeds_rate = %f, approach_rate = %f\n", exceeds_rate, approach_rate);
 
 
     if(count % 500 == 0 && exceeds_rate > 0.01) {
@@ -2336,6 +2352,12 @@ static void kvmft_flush_output(MigrationState *s)
 
 
     if(pass_time_us_threshold > target_latency) pass_time_us_threshold = target_latency;
+   
+
+ 
+
+    //kvmft_bd_set_alpha(bd_alpha);
+    //kvmft_bd_perceptron(latency_us);
 
 //ignore_count:
 

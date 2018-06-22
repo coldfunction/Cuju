@@ -2253,6 +2253,7 @@ int target_latency = EPOCH_TIME_IN_MS*1000;
 unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS-2500;
 extern float p_bd_time_slot_us;
 extern int bd_alpha;
+extern int average_exceed_runtime_us;
 
 static void kvmft_flush_output(MigrationState *s)
 {
@@ -2283,7 +2284,24 @@ static void kvmft_flush_output(MigrationState *s)
    //     exceeds = 0;
     //    latency_sum_us = 0;
     //}
+    static int exceed_runtime_us = 0;
+    static unsigned long e_count = 0; 
+    if(latency_us > target_latency) {
+        exceed_runtime_us+=runtime_us;
+        e_count++;
+
+        if(e_count == 10) {
+            average_exceed_runtime_us = exceed_runtime_us/10;
+            exceed_runtime_us = 0;
+            e_count = 0; 
+        }
+    }   
+    printf("cocotion test average_exceed_runtime_us = %d\n", average_exceed_runtime_us);
+
+ 
     count++;
+
+
     
     if(latency_us > target_latency) exceeds++;
 
@@ -2313,16 +2331,21 @@ static void kvmft_flush_output(MigrationState *s)
         //exceeds_factor = -1*(0.85-approach_rate)*100; 
     }
     
+    if(latency_us < (target_latency*95/100)){
+        //bd_alpha-=(target_latency - latency_us - 700);
+        //bd_alpha = -(target_latency - latency_us - 700);
+        bd_alpha--;
+    }
+    else if (latency_us > target_latency) {
+        //bd_alpha+=(latency_us - target_latency);
+        //bd_alpha = (latency_us - target_latency);
+        bd_alpha++;
+    } 
+
     if(count % 500 == 0 && exceeds_rate >= 0.01)
     {
         bd_alpha+=((exceeds_rate-0.01)*2000);
     }
-    if(latency_us <= (target_latency - 700)){
-        bd_alpha--;
-    }
-    else if (latency_us > target_latency) {
-        bd_alpha++;
-    } 
     printf("cocotion test alpha = %d\n", bd_alpha);
     
 

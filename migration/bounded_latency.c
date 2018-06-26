@@ -13,7 +13,8 @@ float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
 extern unsigned long pass_time_us_threshold;
 int average_exceed_runtime_us = EPOCH_TIME_IN_MS * 1000;
-
+int average_ok_runtime_us = EPOCH_TIME_IN_MS * 1000/2;
+unsigned long bd_time_slot_adjust = 100;   
 
 int kvmft_bd_set_alpha(int alpha); 
 
@@ -33,12 +34,12 @@ static int kvmft_bd_predic_stop(void)
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP);
 }
 
-
+/*
 static int bd_calc_left_runtime(void)                                                                                                                                                                               
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CALC_LEFT_RUNTIME);
 }
-
+*/
 
 
 //static FILE *bdofile = NULL; 
@@ -110,11 +111,13 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
-
+/*
 static int bd_calc_dirty_bytes(void)                                                                                                                                                                                
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CALC_DIRTY_BYTES);
 }
+*/
+
 /*
 static int bd_is_last_count(int count)
 {
@@ -130,8 +133,29 @@ void bd_reset_epoch_timer(void)
 {
     //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
 //    if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
- //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/10;
-        bd_time_slot_us = 1;
+
+
+//    static unsigned int tcount = 0;
+
+
+        //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
+        //bd_time_slot_us = 30000;
+        bd_time_slot_us = EPOCH_TIME_IN_MS*1000;
+
+
+//    bd_time_slot_us = 1;
+
+//        bd_time_slot_us = average_ok_runtime_us - EPOCH_TIME_IN_MS*1000/10;
+//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us - bd_time_slot_adjust);
+
+
+  //  tcount++;
+   // if(tcount % 500 == 0)
+    //    bd_time_slot_us = average_ok_runtime_us - 1000;
+
+
+
+//        bd_time_slot_us = 1;
  //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 //    if(EPOCH_TIME_IN_MS < 10)
  //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
@@ -178,7 +202,7 @@ bool bd_timer_func(void)
     if(pass_time_us >= bd_target) return false;
  
     static int count = 0;
-    MigrationState *s = migrate_get_current();
+//    MigrationState *s = migrate_get_current();
 
     ++count;
 /*                                                                                                                                                                                                                    
@@ -200,31 +224,42 @@ bool bd_timer_func(void)
    // else {
         //average dirty bytes per page
 //predic:
-        s->average_dirty_bytes = bd_calc_dirty_bytes();
+
+//    if(pass_time_us < pass_time_us_threshold) {
+ //       kvm_shmem_start_timer();
+  //      return true;
+//    }
+ //   else {
+ //       s->average_dirty_bytes = bd_calc_dirty_bytes();
         if(/*bd_is_last_count(count) ||*/ kvmft_bd_predic_stop())  {
    //         printf("cocotion test bd_is_last_count(count) || kvmft_bd_predic_stop()\n");
             count = 0;
             return false;
         }
-        int lefttime = bd_target - bd_calc_left_runtime() ;
-        if(lefttime <= bd_time_slot_us){
-    //        printf("cocotion test lefttime <= 200??? lefttime = %d\n", lefttime);
-            count = 0;
-            return false;
-        }// else if (lefttime < bd_time_slot_us) {
+       
+
+        //int lefttime = bd_target - bd_calc_left_runtime() ;
+        //if(lefttime <= bd_time_slot_us){
+        //    count = 0;
+        //    return false;
+       // }
+
+
+
+        // else if (lefttime < bd_time_slot_us) {
           //  Error *err = NULL;
            // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
         //} 
 
-        if(average_exceed_runtime_us - pass_time_us <= bd_time_slot_us) {
+        //if(average_exceed_runtime_us - pass_time_us <= bd_time_slot_us) {
 
-            Error *err = NULL;
-            qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
+        //    Error *err = NULL;
+         //   qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
             
-        }
+        //}
         kvm_shmem_start_timer();
         return true;                                                                                                                                                                                                      
-    //}
+  //  }
    // kvm_shmem_start_timer();
    // return true;
 

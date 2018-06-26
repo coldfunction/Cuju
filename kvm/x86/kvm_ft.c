@@ -28,6 +28,7 @@
 
 //#define SPCL    1
 
+struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
 
 static int dirty_page = 0;
@@ -235,6 +236,8 @@ void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
     hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     hrtimer->function = &kvm_shm_vcpu_timer_callback;
     vcpu->hrtimer_pending = false;
+
+    global_vcpu = vcpu; 
 	printk("kvm_shm_setup_vcpu_hrtimer vcpu = %p\n",vcpu);
 }
 
@@ -953,12 +956,27 @@ static int bd_predic_stop(struct kvm *kvm,
 {
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
-    
+   
+//    if(ctx->log_full == true) {
+ //       return 1;
+  //  }
+ 
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
 //    int left_time = target_latency_us - epoch_run_time;
 
+    ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+
     int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
-    
+ 
+ /*
+    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+    printk("epoch_run_time = %d\n", epoch_run_time);
+    printk("cocotion test put_off = %ld\n", put_off);
+    printk("cocotion test bd_average_dirty_bytes = %d\n", ctx->bd_average_dirty_bytes);
+    printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
+    printk("cocotion test ctx->bd_alpha = %d\n", ctx->bd_alpha);
+    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+*/
 
 
 /*
@@ -983,7 +1001,7 @@ static int bd_predic_stop(struct kvm *kvm,
 */
 //    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
-    if((beta + ctx->bd_alpha) <= target_latency_us && (beta + ctx->bd_alpha) >= target_latency_us-700) {
+    if(/*(beta + ctx->bd_alpha) <= target_latency_us &&*/ (beta + ctx->bd_alpha) >= target_latency_us*95/100) {
 //    if(left_time > p_left_time) return 0;
  //   if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
 
@@ -1002,6 +1020,7 @@ static int bd_predic_stop(struct kvm *kvm,
  //   printk("cocotion test left_time = %d\n", left_time) ;
  //   printk("epoch_run_time = %d\n", epoch_run_time);
 //    printk("cocotion test p_left_time = %ld\n", p_left_time);
+ //       printk("cocotion test want to take snapsho\n");
         return 1;
     }
     return 0;
@@ -1093,6 +1112,7 @@ static void __bd_average_update(struct kvmft_context *ctx)
     ctx->bd_average_const = sum_const / BD_HISTORY_MAX;
     ctx->bd_average_latency = sum_latency / BD_HISTORY_MAX;
     ctx->bd_average_rate = sum_rate / BD_HISTORY_MAX;
+
 /*
     if (ctx->bd_average_rate >= 500000)
         ctx->bd_average_rate = 500000;
@@ -1136,6 +1156,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     } else {
         ctx->bd_average_rates[put_off] = 100000;
     }    
+    if(ctx->bd_average_rates[put_off] == 0)
+        ctx->bd_average_rates[put_off] = 100000;
 
     __bd_average_update(ctx);
 
@@ -1225,8 +1247,50 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
         return -1;
     }
 
+    //ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+
     if (unlikely(put_index >= dlist->dirty_stop_num))
 		ctx->log_full = true;
+   
+     if (hrtimer_cancel(&global_vcpu->hrtimer)) {
+		//ctx->log_full = true;
+        global_vcpu->hrtimer_pending = true;
+        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(global_vcpu);
+     }
+/*
+    else if (kvmft_ioctl_bd_predic_stop(kvm)) {
+        if (hrtimer_cancel(&global_vcpu->hrtimer)) {
+		    ctx->log_full = true;
+            global_vcpu->hrtimer_pending = true;
+            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+            kvm_vcpu_kick(global_vcpu);
+        }
+    }     
+*/
+
+
+//        epoch_time_in_us = 1;
+ //       kvm_shm_start_timer(kvm->vcpus[0]);
+ //       kvm_shm_start_timer(global_vcpu);
+  //      ctx->log_full = true;
+   //     printk("cocotion test log full\n");
+//}
+
+/*
+        struct kvm_vcpu *vcpu;
+        int i;
+        kvm_for_each_vcpu(i, vcpu, kvm) {
+            if (hrtimer_cancel(&vcpu)) {
+                vcpu->hrtimer_pending = true;
+                kvm_vcpu_kick(vcpu);
+                printk("cocotion test log full\n");
+           }
+        }    
+  */      
+
+  //  }
+
 
 #ifdef ENABLE_PRE_DIFF
     try_put_gfn_in_diff_req_list(kvm, memslot, gfn);
@@ -3626,7 +3690,7 @@ int kvmft_ioctl_bd_runtime_exceeds(struct kvm *kvm, int *epoch_runtime)
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     *epoch_runtime = time_in_us() - dlist->epoch_start_time;
-//        printk("cocotion test epoch_runtim = %d\n", *epoch_runtime);
+//        printk    cocotion test epoch_runtim = %d\n", *epoch_runtime);
     if(*epoch_runtime >= target_latency_us)
      return 1;
     else return 0; 
@@ -3759,7 +3823,8 @@ int kvmft_ioctl_bd_check_dirty_page_number(struct kvm *kvm)
     ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
-    if (__bd_check_dirty_page_number(kvm, dlist, dlist->put_off)) {
+    //if (__bd_check_dirty_page_number(kvm, dlist, dlist->put_off)) {
+    if(kvmft_ioctl_bd_predic_stop(kvm)) {
         ctx->log_full = true;
         return 1;
     }

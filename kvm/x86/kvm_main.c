@@ -3501,15 +3501,16 @@ out_free_irq_routing:
         unsigned int epoch_runtime;
         kvmft_ioctl_bd_get_runtime(kvm, &epoch_runtime);
         copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
-        r = 0; 
+        r = 0;
+        break; 
     }
 
-    case KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER: {                                                                                                                                                                        
-        r = kvmft_ioctl_bd_check_dirty_page_number(kvm);
-        if (r)
-            goto out; 
-        break;
-    }  
+//    case KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER: {                                                                                                                                                                        
+ //       r = kvmft_ioctl_bd_check_dirty_page_number(kvm);
+  //      if (r)
+   //         goto out; 
+    //    break;
+    //}  
     case KVMFT_BD_PREDIC_STOP: {                                                                                                                                                                        
         r = kvmft_ioctl_bd_predic_stop(kvm);
         break;
@@ -3523,6 +3524,10 @@ out_free_irq_routing:
         kvmft_ioctl_bd_perceptron(latency_us);
         break;
     }  
+//    case KVMFT_BD_IS_LOG_FULL: {
+ //       r = kvmft_ioctl_bd_is_log_full(kvm);
+  //      break;
+   // }
     case KVMFT_BD_UPDATE_LATENCY: {
         struct kvmft_update_latency update;                                                                                                                                                                         
         r = -EFAULT;

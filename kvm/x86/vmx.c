@@ -5386,7 +5386,17 @@ static int handle_exception(struct kvm_vcpu *vcpu)
 
 		if (kvm_event_needs_reinjection(vcpu))
 			kvm_mmu_unprotect_page_virt(vcpu, cr2);
+        //int ret;
 		return kvm_mmu_page_fault(vcpu, cr2, error_code, NULL, 0);
+		//ret = kvm_mmu_page_fault(vcpu, cr2, error_code, NULL, 0);
+        //if(ret == EMULATE_DONE && kvm_shm_log_full(vcpu->kvm)) {
+        //if(kvm_shm_log_full(vcpu->kvm)) {
+         //   printk(KERN_ERR"%s exit of log_full.\n", __func__);
+          //  vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+           // vcpu->hrtimer_pending = true;
+          //  return 0;
+        //}
+        //return ret;
 	}
 
 	ex_no = intr_info & INTR_INFO_VECTOR_MASK;

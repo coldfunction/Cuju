@@ -3544,7 +3544,12 @@ out_free_irq_routing:
             goto out; 
         r = kvmft_ioctl_bd_set_alpha(kvm, (int)alpha);
         break;
-    }  
+    } 
+    case KVMFT_BD_PAGE_FAULT_CHECK: {
+        r = kvmft_bd_page_fault_check();
+        break;
+    }
+ 
     case KVM_SHM_GET_TIME_MARK: {
 
         if(copy_to_user(argp, &runtime_difftime, sizeof runtime_difftime))

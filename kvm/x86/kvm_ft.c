@@ -127,6 +127,8 @@ static long int p_rang = 700;
 static int alpha = 100;
 static int exceeds_factor = 0;
 
+static int bd_page_fault_check = 0;
+
 // TODO each VM should its own.
 static struct mm_struct *child_mm;
 static struct kvm_shmem_child maps_info;
@@ -770,6 +772,8 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     ctx->log_full = false;
     ctx->bd_average_dirty_bytes = 100;
 
+    bd_page_fault_check = 0;
+
     dlist = ctx->page_nums_snapshot_k[cur_index];
 
     //printk("%s start run %d run_serial = %d\n", __func__, cur_index, run_serial);
@@ -968,7 +972,7 @@ static int bd_predic_stop(struct kvm *kvm,
 
     int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
  
- /*
+ 
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("epoch_run_time = %d\n", epoch_run_time);
     printk("cocotion test put_off = %ld\n", put_off);
@@ -976,7 +980,7 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
     printk("cocotion test ctx->bd_alpha = %d\n", ctx->bd_alpha);
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-*/
+
 
 
 /*
@@ -1001,7 +1005,7 @@ static int bd_predic_stop(struct kvm *kvm,
 */
 //    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
-    if(/*(beta + ctx->bd_alpha) <= target_latency_us &&*/ (beta + ctx->bd_alpha) >= target_latency_us*95/100) {
+    if(/*(beta + ctx->bd_alpha) <= target_latency_us &&*/ (beta + ctx->bd_alpha) >= target_latency_us*94/100) {
 //    if(left_time > p_left_time) return 0;
  //   if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
 
@@ -1020,7 +1024,8 @@ static int bd_predic_stop(struct kvm *kvm,
  //   printk("cocotion test left_time = %d\n", left_time) ;
  //   printk("epoch_run_time = %d\n", epoch_run_time);
 //    printk("cocotion test p_left_time = %ld\n", p_left_time);
- //       printk("cocotion test want to take snapsho\n");
+        printk("cocotion test want to take snapsho\n");
+//        bd_page_fault_check = 0;
         return 1;
     }
     return 0;
@@ -1167,8 +1172,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     exceeds_factor = update->exceeds_factor;   
 }
 
-
-
+int kvmft_bd_page_fault_check()
+{
+//    bd_page_fault_check = ~bd_page_fault_check;
+    bd_page_fault_check = 1;
+    return bd_page_fault_check;
+}
 
 // backup data in snapshot mode.
 // for pte, record list
@@ -1251,13 +1260,18 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
 
     if (unlikely(put_index >= dlist->dirty_stop_num))
 		ctx->log_full = true;
+
+
+
    
-     if (hrtimer_cancel(&global_vcpu->hrtimer)) {
+     if (bd_page_fault_check && hrtimer_cancel(&global_vcpu->hrtimer)) {
 		//ctx->log_full = true;
         global_vcpu->hrtimer_pending = true;
         global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
         kvm_vcpu_kick(global_vcpu);
+        bd_page_fault_check = 0;
      }
+
 /*
     else if (kvmft_ioctl_bd_predic_stop(kvm)) {
         if (hrtimer_cancel(&global_vcpu->hrtimer)) {
@@ -1268,6 +1282,14 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
         }
     }     
 */
+
+       
+//     if (bd_page_fault_check) {
+ //       bd_page_fault_check = 0;
+  //      epoch_time_in_us = 1;
+   //     kvm_shm_start_timer(kvm->vcpus[0]);
+        //bd_page_fault_check = 0;
+    // }
 
 
 //        epoch_time_in_us = 1;
@@ -3536,6 +3558,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     target_latency_us = info->epoch_time_in_ms * 1000;
     p_left_time = 2500;
+    bd_page_fault_check = 0;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 

@@ -184,5 +184,7 @@ int kvmft_ioctl_bd_predic_stop(struct kvm *kvm);
 int kvmft_ioctl_bd_perceptron(int latency_us);
 int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, unsigned int *epoch_runtime);
 
+int kvmft_bd_page_fault_check(void);
+
 #endif
 

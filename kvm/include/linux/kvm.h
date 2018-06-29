@@ -1400,6 +1400,8 @@ struct kvmft_update_latency {
 #define KVM_SHM_GET_TIME_MARK             _IO(KVMIO, 0xd9)
 #define KVM_SHM_GET_TIME_MARK_START       _IO(KVMIO, 0xda)
 
+#define KVMFT_BD_PAGE_FAULT_CHECK         _IO(KVMIO, 0xdb)
+
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
 #define KVM_DEV_ASSIGN_MASK_INTX	(1 << 2)

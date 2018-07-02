@@ -170,13 +170,16 @@ void bd_reset_epoch_timer(void)
 //        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) - 100;
 //            bd_time_slot_us = 10 + bd_time_slot_adjust;        
         //    bd_time_slot_us = 1500;        
-            bd_time_slot_us = average_ok_runtime_us + bd_time_slot_adjust;        
+
+//            bd_time_slot_us = average_ok_runtime_us + bd_time_slot_adjust;        
+//            bd_time_slot_us = EPOCH_TIME_IN_MS*500;        
+        bd_time_slot_us = 100;
 
 //          bd_time_slot_us = average_ok_runtime_us - 1500;
 //        bd_time_slot_us = average_ok_runtime_us + bd_time_slot_adjust - 500;
 
-    if(bd_time_slot_us < 1000)
-        bd_time_slot_us = 1000;
+ //   if(bd_time_slot_us < 1000)
+ //       bd_time_slot_us = 1000;
   //  tcount++;
    // if(tcount % 500 == 0)
     //    bd_time_slot_us = average_ok_runtime_us - 1000;
@@ -290,7 +293,7 @@ bool bd_timer_func(void)
             
         //}
         Error *err = NULL;
-        qmp_cuju_adjust_epoch(10, &err);
+        qmp_cuju_adjust_epoch(100, &err);
 
         kvm_shmem_start_timer();
         bd_page_fault_check(); 

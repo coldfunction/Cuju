@@ -2347,14 +2347,39 @@ static void kvmft_flush_output(MigrationState *s)
     static int latency_exceed_count = 0;
     static int latency_less_count = 0;
 
+
     if(latency_us > target_latency) {
         latency_exceed_count++;
         //bd_time_slot_adjust--;
+//        bd_alpha_average_d += (latency_us - target_latency);
+
     }
     else if(latency_us < (target_latency*94/100)) {
         latency_less_count++;
         //bd_time_slot_adjust++;
     }
+
+//cocotion test hope this true
+    //static bd_alpha_average_d = 0;
+    static int average_latency_us = 0;
+
+    average_latency_us += latency_us;
+    if(count%1000 == 0 ) {
+        average_latency_us /= 1000;
+
+ 
+        if(average_latency_us > target_latency /*&& (float)latency_exceed_count/1000 > 0.01*/)
+            bd_alpha += (average_latency_us - target_latency);
+        else if(average_latency_us < (target_latency*94/100))
+           bd_alpha -= ((target_latency*94/100)-average_latency_us);
+ 
+        average_latency_us = 0; 
+    }
+//cocotion test hope this true end
+
+
+
+
 
   //  if(count %1000 == 0) bd_time_slot_adjust-= ((exceeds_rate-0.01)*100);
     if(count % 500 == 0 && exceeds_rate > 0.01) {
@@ -2363,7 +2388,8 @@ static void kvmft_flush_output(MigrationState *s)
             //bd_time_slot_adjust -= ((latency_exceed_count+1)/(latency_less_count+1));
             //bd_time_slot_adjust-=10;
             bd_time_slot_adjust-=((exceeds_rate-0.01)*100);
-            bd_alpha+=((exceeds_rate-0.01)*2000);
+
+//            bd_alpha+=((exceeds_rate-0.01)*2000);
             
         } 
         else { 
@@ -2419,7 +2445,7 @@ static void kvmft_flush_output(MigrationState *s)
     }
     if(count % 1000 == 0 /*&& ((float)latency_exceed_count/500 <= 0.01)*/ && approach_rate <= 0.94)
     {
-        bd_alpha-=((0.94-approach_rate)*2000);
+ //       bd_alpha-=((0.94-approach_rate)*2000);
     }   
     if(count % 1000 == 0)
         latency_exceed_count = latency_less_count = 0; 

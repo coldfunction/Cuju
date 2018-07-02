@@ -2300,10 +2300,20 @@ static void kvmft_flush_output(MigrationState *s)
         }
     }   
     printf("cocotion test average_exceed_runtime_us = %d\n", average_exceed_runtime_us);
-
+    static int latency_exceed_count = 0;
+    static int latency_less_count = 0;
+    
+    if(latency_us > target_latency) {
+        latency_exceed_count++;
+    }
+    else if(latency_us < (target_latency*94/100)) {
+        latency_less_count++;
+    }
+    
+/*
     static int ok_runtime_us = 0;
     static unsigned long ok_count = 0;
-    if(latency_us > (target_latency*94/100) && latency_us < target_latency)
+    if(latency_us > (target_latency*94/100) && latency_us < target_latency && ((float)latency_exceed_count/1000 > 0.01))
     {
         ok_runtime_us+=runtime_us;
         ok_count++;
@@ -2314,7 +2324,7 @@ static void kvmft_flush_output(MigrationState *s)
         }
     }
     printf("cocotion test average_ok_runtime_us = %d\n", average_ok_runtime_us);
-
+*/
  
     count++;
 
@@ -2344,20 +2354,20 @@ static void kvmft_flush_output(MigrationState *s)
   //      else if(latency_us < (target_latency*95/100))
    //         pass_time_us_threshold++;
 
-    static int latency_exceed_count = 0;
-    static int latency_less_count = 0;
+//    static int latency_exceed_count = 0;
+ //   static int latency_less_count = 0;
 
 
-    if(latency_us > target_latency) {
-        latency_exceed_count++;
+  //  if(latency_us > target_latency) {
+   //     latency_exceed_count++;
         //bd_time_slot_adjust--;
 //        bd_alpha_average_d += (latency_us - target_latency);
 
-    }
-    else if(latency_us < (target_latency*94/100)) {
-        latency_less_count++;
+    //}
+    //else if(latency_us < (target_latency*94/100)) {
+     //   latency_less_count++;
         //bd_time_slot_adjust++;
-    }
+    //}
 
 //cocotion test hope this true
     //static bd_alpha_average_d = 0;
@@ -2373,12 +2383,49 @@ static void kvmft_flush_output(MigrationState *s)
         else if(average_latency_us < (target_latency*94/100))
            bd_alpha -= ((target_latency*94/100)-average_latency_us);
  
-        average_latency_us = 0; 
+        //average_latency_us = 0; 
     }
 //cocotion test hope this true end
+    
+//    static int ok_runtime_us = 0;
+//    static unsigned long ok_count = 0;
+//    if(latency_us > (target_latency*94/100) && latency_us < target_latency/* && ((float)latency_exceed_count/1000 > 0.01)*/)
+//    {
+/*        ok_runtime_us+=runtime_us;
+        ok_count++;
+        if(ok_count == 1000) {
+            if((float)latency_exceed_count/1000 <= 0.01)
+                average_ok_runtime_us = ok_runtime_us/1000;
+
+            ok_runtime_us = 0;
+            ok_count = 0;
+        }
+    }
+    if(count%1000 == 0) {
+        if(average_latency_us > target_latency)
+            average_ok_runtime_us -= 1000;
+    }
+*/
 
 
+    printf("cocotion test average_ok_runtime_us = %d\n", average_ok_runtime_us);
+    if(count%1000 == 0) average_latency_us = 0; 
 
+    static float current_exceed_ratio = 0;
+    static float old_exceed_ratio = 0;
+    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
+    if(count%1000 == 0) {
+        //printf("cocotion test (float)latency_exceed_count/1000 = %f\n", (float)latency_exceed_count/1000);
+        current_exceed_ratio = (float)latency_exceed_count/1000;
+
+        //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
+        if(current_exceed_ratio > old_exceed_ratio) {
+            average_ok_runtime_us -= (current_exceed_ratio - old_exceed_ratio) * 1000;
+        }
+        else if((float)latency_exceed_count/1000 <= 0.01)
+            average_ok_runtime_us += 100;
+        old_exceed_ratio = current_exceed_ratio;
+    }
 
 
   //  if(count %1000 == 0) bd_time_slot_adjust-= ((exceeds_rate-0.01)*100);

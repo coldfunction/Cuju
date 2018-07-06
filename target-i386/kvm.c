@@ -613,10 +613,10 @@ static int kvm_arch_set_tsc_khz(CPUState *cs)
                        kvm_vcpu_ioctl(cs, KVM_GET_TSC_KHZ) :
                        -ENOTSUP;
         if (cur_freq <= 0 || cur_freq != env->tsc_khz) {
-            error_report("warning: TSC frequency mismatch between "
-                         "VM (%" PRId64 " kHz) and host (%d kHz), "
-                         "and TSC scaling unavailable",
-                         env->tsc_khz, cur_freq);
+//            error_report("warning: TSC frequency mismatch between "
+ //                        "VM (%" PRId64 " kHz) and host (%d kHz), "
+  //                       "and TSC scaling unavailable",
+   //                      env->tsc_khz, cur_freq);
             return r;
         }
     }

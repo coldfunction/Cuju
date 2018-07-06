@@ -99,7 +99,7 @@ int kvmft_bd_perceptron(int latency_us)
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PERCEPTRON, &latency_us);
 }
 
-int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us, int exceeds_factor)
+int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)
 {
     struct kvmft_update_latency update;
 
@@ -107,15 +107,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     update.runtime_us = runtime_us;
     update.trans_us = trans_us;
     update.latency_us = latency_us;
-    update.exceeds_factor = exceeds_factor;
 
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
 
+/*
 static int bd_page_fault_check(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PAGE_FAULT_CHECK);
-}
+}*/
 
 /*
 static int bd_calc_dirty_bytes(void)                                                                                                                                                                                
@@ -137,78 +137,13 @@ static int bd_is_last_count(int count)
 
 void bd_reset_epoch_timer(void)
 {
-    //float nvalue = BD_TIMER_RATIO * EPOCH_TIME_IN_MS * 1000;
-//    if (EPOCH_TIME_IN_MS < 10)                                                                                                                                                                                      
+//    bd_time_slot_us = average_ok_runtime_us;
+    bd_time_slot_us = bd_target/2;
 
+//    bd_time_slot_us = bd_target - 1000;
 
-//    static unsigned int tcount = 0;
-
-
-        //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
-        //bd_time_slot_us = 30000;
-//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000;
-
-
-//    bd_time_slot_us = 1;
-
-//        bd_time_slot_us = average_ok_runtime_us - EPOCH_TIME_IN_MS*1000/10;
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us - bd_time_slot_adjust);
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) - bd_time_slot_adjust;
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) - 100;
-  //      bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) + bd_time_slot_adjust;
- //       bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) + bd_time_slot_adjust;
-        //bd_time_slot_us = average_ok_runtime_us + bd_time_slot_adjust;
-            //bd_time_slot_adjust += tmp;
-
-
-        //bd_time_slot_us = EPOCH_TIME_IN_MS*1000/3 + bd_time_slot_adjust;
-//        bd_time_slot_us = 2200;
-    
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) + bd_time_slot_adjust;
-//        bd_time_slot_us = 1000;
-
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) - 100;
-//            bd_time_slot_us = 10 + bd_time_slot_adjust;        
-        //    bd_time_slot_us = 1500;        
-
-//            bd_time_slot_us = average_ok_runtime_us + bd_time_slot_adjust;        
-//            bd_time_slot_us = EPOCH_TIME_IN_MS*500;        
-
-
-//fix timer way
-//        bd_time_slot_us = 100;
-
-//dynamically change the timer 
-//        bd_time_slot_us = average_ok_runtime_us - (average_exceed_runtime_us-average_ok_runtime_us) - 100;
-        bd_time_slot_us = average_ok_runtime_us;
-
-    if(bd_time_slot_us < 1000)
-        bd_time_slot_us = 1000;
-
-
-
-  //  tcount++;
-   // if(tcount % 500 == 0)
-    //    bd_time_slot_us = average_ok_runtime_us - 1000;
-
-
-
-//        bd_time_slot_us = 1;
- //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
-//    if(EPOCH_TIME_IN_MS < 10)
- //       bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
-  //  else
-   //     bd_time_slot_us = p_bd_time_slot_us;
-
-    //else
-//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
-//    bd_time_slot_us = 10;
-//    bd_time_slot_us = 250; //best for 10ms
-
-//    if(EPOCH_TIME_IN_MS < 30)
-//    bd_time_slot_us = 10;
-
-//        bd_time_slot_us = EPOCH_TIME_IN_MS*1000/2;
+//    if(bd_time_slot_us < 100)
+ //       bd_time_slot_us = 100;
 
     Error *err = NULL;
     qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             
@@ -233,8 +168,6 @@ static int get_pass_time_us(unsigned int *pass_time_us)
 bool bd_timer_func(void)
 {
     unsigned int pass_time_us;
-    //if(is_epoch_run_time_exceeds_target_latency(&pass_time_us))
-     //   return false;
 
     get_pass_time_us(&pass_time_us);
     if(pass_time_us >= bd_target) {
@@ -242,180 +175,20 @@ bool bd_timer_func(void)
         return false;
     }
  
-//    static int count = 0;
-//    MigrationState *s = migrate_get_current();
-
- //   ++count;
-/*                                                                                                                                                                                                                    
-    printf("======================\n");
-    printf("cocotion test count = %d\n", count);
-    printf("cocotion test pass_time_us = %d\n", pass_time_us);
- */ 
-    //printf("cocotion test pass_time_us_threshold = %lu\n", pass_time_us_threshold) ; 
-    //printf("cocotion test bd_time_slot_us = %lu\n", (unsigned long)bd_time_slot_us) ; 
-
-//    if(pass_time_us >= pass_time_us_threshold)
- //       goto predic;
- 
-//    if(pass_time_us < (bd_target/2)){
-//        kvm_shmem_start_timer();
- //       return true;
-  //  }
-    //else if(pass_time_us >= (bd_target/2)){
-   // else {
-        //average dirty bytes per page
-//predic:
-
-//    if(pass_time_us < pass_time_us_threshold) {
- //       kvm_shmem_start_timer();
-  //      return true;
-//    }
- //   else {
- //       s->average_dirty_bytes = bd_calc_dirty_bytes();
-        if(/*bd_is_last_count(count) ||*/ kvmft_bd_predic_stop())  {
-   //         printf("cocotion test bd_is_last_count(count) || kvmft_bd_predic_stop()\n");
-  //          count = 0;
-            //bd_page_fault_check(); 
-            return false;
-        }
-       
-
-        //int lefttime = bd_target - bd_calc_left_runtime() ;
-        //if(lefttime <= bd_time_slot_us){
-        //    count = 0;
-        //    return false;
-       // }
-
-
-
-        // else if (lefttime < bd_time_slot_us) {
-          //  Error *err = NULL;
-           // qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
-        //} 
-
-        //if(average_exceed_runtime_us - pass_time_us <= bd_time_slot_us) {
-
-        //    Error *err = NULL;
-         //   qmp_cuju_adjust_epoch(1, &err);  //beset for 10ms                                                                                                                                                             
-            
-        //}
-        Error *err = NULL;
-        qmp_cuju_adjust_epoch(100, &err);
-
-        kvm_shmem_start_timer();
-        bd_page_fault_check(); 
-        return true;                                                                                                                                                                                                      
-  //  }
-   // kvm_shmem_start_timer();
-   // return true;
-
-
-/*
-    if (EPOCH_TIME_IN_MS >= 10) {
-        if (count < EPOCH_TIME_IN_MS/2) {
-            kvm_shmem_start_timer();
-            return true;
-        }
-
-        if (count == EPOCH_TIME_IN_MS/2) {
-            s->average_dirty_bytes = bd_calc_dirty_bytes();
-        }
-
-        if (count > EPOCH_TIME_IN_MS/2) {
-            //s->average_dirty_bytes = bd_calc_dirty_bytes();
-        }
-
-        if (bd_is_last_count(count) || kvmft_bd_check_dirty_page_number()) {
-            count = 0;
-            //last_dirty_bytes = 0;
-            return false;
-        }
-        if (count >= EPOCH_TIME_IN_MS/2) {
-            int lefttime = bd_calc_left_runtime();
-
-            //fprintf(ofile, "%d %d %d\n", count, lefttime, s->average_dirty_bytes);
-
-            //if (lefttime <= -400)
-            //    printf("%s %d lefttime = %d\n", __func__, count, lefttime);
-            if (lefttime <= 200) {
-                count = 0;
-                //last_dirty_bytes = 0;
-                return false;
-            } else if (lefttime < 1000) {
-                Error *err = NULL;
-                qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);                                                                                                                                                              
-            }                                                                                                                                                                                                       
-
-            if (count == EPOCH_TIME_IN_MS-1 && lefttime >= 800) {
-                Error *err = NULL;
-                qmp_cuju_adjust_epoch(700, &err);                                                                                                                                                              
-            }   
-        }   
-        kvm_shmem_start_timer();
-        return true;
-    } else {
-      
-//cocotion test 
-        int predtime = bd_calc_left_runtime();
-        if (predtime <= 200) {
-            count = 0;
-            return false;
-        } 
-
-
-
-        if (count < 5) {
-            kvm_shmem_start_timer();
-            return true;
-        }
-
-        if (count == 5) {
-            s->average_dirty_bytes = bd_calc_dirty_bytes();
-        }
-
-        if (count > 5) {
-            s->average_dirty_bytes = bd_calc_dirty_bytes();
-        }
-
-        if (bd_is_last_count(count) || kvmft_bd_check_dirty_page_number()) {
-            count = 0;
-            //last_dirty_bytes = 0;
-            return false;
-        }
-
-        if (count >= 5) {
-            int lefttime = bd_calc_left_runtime();
-
-            //fprintf(ofile, "%d %d %d\n", count, lefttime, s->average_dirty_bytes);
-
-            //if (lefttime <= -400)
-            //    printf("%s %d lefttime = %d\n", __func__, count, lefttime);
-            if (lefttime <= 200) {
-                count = 0;
-                //last_dirty_bytes = 0;
-                return false;
-            } 
-
-
-            else if (lefttime < EPOCH_TIME_IN_MS*1000/10) {
-                Error *err = NULL;
-                qmp_cuju_adjust_epoch((unsigned int)lefttime, &err);
-            }
-
-            if (count == EPOCH_TIME_IN_MS-1 && lefttime >= EPOCH_TIME_IN_MS*1000/10-200) {
-                Error *err = NULL;
-                qmp_cuju_adjust_epoch(EPOCH_TIME_IN_MS*1000/10-300, &err);
-            }
-
-        }
-                                                                                                                                                                                                                    
-        kvm_shmem_start_timer();
-        return true;
-
+    if(/*bd_is_last_count(count) ||*/ kvmft_bd_predic_stop())  {
+        return false;
     }
 
+//    printf("cocotion test in bd_timer_func: timer expiry = %d\n", (bd_target-pass_time_us)/2);
 
-    return 0;*/
+    Error *err = NULL;
+    //qmp_cuju_adjust_epoch(10, &err);
+    qmp_cuju_adjust_epoch((bd_target-pass_time_us)/2, &err);
+
+
+    kvm_shmem_start_timer();
+    //bd_page_fault_check(); 
+    return true;                                                                                                                                                                                                      
 }
 
 

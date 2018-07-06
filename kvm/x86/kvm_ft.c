@@ -125,7 +125,6 @@ static long int p_left_time = 2000;
 //int p_left_time_weight = 1;
 static long int p_rang = 700;
 static int alpha = 100;
-static int exceeds_factor = 0;
 
 static int bd_page_fault_check = 0;
 
@@ -772,7 +771,7 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     ctx->log_full = false;
     ctx->bd_average_dirty_bytes = 100;
 
-    bd_page_fault_check = 0;
+    bd_page_fault_check = 1;
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
 
@@ -961,18 +960,13 @@ static int bd_predic_stop(struct kvm *kvm,
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
    
-//    if(ctx->log_full == true) {
- //       return 1;
-  //  }
- 
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
-//    int left_time = target_latency_us - epoch_run_time;
 
     ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
 
     int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
  
- 
+/* 
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     printk("epoch_run_time = %d\n", epoch_run_time);
     printk("cocotion test put_off = %ld\n", put_off);
@@ -980,52 +974,9 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
     printk("cocotion test ctx->bd_alpha = %d\n", ctx->bd_alpha);
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-
-
-
-/*
-    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-    printk("cocotion test w_a = %d\n", w_a);
-
-    printk("cocotion test left_time = %d\n", left_time);
-    printk("cocotion test w_b = %d\n", w_b);
-    printk("cocotion test bd_average_rate = %d\n", ctx->bd_average_rate);
-    printk("cocotion test w_c = %d\n", w_c);
-    printk("cocotion test bd_average_dirty_bytes = %d\n", ctx->bd_average_dirty_bytes);
-    printk("cocotion test w_d = %d\n", w_d);
-    printk("cocotion test put_off = %ld\n", put_off);
-
-    printk("cocotion test p_out = %d\n", p_out);
-   
-    printk("epoch_run_time = %d\n", epoch_run_time);
-    printk("p_left_time = %d\n", p_left_time);
- 
-    printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-
 */
-//    printk("@@cocotion test p_out = %ld, target_latency_us = %ld\n", p_out, target_latency_us);
 
     if(/*(beta + ctx->bd_alpha) <= target_latency_us &&*/ (beta + ctx->bd_alpha) >= target_latency_us*94/100) {
-//    if(left_time > p_left_time) return 0;
- //   if(left_time <= p_left_time ||  (p_out >= (p_out_min)) && (p_out <= (p_out_max))  ) {
-
-
- /*   
-        printk("#################\n");
-        printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
-        printk("#################\n");
-*/
- 
-       //x_a = left_time;
-        //x_b = ctx->bd_average_rate;
-        //x_c = ctx->bd_average_dirty_bytes;
-        //x_d = put_off;
-//   printk("cocotion test p_out = %ld, p_out_min = %ld, p_out_max = %ld\n", p_out, p_out_min, p_out_max);
- //   printk("cocotion test left_time = %d\n", left_time) ;
- //   printk("epoch_run_time = %d\n", epoch_run_time);
-//    printk("cocotion test p_left_time = %ld\n", p_left_time);
-        printk("cocotion test want to take snapsho\n");
-//        bd_page_fault_check = 0;
         return 1;
     }
     return 0;
@@ -1169,7 +1120,6 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
     ctx->bd_average_put_off = (put_off + 1) % BD_HISTORY_MAX;
  
-    exceeds_factor = update->exceeds_factor;   
 }
 
 int kvmft_bd_page_fault_check()
@@ -1269,50 +1219,8 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
         global_vcpu->hrtimer_pending = true;
         global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
         kvm_vcpu_kick(global_vcpu);
-        bd_page_fault_check = 0;
+       // bd_page_fault_check = 0;
      }
-
-/*
-    else if (kvmft_ioctl_bd_predic_stop(kvm)) {
-        if (hrtimer_cancel(&global_vcpu->hrtimer)) {
-		    ctx->log_full = true;
-            global_vcpu->hrtimer_pending = true;
-            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-            kvm_vcpu_kick(global_vcpu);
-        }
-    }     
-*/
-
-       
-//     if (bd_page_fault_check) {
- //       bd_page_fault_check = 0;
-  //      epoch_time_in_us = 1;
-   //     kvm_shm_start_timer(kvm->vcpus[0]);
-        //bd_page_fault_check = 0;
-    // }
-
-
-//        epoch_time_in_us = 1;
- //       kvm_shm_start_timer(kvm->vcpus[0]);
- //       kvm_shm_start_timer(global_vcpu);
-  //      ctx->log_full = true;
-   //     printk("cocotion test log full\n");
-//}
-
-/*
-        struct kvm_vcpu *vcpu;
-        int i;
-        kvm_for_each_vcpu(i, vcpu, kvm) {
-            if (hrtimer_cancel(&vcpu)) {
-                vcpu->hrtimer_pending = true;
-                kvm_vcpu_kick(vcpu);
-                printk("cocotion test log full\n");
-           }
-        }    
-  */      
-
-  //  }
-
 
 #ifdef ENABLE_PRE_DIFF
     try_put_gfn_in_diff_req_list(kvm, memslot, gfn);
@@ -3558,7 +3466,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     target_latency_us = info->epoch_time_in_ms * 1000;
     p_left_time = 2500;
-    bd_page_fault_check = 0;
+    bd_page_fault_check = 1;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 

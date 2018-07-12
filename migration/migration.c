@@ -2292,15 +2292,22 @@ static void kvmft_flush_output(MigrationState *s)
     }  
 */ 
  //   printf("cocotion test average_exceed_runtime_us = %d\n", average_exceed_runtime_us);
-    static int latency_exceed_count = 0;
-    static int latency_less_count = 0;
+    static unsigned long latency_exceed_count = 0;
+    static unsigned long latency_less_count = 0;
+    static unsigned long latency_exceed = 0;
+    static unsigned long latency_less = 0;
+
+    static unsigned long latency_exceed_current_count = 0;
     
     if(latency_us > target_latency) {
         latency_exceed_count++;
+        latency_exceed_current_count++;
+        latency_exceed += latency_us;
         exceeds++;
     }
     else if(latency_us < (target_latency*94/100)) {
         latency_less_count++;
+        latency_less += latency_us;
     }
     
     count++;
@@ -2309,9 +2316,18 @@ static void kvmft_flush_output(MigrationState *s)
 
 
     latency_sum_us += latency_us;
+    if(latency_sum_us < latency_us) {
+        latency_sum_us = latency_us;
+        count = 1;
+        latency_exceed_count = latency_less_count = 0;
+    }
     float average_latency = latency_sum_us / count;
 
     float approach_rate = average_latency / (float) target_latency;
+    float approach_less_rate = (latency_less_count == 0)? 0: (latency_less/latency_less_count) / (float) target_latency;
+    float approach_exceed_rate = (latency_exceed_count == 0)? 0: (latency_exceed/latency_exceed_count) / (float) target_latency;
+    
+
 /*
     static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
@@ -2334,24 +2350,13 @@ static void kvmft_flush_output(MigrationState *s)
     m_count++;
  */   
     static float current_exceed_ratio = 0;
-    static float old_exceed_ratio = 0;
+//    static float old_exceed_ratio = 0;
 //    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
-    if(count%500 == 0) {
-        current_exceed_ratio = (float)latency_exceed_count/500;
-
-        if(current_exceed_ratio > old_exceed_ratio) {
-            average_ok_runtime_us -= (current_exceed_ratio - old_exceed_ratio) * 500;
-        }
-        else if(current_exceed_ratio <= 0.01)
-            average_ok_runtime_us += 100;
-        else if(current_exceed_ratio > 0.03)
-            average_ok_runtime_us -= 100;
-
-        if(average_ok_runtime_us < 100) average_ok_runtime_us = 100; 
-        old_exceed_ratio = current_exceed_ratio;
-        latency_exceed_count = latency_less_count = 0; 
-    }
-    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
+//    if(count%500 == 0) {
+ //       current_exceed_ratio = (float)latency_exceed_current_count/500;
+  //      latency_exceed_current_count = 0;
+   // }
+    //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
 
 //////////////////////////////////////////////////////////////////// 
@@ -2361,18 +2366,12 @@ static void kvmft_flush_output(MigrationState *s)
     static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
 
-//    static int m_count = 1;
-//    static int first_get = 1;   
-//    int drop = 0;
-
-//    if(first_get == 0) {
-//        drop = latency_array_us[m_count-1];
-//        latency_array_us[m_count-1] = latency_us;
-    
- //       current_latency_sum_us -= drop;
     current_latency_sum_us += latency_us;
     if(count%500 == 0) {
-       average_latency_us = current_latency_sum_us / 500;
+        current_exceed_ratio = (float)latency_exceed_current_count/500;
+        latency_exceed_current_count = 0;
+
+        average_latency_us = current_latency_sum_us / 500;
         if(average_latency_us > target_latency)
             bd_alpha += (average_latency_us - target_latency);
         else if(average_latency_us < (target_latency*94/100))
@@ -2380,9 +2379,9 @@ static void kvmft_flush_output(MigrationState *s)
         else if(current_exceed_ratio > 0.01)
             bd_alpha += (current_exceed_ratio-0.01)*100;
 
-
         current_latency_sum_us = 0;
     }
+    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
 
    // else {
@@ -2413,6 +2412,8 @@ static void kvmft_flush_output(MigrationState *s)
     
 
     printf("cocotion test exceeds_rate = %f, approach_rate = %f\n", exceeds_rate, approach_rate);
+    printf("cocotion test approach_less_rate = %f\n", approach_less_rate);
+    printf("cocotion test approach_exceed_rate = %f\n", approach_exceed_rate);
 
 
 
@@ -2429,7 +2430,7 @@ static void kvmft_flush_output(MigrationState *s)
         printf("no profile\n");
     fclose(pFile); 
 */
-   /* 
+ /* 
     FILE *pFile;
     pFile = fopen("alpha.txt", "a");
     char pbuf[200];
@@ -2440,7 +2441,8 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile);
-*/ 
+*/
+ 
 /*
     char pbuf[200];
 

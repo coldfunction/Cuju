@@ -2383,33 +2383,11 @@ static void kvmft_flush_output(MigrationState *s)
     }
     printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
-
-   // else {
-    //    latency_array_us[m_count-1] = latency_us;
-     //   current_latency_sum_us += latency_us;
-    //}
-
-   // if(m_count == 500) {   
-        //m_count = 0;
-        //first_get = 0;
-           
-  //  } 
-   // m_count++;
-
     printf("cocotion test average_latency_us = %d\n", average_latency_us);
 //////////////////////////////////////////////////////////////////// 
-
-
-
- 
-//    if(count % 500 == 0)
- //       latency_exceed_count = latency_less_count = 0; 
         
     printf("cocotion test alpha = %d\n", bd_alpha);
 
-//    printf("cocotion test average_ok_runtime_us = %d\n", average_ok_runtime_us);
-//    printf("cocotion test timer expiry = %d\n", bd_time_slot_us);
-    
 
     printf("cocotion test exceeds_rate = %f, approach_rate = %f\n", exceeds_rate, approach_rate);
     printf("cocotion test approach_less_rate = %f\n", approach_less_rate);

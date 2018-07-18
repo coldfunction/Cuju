@@ -976,7 +976,7 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 */
 
-    if(/*(beta + ctx->bd_alpha) <= target_latency_us &&*/ (beta + ctx->bd_alpha) >= target_latency_us*94/100) {
+    if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
         return 1;
     }
     return 0;
@@ -1124,9 +1124,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 int kvmft_bd_page_fault_check()
 {
-//    bd_page_fault_check = ~bd_page_fault_check;
-    bd_page_fault_check = 1;
-    return bd_page_fault_check;
+    //bd_page_fault_check = ~bd_page_fault_check;
+    if(bd_page_fault_check) 
+    {
+        bd_page_fault_check = 0;
+        return 1; 
+    }
+    else return 0;
 }
 
 // backup data in snapshot mode.
@@ -1214,12 +1218,12 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
 
 
    
-     if (bd_page_fault_check && hrtimer_cancel(&global_vcpu->hrtimer)) {
+     if (hrtimer_cancel(&global_vcpu->hrtimer)) {
 		//ctx->log_full = true;
         global_vcpu->hrtimer_pending = true;
         global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
         kvm_vcpu_kick(global_vcpu);
-       // bd_page_fault_check = 0;
+        bd_page_fault_check = 1;
      }
 
 #ifdef ENABLE_PRE_DIFF
@@ -3466,7 +3470,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     target_latency_us = info->epoch_time_in_ms * 1000;
     p_left_time = 2500;
-    bd_page_fault_check = 1;
+    bd_page_fault_check = 0;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 

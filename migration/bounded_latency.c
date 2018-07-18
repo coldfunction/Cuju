@@ -111,11 +111,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
 
-/*
+
 static int bd_page_fault_check(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PAGE_FAULT_CHECK);
-}*/
+}
 
 /*
 static int bd_calc_dirty_bytes(void)                                                                                                                                                                                
@@ -170,12 +170,12 @@ bool bd_timer_func(void)
     unsigned int pass_time_us;
 
     get_pass_time_us(&pass_time_us);
-    if(pass_time_us >= bd_target) {
+    if(pass_time_us >= bd_target*0.94) {
         //bd_page_fault_check(); 
         return false;
     }
  
-    if(/*bd_is_last_count(count) ||*/ kvmft_bd_predic_stop())  {
+    if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
         return false;
     }
 

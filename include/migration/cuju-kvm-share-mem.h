@@ -20,7 +20,7 @@
 #include "qemu/main-loop.h"
 
 #define KVM_SHARE_MEM   1
-#define EPOCH_TIME_IN_MS    5
+#define EPOCH_TIME_IN_MS    10
 #define PAGES_PER_MS        200
 #define SHARED_DIRTY_SIZE   10000
 #define SHARED_DIRTY_WATERMARK  9600
@@ -79,4 +79,7 @@ int cpuset_attach_thread2(pid_t pid, int cpu_id) ;
 int kvm_shm_get_time_mark_from_kernel(uint64_t *time);
 int kvm_shm_get_time_mark_from_kernel_start(uint64_t *time);
 int kvmft_bd_perceptron(int latency_us);
+
+int get_pass_time_us(unsigned int *pass_time_us);
+
 #endif

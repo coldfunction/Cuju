@@ -29,10 +29,33 @@ static int kvmft_bd_check_dirty_page_number(void)
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER);
 }                                                                                                                                                                                                                   
 */
+
 static int kvmft_bd_predic_stop(void)
 {
-    return kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP);
+    int dirty_bytes = 0;
+    int r;
+    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &dirty_bytes);
+//    printf("cocotion test dirty_bytes = %d\n", dirty_bytes);
+
+//    if(r) {
+
+/*
+        FILE *pFile;
+
+        pFile = fopen("mydirty.txt", "a");
+        char pbuf[200];
+        if(pFile != NULL){
+            sprintf(pbuf, "%d\n", dirty_bytes);
+            fputs(pbuf, pFile);                                                                                                                      
+        }    
+        else
+            printf("no profile\n");
+        fclose(pFile); */ 
+ //   }
+
+    return r;
 }
+
 
 /*
 static int bd_calc_left_runtime(void)                                                                                                                                                                               
@@ -111,11 +134,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
 
-
+/*
 static int bd_page_fault_check(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_PAGE_FAULT_CHECK);
-}
+}*/
 
 /*
 static int bd_calc_dirty_bytes(void)                                                                                                                                                                                
@@ -138,7 +161,9 @@ static int bd_is_last_count(int count)
 void bd_reset_epoch_timer(void)
 {
 //    bd_time_slot_us = average_ok_runtime_us;
-    bd_time_slot_us = bd_target/2;
+    //bd_time_slot_us = bd_target/2;
+//    bd_time_slot_us = bd_target/2;
+    bd_time_slot_us = 5000;
 
 //    bd_time_slot_us = bd_target - 1000;
 
@@ -159,7 +184,7 @@ static int is_epoch_run_time_exceeds_target_latency(unsigned int *pass_time_us)
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_RUNTIME_EXCEEDS, pass_time_us);
 }
 */
-static int get_pass_time_us(unsigned int *pass_time_us)
+int get_pass_time_us(unsigned int *pass_time_us)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_RUNTIME, pass_time_us);
 }
@@ -175,14 +200,36 @@ bool bd_timer_func(void)
         return false;
     }
  
-    if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
-        return false;
-    }
+    //if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
+//    if(bd_page_fault_check())  {
+   /* 
+        FILE *pFile;
+
+        pFile = fopen("mytime.txt", "a");
+        char pbuf[200];
+        if(pFile != NULL){
+            sprintf(pbuf, "%d\n", pass_time_us);
+            fputs(pbuf, pFile);                                                                                                                      
+        }    
+        else
+            printf("no profile\n");
+        fclose(pFile); 
+   */ 
+    kvmft_bd_predic_stop();   
+    get_pass_time_us(&pass_time_us);
+    printf("cocotion test take snapshot not real pass_time_us %d\n", pass_time_us);
+  //      if( kvmft_bd_predic_stop()) {
+//            if(first_enter)
+ //               first_enter = 0; 
+  //          else first_enter = 1;
+            return false;
+   //     }
+ //   }
 
 //    printf("cocotion test in bd_timer_func: timer expiry = %d\n", (bd_target-pass_time_us)/2);
 
     Error *err = NULL;
-    //qmp_cuju_adjust_epoch(10, &err);
+//    qmp_cuju_adjust_epoch(10, &err);
     qmp_cuju_adjust_epoch((bd_target-pass_time_us)/2, &err);
 
 

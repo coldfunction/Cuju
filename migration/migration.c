@@ -3230,6 +3230,11 @@ static void migrate_timer(void *opaque)
 
     s->trans_serial = ++trans_serial;
 
+    unsigned int pass_time_us;
+    get_pass_time_us(&pass_time_us);
+    printf("cocotion test a real real real runtime here!!! %d\n", pass_time_us);
+
+
     qemu_mutex_lock_iothread();
     vm_stop_mig();
     qemu_iohandler_ft_pause(true);

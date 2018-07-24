@@ -28,6 +28,10 @@
 
 //#define SPCL    1
 
+//int total_dirty_bytes_per_page = 0;
+//static long total_count = 0;
+//static long total_bytes = 0;
+
 struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
 
@@ -126,7 +130,7 @@ static long int p_left_time = 2000;
 static long int p_rang = 700;
 static int alpha = 100;
 
-static int bd_page_fault_check = 0;
+static int bd_page_fault_check = 1;
 
 // TODO each VM should its own.
 static struct mm_struct *child_mm;
@@ -955,7 +959,7 @@ void kvmft_prepare_upcall(struct kvm_vcpu *vcpu)
 }
 
 static int bd_predic_stop(struct kvm *kvm,
-    struct kvmft_dirty_list *dlist, int put_off)
+    struct kvmft_dirty_list *dlist, int put_off, __u32 *dirty_bytes)
 {
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
@@ -963,6 +967,8 @@ static int bd_predic_stop(struct kvm *kvm,
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
 
     ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+
+    *dirty_bytes = ctx->bd_average_dirty_bytes * put_off;
 
     int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
  
@@ -1125,12 +1131,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 int kvmft_bd_page_fault_check()
 {
     //bd_page_fault_check = ~bd_page_fault_check;
-    if(bd_page_fault_check) 
-    {
-        bd_page_fault_check = 0;
+//    if(bd_page_fault_check) 
+ //   {
+  //      bd_page_fault_check = 0;
         return 1; 
-    }
-    else return 0;
+   // }
+    //else return 0;
 }
 
 // backup data in snapshot mode.
@@ -1218,13 +1224,12 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
 
 
    
-     if (hrtimer_cancel(&global_vcpu->hrtimer)) {
-		//ctx->log_full = true;
-        global_vcpu->hrtimer_pending = true;
-        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-        kvm_vcpu_kick(global_vcpu);
-        bd_page_fault_check = 1;
-     }
+//     if (bd_page_fault_check && hrtimer_cancel(&global_vcpu->hrtimer)) {
+ //       global_vcpu->hrtimer_pending = true;
+  //      global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+   //     kvm_vcpu_kick(global_vcpu);
+    //    bd_page_fault_check = 0;
+     //}
 
 #ifdef ENABLE_PRE_DIFF
     try_put_gfn_in_diff_req_list(kvm, memslot, gfn);
@@ -2617,6 +2622,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
     char *page = kmap_atomic(page2);
     int i;
 
+
     header = (c16x8_header_t *)buf;
     block = buf + sizeof(*header);
 
@@ -2625,14 +2631,20 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     kernel_fpu_begin();
 
+    int dirty_bytes_per_pages = 0;
+
     for (i = 0; i < 4096; i += 32) {
         if (memcmp_avx_32(backup + i, page + i)) {
             header->h[i / 256] |= (1 << ((i % 256) / 32));
             memcpy(block, page + i, 32);
             block += 32;
+            //total_dirty_bytes_per_page +=32;
+            dirty_bytes_per_pages += 32; 
         }
     }
-
+    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
+    //printk("cocotion test total dirty bytes per page = %d\n", total_dirty_bytes_per_page);
+/*
     if (block == buf + sizeof(*header)) {
 		#ifdef ft_debug_mode_enable
         printk("warning: not found diff page\n");
@@ -2641,7 +2653,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         memcpy(block, page, 4096);
         block += 4096;
     }
-
+*/
     kernel_fpu_end();
 
     kunmap_atomic(backup);
@@ -2651,6 +2663,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         return 0;
 
     header->size = sizeof(header->h) + (block - (buf + sizeof(*header)));
+    printk("dirty bytes per page in real transfer (but real return)= %d\n", block-buf);
     return block - buf;
 }
 
@@ -2671,6 +2684,7 @@ static int kvmft_diff_to_buf(struct kvm *kvm, unsigned long gfn,
     }
 
     ret = __diff_to_buf(gfn, page1, page2, buf);
+//    printk("cocotion test dirty in page = %d trans_index = %d\n", ret, trans_index);
 
     if (check_modify) {
         page2 = find_later_backup(kvm, gfn, trans_index, run_serial);
@@ -2707,6 +2721,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     kvmft_tcp_unnodelay(sock);
 
+    //total_dirty_bytes_per_page = 0;
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2721,6 +2736,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
         len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
+        //total_bytes+=len;
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
@@ -2729,7 +2745,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             len = 0;
         }
     }
-
+    //total_count++;
+    //printk("cocotion test dirty bytes = %ld\n", total_bytes/total_count);
+  //  printk("cocotion test real dirty bytes = %d\n", total_dirty_bytes_per_page);
+ //   printk("cocotion test total transfer bytes = %ld\n", total_bytes);
+//    total_bytes = 0;
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
         if (ret < 0)
@@ -3470,7 +3490,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     target_latency_us = info->epoch_time_in_ms * 1000;
     p_left_time = 2500;
-    bd_page_fault_check = 0;
+    bd_page_fault_check = 1;
     epoch_time_in_us = info->epoch_time_in_ms * 1000;
     pages_per_ms = info->pages_per_ms;
 
@@ -3576,26 +3596,43 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
 {
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;
-    void **snapshot_pages;
+    //void **snapshot_pages;
+    struct page *page1, *page2;
     int i, j, count, dirty_bytes = 0;
 
+
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
-    snapshot_pages = ctx->shared_pages_snapshot_k[ctx->cur_index];
+    //snapshot_pages = ctx->shared_pages_snapshot_k[ctx->cur_index];
 
 
     count = dlist->put_off;
     for (i = 0; i < count; ++i) {
         gfn_t gfn = dlist->pages[i];
 
-        uint8_t *page1 = snapshot_pages[i];
-        uint8_t *page2 = __va(gfn_to_pfn(kvm, gfn) << PAGE_SHIFT);
+        page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
+        page2 = find_later_backup(kvm, gfn, ctx->cur_index, ctx->master_slave_info[ctx->cur_index].run_serial);
+
+        if(page2 == NULL) {
+            page2 = gfn_to_page(kvm, gfn);
+        }
+        char *backup = kmap_atomic(page1);
+        char *page = kmap_atomic(page2);
 
         kernel_fpu_begin();
+        int len = 0;
         for (j = 0; j < 4096; j += 32) {
-            dirty_bytes += 32 * (!!memcmp_avx_32(page1 + j, page2 + j));
+            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+            //dirty_bytes += 32 * (!!memcmp_avx_32(backup + j, page + j));
+            dirty_bytes += len;
         }
         kernel_fpu_end();
+        kunmap_atomic(backup);
+        kunmap_atomic(page);
+        printk("@@cocotion test total dirty bytes per page before take snapshot= %d\n", len);
+        
     }
+
+    printk("cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
 
     if (count > 0) {
         ctx->bd_average_dirty_bytes = dirty_bytes / count;
@@ -3693,7 +3730,7 @@ int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm)
     return ret;*/ 
 }
 
-int kvmft_ioctl_bd_predic_stop(struct kvm *kvm)
+int kvmft_ioctl_bd_predic_stop(struct kvm *kvm, __u32 *dirty_bytes)
 {
     struct kvmft_context *ctx;
     struct kvmft_dirty_list *dlist;
@@ -3702,7 +3739,7 @@ int kvmft_ioctl_bd_predic_stop(struct kvm *kvm)
     ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
    
-    return bd_predic_stop(kvm, dlist, dlist->put_off); 
+    return bd_predic_stop(kvm, dlist, dlist->put_off, dirty_bytes); 
  
 }
 
@@ -3758,11 +3795,10 @@ int kvmft_ioctl_bd_check_dirty_page_number(struct kvm *kvm)
     ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
-    //if (__bd_check_dirty_page_number(kvm, dlist, dlist->put_off)) {
-    if(kvmft_ioctl_bd_predic_stop(kvm)) {
-        ctx->log_full = true;
-        return 1;
-    }
+ //   if(kvmft_ioctl_bd_predic_stop(kvm)) {
+  //      ctx->log_full = true;
+   //     return 1;
+ //   }
                                                                                                                                                                                                                     
     return 0;
 }

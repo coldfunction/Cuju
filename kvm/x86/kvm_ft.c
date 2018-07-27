@@ -28,7 +28,7 @@
 
 //#define SPCL    1
 
-//int total_dirty_bytes_per_page = 0;
+int total_dirty_bytes = 0;
 //static long total_count = 0;
 //static long total_bytes = 0;
 
@@ -2631,20 +2631,21 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     kernel_fpu_begin();
 
-    int dirty_bytes_per_pages = 0;
+  //  int dirty_bytes_per_pages = 0;
 
     for (i = 0; i < 4096; i += 32) {
         if (memcmp_avx_32(backup + i, page + i)) {
             header->h[i / 256] |= (1 << ((i % 256) / 32));
             memcpy(block, page + i, 32);
             block += 32;
-            //total_dirty_bytes_per_page +=32;
-            dirty_bytes_per_pages += 32; 
+            total_dirty_bytes +=32;
+ //           dirty_bytes_per_pages += 32; 
         }
     }
-    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
+//    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
     //printk("cocotion test total dirty bytes per page = %d\n", total_dirty_bytes_per_page);
-/*
+
+
     if (block == buf + sizeof(*header)) {
 		#ifdef ft_debug_mode_enable
         printk("warning: not found diff page\n");
@@ -2653,7 +2654,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         memcpy(block, page, 4096);
         block += 4096;
     }
-*/
+
     kernel_fpu_end();
 
     kunmap_atomic(backup);
@@ -2663,7 +2664,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         return 0;
 
     header->size = sizeof(header->h) + (block - (buf + sizeof(*header)));
-    printk("dirty bytes per page in real transfer (but real return)= %d\n", block-buf);
+    //printk("dirty bytes per page in real transfer (but real return)= %d\n", block-buf);
     return block - buf;
 }
 
@@ -2721,7 +2722,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     kvmft_tcp_unnodelay(sock);
 
-    //total_dirty_bytes_per_page = 0;
+
+    int total_bytes = 0;
+    total_dirty_bytes = 0;
+    printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2736,7 +2740,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
         len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
-        //total_bytes+=len;
+        total_bytes+=len;
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
@@ -2746,7 +2750,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         }
     }
     //total_count++;
-    //printk("cocotion test dirty bytes = %ld\n", total_bytes/total_count);
+    printk("cocotion test total dirty bytes = %ld\n", total_dirty_bytes);
+    printk("cocotion test real transfer dirty bytes = %ld\n", total_bytes);
   //  printk("cocotion test real dirty bytes = %d\n", total_dirty_bytes_per_page);
  //   printk("cocotion test total transfer bytes = %ld\n", total_bytes);
 //    total_bytes = 0;
@@ -3604,7 +3609,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     //snapshot_pages = ctx->shared_pages_snapshot_k[ctx->cur_index];
 
-
+    printk("cocotion test begain ==================\n");
     count = dlist->put_off;
     for (i = 0; i < count; ++i) {
         gfn_t gfn = dlist->pages[i];
@@ -3623,16 +3628,17 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
         for (j = 0; j < 4096; j += 32) {
             len += 32 * (!!memcmp_avx_32(backup + j, page + j));
             //dirty_bytes += 32 * (!!memcmp_avx_32(backup + j, page + j));
-            dirty_bytes += len;
+            dirty_bytes += 32;
         }
         kernel_fpu_end();
         kunmap_atomic(backup);
         kunmap_atomic(page);
-        printk("@@cocotion test total dirty bytes per page before take snapshot= %d\n", len);
+//        printk("@@cocotion test total dirty bytes per page before take snapshot= %d\n", len);
         
     }
-
-    printk("cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
+    printk("@@cocotion test count = %d\n", count);
+    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
+    
 
     if (count > 0) {
         ctx->bd_average_dirty_bytes = dirty_bytes / count;

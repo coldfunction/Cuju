@@ -45,8 +45,9 @@ static void dirty_pages_userspace_add(unsigned long gfn)
 
     cnt = __sync_fetch_and_add(&dirty_pages_userspace_off, 0);
     for (i = 0; i < cnt; i++)
-        if (dirty_pages_userspace[i] == gfn)
+        if (dirty_pages_userspace[i] == gfn) {
             return;
+        }
     
     i = __sync_fetch_and_add(&dirty_pages_userspace_off, 1);
     dirty_pages_userspace[i] = gfn;
@@ -1076,8 +1077,7 @@ int kvm_shmem_mark_page_dirty_range(MemoryRegion *mr, hwaddr addr,hwaddr length)
 }
 
 int kvm_shmem_mark_page_dirty(void *ptr, unsigned long gfn)
-{
-    if (kvmft_started()) {
+{ if (kvmft_started()) {
         struct kvm_shmem_mark_page_dirty param;
         int r;
         param.hptr = ptr;

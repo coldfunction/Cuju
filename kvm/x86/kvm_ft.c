@@ -29,6 +29,8 @@
 
 static int dirty_page = 0;
 
+int total_count = 0;
+
 #ifdef PAGE_TRANSFER_TIME_MEASURE
 static s64 transfer_start_time = 0;
 static s64 transfer_end_time = 0;
@@ -2405,6 +2407,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
 
     if (block == buf + sizeof(*header)) {
+        total_count++;
        #ifdef ft_debug_mode_enable
         printk("warning: not found diff page\n");
        #endif
@@ -2477,6 +2480,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     kvmft_tcp_unnodelay(sock);
 
+    total_count = 0;
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2506,6 +2510,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             goto free;
         total += len;
     }
+    printk("cocotion test total count = %d\n", total_count);
 
     kvmft_tcp_nodelay(sock);
 

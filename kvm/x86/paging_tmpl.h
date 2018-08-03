@@ -152,6 +152,9 @@ static int FNAME(cmpxchg_gpte)(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
 		return -EFAULT;
 
 	table = kvm_kmap_atomic(page);
+    //kvmft_page_dirty(vcpu->kvm, table[index], ptep_user, 1, NULL);
+    
+
 	ret = CMPXCHG(&table[index], orig_pte, new_pte);
 	kvm_kunmap_atomic(table);
 
@@ -219,13 +222,13 @@ static int FNAME(update_accessed_dirty_bits)(struct kvm_vcpu *vcpu,
 		if (!(pte & PT_GUEST_ACCESSED_MASK)) {
 			trace_kvm_mmu_set_accessed_bit(table_gfn, index, sizeof(pte));
 			// ignore pte, right, ptep_user is hva of table_gfn
-			kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
+			//kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
 			pte |= PT_GUEST_ACCESSED_MASK;
 		}
 		if (level == walker->level && write_fault &&
 				!(pte & PT_GUEST_DIRTY_MASK)) {
 			trace_kvm_mmu_set_dirty_bit(table_gfn, index, sizeof(pte));
-			kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
+			//kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
 			pte |= PT_GUEST_DIRTY_MASK;
 		}
 		if (pte == orig_pte)
@@ -247,6 +250,7 @@ static int FNAME(update_accessed_dirty_bits)(struct kvm_vcpu *vcpu,
 		if (unlikely(!walker->pte_writable[level - 1]))
 			continue;
 
+		//kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
 		ret = FNAME(cmpxchg_gpte)(vcpu, mmu, ptep_user, index, orig_pte, pte);
 		if (ret)
 			return ret;

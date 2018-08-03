@@ -2610,7 +2610,7 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 {
 	u64 spte;
 	int ret = 0;
-
+        
 	if (set_mmio_spte(vcpu, sptep, gfn, pfn, pte_access))
 		return 0;
 
@@ -2640,7 +2640,6 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 	spte |= (u64)pfn << PAGE_SHIFT;
 
 	if (pte_access & ACC_WRITE_MASK) {
-
 		/*
 		 * Other vcpu creates new sp in the window between
 		 * mapping_level() and acquiring mmu-lock. We can
@@ -2652,16 +2651,16 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 			goto done;
 
 		spte |= PT_WRITABLE_MASK | SPTE_MMU_WRITEABLE;
-
 		/*
 		 * Optimization: for pte sync, if spte was writable the hash
 		 * lookup is unnecessary (and expensive). Write protection
 		 * is responsibility of mmu_get_page / kvm_sync_page.
 		 * Same reasoning can be applied to dirty page accounting.
 		 */
+
 		if (!can_unsync && is_writable_pte(*sptep))
 			goto set_pte;
-
+		
 		if (mmu_need_write_protect(vcpu, gfn, can_unsync)) {
 			pgprintk("%s: found shadow page for %llx, marking ro\n",
 				 __func__, gfn);
@@ -2672,11 +2671,8 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 	}
 
 	if (pte_access & ACC_WRITE_MASK) {
-		unsigned long hva;
-
-		kvm_vcpu_mark_page_dirty(vcpu, gfn);
-		spte |= shadow_dirty_mask;
-
+	
+        unsigned long hva;
 		hva = gfn_to_hva(vcpu->kvm, gfn);
 		if (kvm_is_error_hva(hva)) {
 			printk("%s error hva for %lx\n", __func__, (long)gfn);
@@ -2684,6 +2680,17 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 		else {
 			kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
 		}
+
+		kvm_vcpu_mark_page_dirty(vcpu, gfn);
+		spte |= shadow_dirty_mask;
+
+//		hva = gfn_to_hva(vcpu->kvm, gfn);
+//		if (kvm_is_error_hva(hva)) {
+//			printk("%s error hva for %lx\n", __func__, (long)gfn);
+//		} 
+//		else {
+//			kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
+//		}
 	}
 
 set_pte:
@@ -2786,11 +2793,10 @@ static int direct_pte_prefetch_many(struct kvm_vcpu *vcpu,
 	if (ret <= 0)
 		return -1;
 
-	for (i = 0; i < ret; i++, gfn++, start++)
+	for (i = 0; i < ret; i++, gfn++, start++) 
 		mmu_set_spte(vcpu, start, access, 0, NULL,
 			     sp->role.level, gfn, page_to_pfn(pages[i]),
 			     true, true);
-
 	return 0;
 }
 
@@ -3012,6 +3018,14 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
         kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
     }
 
+ /*
+    char content1[4096];
+    int i;
+    if(!kvm_is_error_hva(hva))
+        for(i = 0; i < 4096; i++) {
+            content1[i] = *(((char*)hva)+i);
+        }
+*/
 	/*
 	 * Theoretically we could also set dirty bit (and flush TLB) here in
 	 * order to eliminate unnecessary PML logging. See comments in
@@ -3026,6 +3040,19 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 	 */
 	if (cmpxchg64(sptep, spte, spte | PT_WRITABLE_MASK) == spte)
 		kvm_vcpu_mark_page_dirty(vcpu, gfn);
+    else {
+        printk("%s spte %lx *sptep %lx\n", __func__, spte, *sptep);
+    }
+/*
+    if(!kvm_is_error_hva(hva)) {
+        int check = 0; 
+        for(i = 0; i < 4096; i++) {
+            if(content1[i] != *(((char*)hva)+i))
+                check = 1;
+        }
+        if(check == 0) printk("cocotion test WTF no chang!!\n");
+    }
+*/
 
 	return true;
 }

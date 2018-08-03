@@ -954,7 +954,15 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
 	#ifdef ft_debug_mode_enable
 	printk("kvmft_page_dirty gfn = %x \n",gfn);
 	#endif
-
+    
+/*    int i;
+    for(i = 0; i < dlist->put_off; i++) {
+        if(dlist->pages[i] == gfn) {
+            printk("cocotion test same gfn = %d\n", gfn);
+            return 0;   
+       } 
+    }   
+*/
     if (unlikely(test_and_set_bit(gfn_off, memslot->lock_dirty_bitmap)))
         return wait_for_other_mark(memslot, ctx->cur_index, gfn_off, 5);
 
@@ -2404,7 +2412,6 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
     }
 
     kernel_fpu_end();
-
 
     if (block == buf + sizeof(*header)) {
         total_count++;

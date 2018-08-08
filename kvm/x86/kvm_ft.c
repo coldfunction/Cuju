@@ -2648,6 +2648,8 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     kernel_fpu_end();
 
+//    printk("cocotion test @@@@@@ sizeof(*header) = %d\n", sizeof(*header));
+
     if (block == buf + sizeof(*header)) {
        #ifdef ft_debug_mode_enable
         printk("warning: not found diff page\n");
@@ -2655,6 +2657,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         memset(header->h, 0xff, 16 * sizeof(__u8));
         memcpy(block, page, 4096);
         block += 4096;
+        total_dirty_bytes += 4096;
     }
 
     kunmap_atomic(backup);
@@ -2725,7 +2728,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     int total_bytes = 0;
     total_dirty_bytes = 0;
-    printk("cocotion test before transfer the page num is %d\n", end-start);
+//    printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2750,8 +2753,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         }
     }
     //total_count++;
-    printk("cocotion test total dirty bytes = %ld\n", total_dirty_bytes);
-    printk("cocotion test real transfer dirty bytes = %ld\n", total_bytes);
+    //printk("cocotion test total dirty bytes = %ld\n", total_dirty_bytes);
+    //printk("cocotion test real transfer dirty bytes = %ld\n", total_bytes);
   //  printk("cocotion test real dirty bytes = %d\n", total_dirty_bytes_per_page);
  //   printk("cocotion test total transfer bytes = %ld\n", total_bytes);
 //    total_bytes = 0;
@@ -3609,7 +3612,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     //snapshot_pages = ctx->shared_pages_snapshot_k[ctx->cur_index];
 
-    printk("cocotion test begain ==================\n");
+//    printk("cocotion test begain ==================\n");
     count = dlist->put_off;
     for (i = 0; i < count; ++i) {
         gfn_t gfn = dlist->pages[i];
@@ -3636,8 +3639,8 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
 //        printk("@@cocotion test total dirty bytes per page before take snapshot= %d\n", len);
         
     }
-    printk("@@cocotion test count = %d\n", count);
-    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
+//    printk("@@cocotion test count = %d\n", count);
+//    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
     
 
     if (count > 0) {

@@ -5,7 +5,7 @@
 #include <linux/kvm.h>
 #include "qmp-commands.h"
 
-
+int first_enter = 1;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
 int bd_alpha = 1000; // initial alpha is 1 ms
 float bd_time_slot_us;                                                                                                                                                                     
@@ -39,7 +39,7 @@ static int kvmft_bd_predic_stop(void)
 
 //    if(r) {
 
-/*
+
         FILE *pFile;
 
         pFile = fopen("mydirty.txt", "a");
@@ -50,7 +50,7 @@ static int kvmft_bd_predic_stop(void)
         }    
         else
             printf("no profile\n");
-        fclose(pFile); */ 
+        fclose(pFile); 
  //   }
 
     return r;
@@ -202,7 +202,7 @@ bool bd_timer_func(void)
  
     //if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
 //    if(bd_page_fault_check())  {
-   /* 
+    
         FILE *pFile;
 
         pFile = fopen("mytime.txt", "a");
@@ -214,15 +214,24 @@ bool bd_timer_func(void)
         else
             printf("no profile\n");
         fclose(pFile); 
-   */ 
+   
     kvmft_bd_predic_stop();   
     get_pass_time_us(&pass_time_us);
-    printf("cocotion test take snapshot not real pass_time_us %d\n", pass_time_us);
+
+//    if(first_enter)
+//        first_enter = 0;
+//    else {
+//        first_enter = 1;
+        return false;
+//    }
+        
+
+    //printf("cocotion test take snapshot not real pass_time_us %d\n", pass_time_us);
   //      if( kvmft_bd_predic_stop()) {
 //            if(first_enter)
  //               first_enter = 0; 
   //          else first_enter = 1;
-            return false;
+//            return false;
    //     }
  //   }
 

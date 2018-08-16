@@ -2299,20 +2299,22 @@ static void kvmft_flush_output(MigrationState *s)
 
     static unsigned long latency_exceed_current_count = 0;
     
-    if(latency_us > target_latency) {
+    //if(latency_us > target_latency) {
+    if(latency_us > target_latency + 1000) {
         latency_exceed_count++;
         latency_exceed_current_count++;
         latency_exceed += latency_us;
         exceeds++;
     }
-    else if(latency_us < (target_latency*94/100)) {
+//    else if(latency_us < (target_latency*94/100)) {
+    else if(latency_us < target_latency-1000) {
         latency_less_count++;
         latency_less += latency_us;
     }
     
     count++;
 
-    float exceeds_rate = (float)exceeds / (float)count;
+//    float exceeds_rate = (float)exceeds / (float)count;
 
 
     latency_sum_us += latency_us;
@@ -2321,11 +2323,11 @@ static void kvmft_flush_output(MigrationState *s)
         count = 1;
         latency_exceed_count = latency_less_count = 0;
     }
-    float average_latency = latency_sum_us / count;
+//    float average_latency = latency_sum_us / count;
 
-    float approach_rate = average_latency / (float) target_latency;
-    float approach_less_rate = (latency_less_count == 0)? 0: (latency_less/latency_less_count) / (float) target_latency;
-    float approach_exceed_rate = (latency_exceed_count == 0)? 0: (latency_exceed/latency_exceed_count) / (float) target_latency;
+//    float approach_rate = average_latency / (float) target_latency;
+//    float approach_less_rate = (latency_less_count == 0)? 0: (latency_less/latency_less_count) / (float) target_latency;
+//    float approach_exceed_rate = (latency_exceed_count == 0)? 0: (latency_exceed/latency_exceed_count) / (float) target_latency;
     
 
 /*
@@ -2363,41 +2365,105 @@ static void kvmft_flush_output(MigrationState *s)
  //   static int latency_array_us[500];
 //    static int latency_p = 1;
 
-    static int average_latency_us = 0;
+//    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
+    static int roundtimes = 1000;
+    static int range_count = 0;
+
+    if(latency_us>=9000 && latency_us<=11000)
+        range_count++;
+
+//    if(count%roundtimes == 0) {
+ //       int range_ratio = (rang_count/roundtimes)*100;
+  //      if(range_ratio < 80) 
+   // }
+
+
+
 
     current_latency_sum_us += latency_us;
-    if(count%500 == 0) {
-        current_exceed_ratio = (float)latency_exceed_current_count/500;
-        latency_exceed_current_count = 0;
 
-        average_latency_us = current_latency_sum_us / 500;
-        if(average_latency_us > target_latency)
-            bd_alpha += (average_latency_us - target_latency);
-        else if(average_latency_us < (target_latency*94/100))
-            bd_alpha -= ((target_latency*94/100)-average_latency_us);
-        else if(current_exceed_ratio > 0.01)
-            bd_alpha += (current_exceed_ratio-0.01)*100;
+//    if(latency_us < target_latency*94/100)
+ //       bd_alpha--;
+
+    if(count%roundtimes == 0) {
+        current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
+        latency_exceed_current_count = 0;
+    
+        float current_less_ratio = (float)latency_less_count/roundtimes;
+        latency_less_count = 0;
+
+//        average_latency_us = current_latency_sum_us / roundtimes;
+
+//        printf("cocotion test average_latency_us = %d\n", average_latency_us);
+
+        int range_ratio = (1.0*range_count/roundtimes)*100;
+        printf("cocotion test rang_count = %d\n", range_count);
+        printf("cocotion test rang_ratio = %d\n", range_ratio);
+        printf("cocotion test bd_alpha = %d\n", bd_alpha);
+        
+        range_count = 0;
+        
+//        if(range_ratio < 80) {
+         //   if(range_ratio < 60) bd_alpha+=10; 
+     /*       if(current_less_ratio > 0.05){
+                 bd_alpha-= (current_less_ratio - 0.1)*100;
+            }
+            if(current_exceed_ratio > 0.05) {
+                 bd_alpha+=(current_exceed_ratio - 0.1)*100;
+            }
+*/
+     
+   //     goto next;
+
+        //if(average_latency_us > target_latency)
+   //     if(average_latency_us > target_latency)
+  //          bd_alpha += (average_latency_us - target_latency);
+            //bd_alpha +=  (current_exceed_ratio-0.01)*100;
+  //      else if(average_latency_us < (target_latency*94/100))
+//        else if(average_latency_us < (target_latency))
+ //           bd_alpha -= ((target_latency*94/100)-average_latency_us);
+            //bd_alpha -= (current_less_ratio-0.01)*100;
+        //else if(current_exceed_ratio > 0.01)
+            //bd_alpha += (current_exceed_ratio-0.01)*100;
+
+        if(range_ratio < 85) {
+        if(current_exceed_ratio > 0.05)
+            bd_alpha += (current_exceed_ratio-0.05)*100;
+        //else if(range_ratio < 60) bd_alpha+=10;
+        if(current_less_ratio > 0.05)
+            bd_alpha -= (current_less_ratio-0.05)*100;
+} 
+ //      } 
+//next:
+       // if(current_exceed_ratio > 0.09) {
+        //   bd_alpha += (current_exceed_ratio-0.09)*100;
+       // }
+        //else if(current_less_ratio > 0.01) {
+         //   bd_alpha -= (current_less_ratio-0.01)*100;
+       // }
+        //else roundtimes = 1000;
 
         current_latency_sum_us = 0;
     }
-    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
+    //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
-    printf("cocotion test average_latency_us = %d\n", average_latency_us);
+    //printf("cocotion test average_latency_us = %d\n", average_latency_us);
 //////////////////////////////////////////////////////////////////// 
-        
-    printf("cocotion test alpha = %d\n", bd_alpha);
+    //bd_alpha = 2800; 
+    //bd_alpha = 2000; 
+    //printf("cocotion test alpha = %d\n", bd_alpha);
 
 
-    printf("cocotion test exceeds_rate = %f, approach_rate = %f\n", exceeds_rate, approach_rate);
-    printf("cocotion test approach_less_rate = %f\n", approach_less_rate);
-    printf("cocotion test approach_exceed_rate = %f\n", approach_exceed_rate);
+    //printf("cocotion test exceeds_rate = %f, approach_rate = %f\n", exceeds_rate, approach_rate);
+    //printf("cocotion test approach_less_rate = %f\n", approach_less_rate);
+    //printf("cocotion test approach_exceed_rate = %f\n", approach_exceed_rate);
 
 
 
 //ignore_count:
- //  FILE *pFile;
-/*
+   FILE *pFile;
+
     pFile = fopen("myprofile.txt", "a");
     char pbuf[200];
     if(pFile != NULL){
@@ -2407,7 +2473,7 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
-*/
+
  /* 
     FILE *pFile;
     pFile = fopen("alpha.txt", "a");
@@ -3230,9 +3296,9 @@ static void migrate_timer(void *opaque)
 
     s->trans_serial = ++trans_serial;
 
-    unsigned int pass_time_us;
+    int pass_time_us;
     get_pass_time_us(&pass_time_us);
-    printf("cocotion test a real real real runtime here!!! %d\n", pass_time_us);
+//    printf("cocotion test a real real real runtime here!!! %d\n", pass_time_us);
 
 
     qemu_mutex_lock_iothread();

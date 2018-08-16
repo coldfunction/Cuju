@@ -80,6 +80,6 @@ int kvm_shm_get_time_mark_from_kernel(uint64_t *time);
 int kvm_shm_get_time_mark_from_kernel_start(uint64_t *time);
 int kvmft_bd_perceptron(int latency_us);
 
-int get_pass_time_us(unsigned int *pass_time_us);
+int get_pass_time_us(int *pass_time_us);
 
 #endif

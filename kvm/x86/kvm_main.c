@@ -3499,7 +3499,7 @@ out_free_irq_routing:
         break;
     }
     case KVMFT_BD_GET_RUNTIME: {
-        unsigned int epoch_runtime;
+        int epoch_runtime;
         kvmft_ioctl_bd_get_runtime(kvm, &epoch_runtime);
         copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
         r = 0;

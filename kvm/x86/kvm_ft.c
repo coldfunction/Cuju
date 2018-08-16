@@ -31,6 +31,8 @@
 int total_dirty_bytes = 0;
 //static long total_count = 0;
 //static long total_bytes = 0;
+int dirty_bytes_per_pages = 0;
+
 
 struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
@@ -982,10 +984,35 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 */
 
-    if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
-        return 1;
+    //printk("cocotion test beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
+    //if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
+    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
+//        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
+        return -1;
     }
-    return 0;
+    //printk("cocotion test nextT jump? beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
+
+    int x = put_off*ctx->bd_average_dirty_bytes;
+    int R = ctx->bd_average_rate;
+    int E = epoch_run_time;
+    int y = target_latency_us-1000;
+
+    //return ((y-E-ctx->bd_alpha)*R-x)/(100+R);
+    //int r = ((y-E-ctx->bd_alpha)*R-x)/(1000+R);
+    //int r = ((y-E-5000)*R-x)/(1000+R);
+    //int r = ((y-E-4000)*R-x)/(700+R);
+    //int r = ((y-E-ctx->bd_alpha)*700-x)/1400;
+    //int r = ((y-E-3000)*700-x)/1400;
+    //int r = ((y-E-ctx->bd_alpha)*R-x)/700;
+
+    int r = ((y-E-ctx->bd_alpha)*R-x)/(700+R);
+    //int r = ((y-E-4000)*R-x)/(700+R);
+
+    //int r = 100;
+    //printk("cocotion test r = %d\n", r);
+    return (r<0)?0:r; 
+//    return ((y-E-ctx->bd_alpha)*R-x)/(100+R);
+
 }
 
 
@@ -2631,7 +2658,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     kernel_fpu_begin();
 
-  //  int dirty_bytes_per_pages = 0;
+    dirty_bytes_per_pages = 0;
 
     for (i = 0; i < 4096; i += 32) {
         if (memcmp_avx_32(backup + i, page + i)) {
@@ -2639,7 +2666,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
             memcpy(block, page + i, 32);
             block += 32;
             total_dirty_bytes +=32;
- //           dirty_bytes_per_pages += 32; 
+            dirty_bytes_per_pages += 32; 
         }
     }
 //    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
@@ -2658,6 +2685,7 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         memcpy(block, page, 4096);
         block += 4096;
         total_dirty_bytes += 4096;
+        dirty_bytes_per_pages += 4096; 
     }
 
     kunmap_atomic(backup);
@@ -2665,6 +2693,8 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     if (block == buf + sizeof(*header))
         return 0;
+
+    //printk("cocotion dirty bytes per pages = %d\n", dirty_bytes_per_pages);
 
     header->size = sizeof(header->h) + (block - (buf + sizeof(*header)));
     //printk("dirty bytes per page in real transfer (but real return)= %d\n", block-buf);
@@ -2695,6 +2725,12 @@ static int kvmft_diff_to_buf(struct kvm *kvm, unsigned long gfn,
         if (page2 != NULL)
             ret = __diff_to_buf(gfn, page1, page2, buf);
     }
+
+//    if(ret != dirty_bytes_per_pages+28) {
+ //       printk("return bytes is %d\n", ret);
+  //      printk("but d bytes per pages & head is %d\n", dirty_bytes_per_pages);
+    
+   // }
 
     return ret;
 }
@@ -2764,6 +2800,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             goto free;
         total += len;
     }
+//    printk("cocotion test count trans is %d\n", end-start);
+ //   printk("cocotion test totoal dirty bytes is %d\n", total_dirty_bytes + (end-start)*28);
+  //  printk("cocotion test total bytes transfer is %d\n", total);
+
 
     kvmft_tcp_nodelay(sock);
 
@@ -3640,7 +3680,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
         
     }
 //    printk("@@cocotion test count = %d\n", count);
-//    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes);
+//    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes+28*count);
     
 
     if (count > 0) {
@@ -3653,7 +3693,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
     return 0;
 }
 
-int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, unsigned int *epoch_runtime)
+int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime)
 {
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;

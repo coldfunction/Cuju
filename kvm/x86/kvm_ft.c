@@ -968,11 +968,14 @@ static int bd_predic_stop(struct kvm *kvm,
    
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
 
-    ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+    //ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
 
-    *dirty_bytes = ctx->bd_average_dirty_bytes * put_off;
+    //*dirty_bytes = ctx->bd_average_dirty_bytes * put_off;
+    *dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
 
-    int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
+
+    //int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
+    int beta = *dirty_bytes/ctx->bd_average_rate + epoch_run_time;
  
 /* 
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
@@ -992,7 +995,8 @@ static int bd_predic_stop(struct kvm *kvm,
     }
     //printk("cocotion test nextT jump? beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
-    int x = put_off*ctx->bd_average_dirty_bytes;
+    //int x = put_off*ctx->bd_average_dirty_bytes;
+    int x = dirty_bytes;
     int R = ctx->bd_average_rate;
     int E = epoch_run_time;
     int y = target_latency_us-1000;
@@ -3646,7 +3650,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
     struct kvmft_dirty_list *dlist;
     //void **snapshot_pages;
     struct page *page1, *page2;
-    int i, j, count, dirty_bytes = 0;
+    int i, j, count, total_dirty_bytes = 0;
 
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
@@ -3668,6 +3672,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
 
         kernel_fpu_begin();
         int len = 0;
+        int dirty_bytes = 0;
         for (j = 0; j < 4096; j += 32) {
             len += 32 * (!!memcmp_avx_32(backup + j, page + j));
             //dirty_bytes += 32 * (!!memcmp_avx_32(backup + j, page + j));
@@ -3676,18 +3681,28 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
         kernel_fpu_end();
         kunmap_atomic(backup);
         kunmap_atomic(page);
+
+        if(dirty_bytes == 0) len = 4096;
+
+        total_dirty_bytes += len;
+
+
 //        printk("@@cocotion test total dirty bytes per page before take snapshot= %d\n", len);
         
     }
+    total_dirty_bytes += 28*count;
 //    printk("@@cocotion test count = %d\n", count);
 //    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", dirty_bytes+28*count);
     
 
     if (count > 0) {
-        ctx->bd_average_dirty_bytes = dirty_bytes / count;
+        //ctx->bd_average_dirty_bytes = dirty_bytes / count;
+        
         //if (ctx->bd_average_dirty_bytes < 100)
             //ctx->bd_average_dirty_bytes = 100;
-        return ctx->bd_average_dirty_bytes;
+       // return ctx->bd_average_dirty_bytes;
+        //I just want to send the all dirty bytes
+        return total_dirty_bytes; 
     }
 
     return 0;

@@ -3513,12 +3513,17 @@ out_free_irq_routing:
     //    break;
     //}  
     case KVMFT_BD_PREDIC_STOP: {     
-        __u32 dirty_bytes;
-        if (copy_from_user(&dirty_bytes, argp, sizeof dirty_bytes))
+        //__u32 dirty_bytes;
+        struct kvmft_update_latency update;
+
+        //if (copy_from_user(&dirty_bytes, argp, sizeof dirty_bytes))
+        if (copy_from_user(&update, argp, sizeof update))
             goto out; 
-        r = kvmft_ioctl_bd_predic_stop(kvm, &dirty_bytes);
+        //r = kvmft_ioctl_bd_predic_stop(kvm, &dirty_bytes);
+        r = kvmft_ioctl_bd_predic_stop(kvm, &update);
         
-        if(copy_to_user(argp, &dirty_bytes, sizeof dirty_bytes))
+        //if(copy_to_user(argp, &dirty_bytes, sizeof dirty_bytes))
+        if(copy_to_user(argp, &update, sizeof update))
             goto out;
         break;
     }

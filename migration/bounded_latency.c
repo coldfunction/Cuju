@@ -6,12 +6,20 @@
 #include "qmp-commands.h"
 
 int first_enter = 1;
+//int next_time = 1000;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
 int bd_alpha = 1787; // initial alpha is 1 ms
 float bd_time_slot_us;                                                                                                                                                                     
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
 extern unsigned long pass_time_us_threshold;
+
+extern int time_stamp[20];
+extern int dirty_bytes_stamp[20];
+extern int dirty_pages_stamp[20];
+extern int filter_count;
+
+
 int average_exceed_runtime_us = EPOCH_TIME_IN_MS * 1000;
 int average_ok_runtime_us = EPOCH_TIME_IN_MS * 1000/3 - 100;
 int bd_time_slot_adjust = -100;   
@@ -32,25 +40,41 @@ static int kvmft_bd_check_dirty_page_number(void)
 
 static int kvmft_bd_predic_stop(void)
 {
-    int dirty_bytes = 0;
+    //int dirty_bytes = 0;
     int r;
-    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &dirty_bytes);
+
+    struct kvmft_update_latency update;
+
+
+//    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &dirty_bytes);
+    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
+
+
 //    printf("cocotion test dirty_bytes = %d\n", dirty_bytes);
 
 //    if(r) {
 
+/*
+        FILE *pFile;
 
-//        FILE *pFile;
+        pFile = fopen("mydirty.txt", "a");
+        char pbuf[200];
+        if(pFile != NULL){
+            sprintf(pbuf, "%d\n", dirty_bytes);
+            fputs(pbuf, pFile);                                                                                                                      
+        }    
+        else
+            printf("no profile\n");
+        fclose(pFile); 
+*/
 
- //       pFile = fopen("mydirty.txt", "a");
-  //      char pbuf[200];
-   //     if(pFile != NULL){
-    //        sprintf(pbuf, "%d\n", dirty_bytes);
-     //       fputs(pbuf, pFile);                                                                                                                      
-      //  }    
-       // else
-        //    printf("no profile\n");
-        //fclose(pFile); 
+        dirty_pages_stamp[filter_count]   = update.dirty_page;
+        dirty_bytes_stamp[filter_count] = update.dirty_byte;
+        filter_count++;
+        printf("cocotion test filter_count = %d\n", filter_count);
+        printf("cocotion test dirty_byte = %d\n", update.dirty_byte);
+        
+
  //   }
 
     return r;
@@ -163,7 +187,7 @@ void bd_reset_epoch_timer(void)
 //    bd_time_slot_us = average_ok_runtime_us;
     //bd_time_slot_us = bd_target/2;
 //    bd_time_slot_us = bd_target/2;
-    bd_time_slot_us = 5000;
+    bd_time_slot_us = 1000;
 
 //    bd_time_slot_us = bd_target - 1000;
 
@@ -196,24 +220,61 @@ bool bd_timer_func(void)
 
     get_pass_time_us(&pass_time_us);
 //    if(pass_time_us >= bd_target*0.94) {
-    if(pass_time_us >= bd_target-1000) {
+    if(pass_time_us >= bd_target) {
+        //next_time = 0;
+   
+        FILE *pFile;
+        int i; 
+        pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
+        
+        char pbuf[200];
+        if(pFile != NULL){
+            sprintf(pbuf, "%d\n", filter_count);
+            fputs(pbuf, pFile);                                                                                                                      
+            for(i = 0; i < filter_count; i++) {
+                sprintf(pbuf, "%d\n", time_stamp[i]);
+                fputs(pbuf, pFile);                                                                                                                      
+                sprintf(pbuf, "%d\n", dirty_pages_stamp[i]);
+                fputs(pbuf, pFile);                                                                                                                      
+                sprintf(pbuf, "%d\n", dirty_bytes_stamp[i]);
+                fputs(pbuf, pFile);                                                                                                                      
+            }
+            filter_count = 0;
+        }    
+        else
+            printf("no profile\n");
+        fclose(pFile); 
+
+        struct kvmft_update_latency update;
+        kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
+
+        printf("cocotion test @@@@@@@@@@@before take snapshot dirty bytes = %d\n", update.dirty_byte);
+
         return false;
     }
  
     //if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
 //    if(bd_page_fault_check())  {
-    
-//        FILE *pFile;
+ 
 
- //       pFile = fopen("mytime.txt", "a");
-  //      char pbuf[200];
-   //     if(pFile != NULL){
-    //        sprintf(pbuf, "%d\n", pass_time_us);
-     //       fputs(pbuf, pFile);                                                                                                                      
-      //  }    
-       // else
-        //    printf("no profile\n");
-        //fclose(pFile); 
+/*   
+        FILE *pFile;
+
+        pFile = fopen("mytime.txt", "a");
+        char pbuf[200];
+        if(pFile != NULL){
+            sprintf(pbuf, "%d\n", pass_time_us);
+            fputs(pbuf, pFile);                                                                                                                      
+        }    
+        else
+            printf("no profile\n");
+        fclose(pFile);
+*/
+
+    time_stamp[filter_count] = pass_time_us;
+
+
+ 
    
     //kvmft_bd_predic_stop();   
     //get_pass_time_us(&pass_time_us);
@@ -225,31 +286,29 @@ bool bd_timer_func(void)
     //    return false;
     //}
 
-    int nexT;
-    //printf("cocotion test take snapshot not real pass_time_us %d\n", pass_time_us);
-        if( (nexT = kvmft_bd_predic_stop()) < 0) {
-//            if(first_enter)
- //               first_enter = 0; 
-  //          else first_enter = 1;
-            return false;
-   //     }
-   }
+//    int nexT;
+ //   if( (nexT = kvmft_bd_predic_stop()) < 0) {
+  //      return false;
+   // }
+    
+    kvmft_bd_predic_stop();
 
-//    printf("cocotion test in bd_timer_func: timer expiry = %d\n", (bd_target-pass_time_us)/2);
+
 
     //printf("cocotion test my nextT is %d\n", nexT);
     //nexT = 10;
-    get_pass_time_us(&pass_time_us);
+ //   get_pass_time_us(&pass_time_us);
 
     Error *err = NULL;
 //    qmp_cuju_adjust_epoch(10, &err);
 //    printf("cocotion test (bd_target-pass_time_us)/2 = %d\n", (bd_target-pass_time_us)/2);
 //    if(bd_target-pass_time_us < 0)
-    if(bd_target-1000-pass_time_us < 0)
-        qmp_cuju_adjust_epoch(0, &err);
-    else 
+//    if(bd_target-1000-pass_time_us < 0)
+ //       qmp_cuju_adjust_epoch(0, &err);
+  //  else 
         //qmp_cuju_adjust_epoch((bd_target-pass_time_us)/2, &err);
-        qmp_cuju_adjust_epoch(nexT, &err);
+   //     qmp_cuju_adjust_epoch(nexT, &err);
+        qmp_cuju_adjust_epoch(bd_time_slot_us, &err);
 
 
     kvm_shmem_start_timer();

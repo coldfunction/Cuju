@@ -2251,6 +2251,16 @@ static void migrate_ft_trans_flush_cb(void *opaque)
 
 int target_latency = EPOCH_TIME_IN_MS*1000;
 unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS*1000/2;
+
+
+int time_stamp[200];
+int dirty_bytes_stamp[200];
+int dirty_pages_stamp[200];
+int filter_count = 0;
+
+
+
+
 extern float p_bd_time_slot_us;
 extern float bd_time_slot_us;
 extern int bd_alpha;
@@ -2269,7 +2279,45 @@ static void kvmft_flush_output(MigrationState *s)
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
-    
+   
+
+   FILE *pFile;
+
+    pFile = fopen("ram_len_and_transus.txt", "a");
+    char pbuf[200];
+    if(pFile != NULL){
+        sprintf(pbuf, "%d\n", s->ram_len);
+        fputs(pbuf, pFile);                                                                                                                      
+        sprintf(pbuf, "%d\n", trans_us);
+        fputs(pbuf, pFile);                                                                                                                      
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile); 
+
+
+/*
+    pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
+    //char pbuf[200];
+    if(pFile != NULL){
+            sprintf(pbuf, "%d\n", filter_count);
+            fputs(pbuf, pFile);                                                                                                                      
+        for(i = 0; i < filter_count; i++) {
+            sprintf(pbuf, "%d\n", time_stamp[i]);
+            fputs(pbuf, pFile);                                                                                                                      
+            sprintf(pbuf, "%d\n", dirty_pages_stamp[i]);
+            fputs(pbuf, pFile);                                                                                                                      
+            sprintf(pbuf, "%d\n", dirty_bytes_stamp[i]);
+            fputs(pbuf, pFile);                                                                                                                      
+        }
+    }    
+    else
+        printf("no profile\n");
+    fclose(pFile); 
+
+    filter_count = 0;
+*/
+ 
     //FILE *pFile;
 
     if(count == 0) {
@@ -2462,10 +2510,10 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 //ignore_count:
-   FILE *pFile;
+//   FILE *pFile;
 
-    pFile = fopen("myprofile.txt", "a");
-    char pbuf[200];
+    pFile = fopen("latency_us.txt", "a");
+    //char pbuf[200];
     if(pFile != NULL){
         sprintf(pbuf, "%d\n", latency_us);
         fputs(pbuf, pFile);                                                                                                                      
@@ -2473,6 +2521,8 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
+
+
 
  /* 
     FILE *pFile;
@@ -3296,8 +3346,8 @@ static void migrate_timer(void *opaque)
 
     s->trans_serial = ++trans_serial;
 
-    int pass_time_us;
-    get_pass_time_us(&pass_time_us);
+//    int pass_time_us;
+ //   get_pass_time_us(&pass_time_us);
 //    printf("cocotion test a real real real runtime here!!! %d\n", pass_time_us);
 
 

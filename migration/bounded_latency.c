@@ -71,8 +71,8 @@ static int kvmft_bd_predic_stop(void)
         dirty_pages_stamp[filter_count]   = update.dirty_page;
         dirty_bytes_stamp[filter_count] = update.dirty_byte;
         filter_count++;
-        printf("cocotion test filter_count = %d\n", filter_count);
-        printf("cocotion test dirty_byte = %d\n", update.dirty_byte);
+//        printf("cocotion test filter_count = %d\n", filter_count);
+ //       printf("cocotion test dirty_byte = %d\n", update.dirty_byte);
         
 
  //   }
@@ -248,7 +248,7 @@ bool bd_timer_func(void)
         struct kvmft_update_latency update;
         kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
 
-        printf("cocotion test @@@@@@@@@@@before take snapshot dirty bytes = %d\n", update.dirty_byte);
+        //printf("cocotion test @@@@@@@@@@@before take snapshot dirty bytes = %d\n", update.dirty_byte);
 
         return false;
     }

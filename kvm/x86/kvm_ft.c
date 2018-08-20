@@ -2779,7 +2779,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int total_bytes = 0;
     total_dirty_bytes = 0;
     z_count = 0;
-    printk("cocotion test before transfer the page num is %d\n", end-start);
+    //printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2818,7 +2818,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //    printk("cocotion test count trans is %d\n", end-start);
  //   printk("cocotion test totoal dirty bytes is %d\n", total_dirty_bytes + (end-start)*28);
  //   printk("cocotion test total bytes transfer is %d\n", total);
-    printk("cocotion test zero-count =  %d\n", z_count);
+//    printk("cocotion test zero-count =  %d\n", z_count);
 
 
     kvmft_tcp_nodelay(sock);

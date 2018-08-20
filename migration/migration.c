@@ -2446,9 +2446,9 @@ static void kvmft_flush_output(MigrationState *s)
 //        printf("cocotion test average_latency_us = %d\n", average_latency_us);
 
         int range_ratio = (1.0*range_count/roundtimes)*100;
-        printf("cocotion test rang_count = %d\n", range_count);
-        printf("cocotion test rang_ratio = %d\n", range_ratio);
-        printf("cocotion test bd_alpha = %d\n", bd_alpha);
+//        printf("cocotion test rang_count = %d\n", range_count);
+ //       printf("cocotion test rang_ratio = %d\n", range_ratio);
+  //      printf("cocotion test bd_alpha = %d\n", bd_alpha);
         
         range_count = 0;
         
@@ -2515,6 +2515,8 @@ static void kvmft_flush_output(MigrationState *s)
     pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
+        sprintf(pbuf, "%d\n", s->dirty_pfns_len);
+        fputs(pbuf, pFile);                                                                                                                      
         sprintf(pbuf, "%d\n", latency_us);
         fputs(pbuf, pFile);                                                                                                                      
     }    

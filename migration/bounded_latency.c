@@ -9,7 +9,8 @@ int first_enter = 1;
 //int next_time = 1000;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
 int bd_alpha = 1787; // initial alpha is 1 ms
-float bd_time_slot_us;                                                                                                                                                                     
+float bd_time_slot_us;
+//int bd_time_slot_us_pattern[] = {4000, 5000}                                                                                                                                                                     
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
 extern unsigned long pass_time_us_threshold;
@@ -187,7 +188,7 @@ void bd_reset_epoch_timer(void)
 //    bd_time_slot_us = average_ok_runtime_us;
     //bd_time_slot_us = bd_target/2;
 //    bd_time_slot_us = bd_target/2;
-    bd_time_slot_us = 1000;
+    bd_time_slot_us = 4000;
 
 //    bd_time_slot_us = bd_target - 1000;
 
@@ -222,7 +223,9 @@ bool bd_timer_func(void)
 //    if(pass_time_us >= bd_target*0.94) {
     if(pass_time_us >= bd_target) {
         //next_time = 0;
-   
+  
+
+/* 
         FILE *pFile;
         int i; 
         pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
@@ -244,6 +247,8 @@ bool bd_timer_func(void)
         else
             printf("no profile\n");
         fclose(pFile); 
+*/
+
 
         struct kvmft_update_latency update;
         kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
@@ -290,12 +295,16 @@ bool bd_timer_func(void)
  //   if( (nexT = kvmft_bd_predic_stop()) < 0) {
   //      return false;
    // }
+
     
-    kvmft_bd_predic_stop();
+    
+    //kvmft_bd_predic_stop();
+    int nexT;
+    if( (nexT = kvmft_bd_predic_stop()) < 0) {
+        return false;
+    }
 
-
-
-    //printf("cocotion test my nextT is %d\n", nexT);
+    printf("cocotion test my nextT is %d\n", nexT);
     //nexT = 10;
  //   get_pass_time_us(&pass_time_us);
 
@@ -308,7 +317,9 @@ bool bd_timer_func(void)
   //  else 
         //qmp_cuju_adjust_epoch((bd_target-pass_time_us)/2, &err);
    //     qmp_cuju_adjust_epoch(nexT, &err);
-        qmp_cuju_adjust_epoch(bd_time_slot_us, &err);
+        //qmp_cuju_adjust_epoch(bd_time_slot_us, &err);
+        //qmp_cuju_adjust_epoch(1000, &err);
+        qmp_cuju_adjust_epoch(nexT, &err);
 
 
     kvm_shmem_start_timer();

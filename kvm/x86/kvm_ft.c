@@ -36,6 +36,8 @@ int global_dirty_count = 0;
 
 int z_count = 0;
 
+int update_flag = 0;
+
 
 struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
@@ -781,6 +783,8 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     ctx->bd_average_dirty_bytes = 100;
 
     bd_page_fault_check = 1;
+    update_flag = 0;
+
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
 
@@ -975,13 +979,19 @@ static int bd_predic_stop(struct kvm *kvm,
 
     //*dirty_bytes = ctx->bd_average_dirty_bytes * put_off;
     //*dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+
+    //int current_dirty_byte = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
+
     update->dirty_byte = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
     update->dirty_page = global_dirty_count;
+
+
 
 
     //int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
 //    int beta = *dirty_bytes/ctx->bd_average_rate + epoch_run_time;
     int beta = update->dirty_byte/ctx->bd_average_rate + epoch_run_time;
+//    int beta = current_dirty_byte/200 + epoch_run_time;
  
 /* 
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
@@ -993,7 +1003,7 @@ static int bd_predic_stop(struct kvm *kvm,
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 */
 
-    //printk("cocotion test beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
+    printk("cocotion test beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
     //if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
     if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
 //        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
@@ -1001,10 +1011,34 @@ static int bd_predic_stop(struct kvm *kvm,
     }
     //printk("cocotion test nextT jump? beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
+    int predict_dirty_rate;
+
+/*
+    //printk("cocotion test update_flag = %d\n", update_flag);
+    if(update_flag == 1) {
+        //update->count = 0;
+        int diff_bytes = current_dirty_byte - update->dirty_byte;
+        update->dirty_byte = current_dirty_byte;
+        int diff_time = epoch_run_time - update->epoch_time_us;
+        predict_dirty_rate = diff_bytes/diff_time;
+    }
+    else {
+        update->dirty_byte = current_dirty_byte;
+        update->dirty_page = global_dirty_count;
+        update->epoch_time_us = epoch_run_time;
+        update_flag = 1;
+        return 1000;
+    }
+*/
+    predict_dirty_rate = 700;
+
+
     //int x = put_off*ctx->bd_average_dirty_bytes;
     //int x = dirty_bytes;
     int x = update->dirty_byte;
-    int R = ctx->bd_average_rate;
+    //int x = current_dirty_byte;
+    //int R = ctx->bd_average_rate;
+    int R = 200;
     int E = epoch_run_time;
     int y = target_latency_us-1000;
 
@@ -1016,7 +1050,7 @@ static int bd_predic_stop(struct kvm *kvm,
     //int r = ((y-E-3000)*700-x)/1400;
     //int r = ((y-E-ctx->bd_alpha)*R-x)/700;
 
-    int r = ((y-E-ctx->bd_alpha)*R-x)/(700+R);
+    int r = ((y-E-ctx->bd_alpha)*R-x)/(predict_dirty_rate+R);
     //int r = ((y-E-4000)*R-x)/(700+R);
 
     //int r = 100;

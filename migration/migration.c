@@ -2447,7 +2447,7 @@ static void kvmft_flush_output(MigrationState *s)
 
         int range_ratio = (1.0*range_count/roundtimes)*100;
 //        printf("cocotion test rang_count = %d\n", range_count);
- //       printf("cocotion test rang_ratio = %d\n", range_ratio);
+        printf("cocotion test rang_ratio = %d\n", range_ratio);
   //      printf("cocotion test bd_alpha = %d\n", bd_alpha);
         
         range_count = 0;

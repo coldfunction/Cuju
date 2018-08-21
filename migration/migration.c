@@ -2253,10 +2253,10 @@ int target_latency = EPOCH_TIME_IN_MS*1000;
 unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS*1000/2;
 
 
-int time_stamp[200];
-int dirty_bytes_stamp[200];
-int dirty_pages_stamp[200];
-int filter_count = 0;
+//int time_stamp[200];
+//int dirty_bytes_stamp[200];
+//int dirty_pages_stamp[200];
+//int filter_count = 0;
 
 
 
@@ -2296,6 +2296,13 @@ static void kvmft_flush_output(MigrationState *s)
     fclose(pFile); 
 
 
+    int trans_rate = s->ram_len/trans_us;
+    //printf("cocotion test trans_rate = %d\n", trans_rate);
+
+    trans_rate = (trans_rate < 200)?200:trans_rate;
+
+
+ 
 /*
     pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
     //char pbuf[200];
@@ -2415,7 +2422,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
-    static int roundtimes = 1000;
+    static int roundtimes = 100;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000)
@@ -2477,10 +2484,13 @@ static void kvmft_flush_output(MigrationState *s)
 
         if(range_ratio < 85) {
         if(current_exceed_ratio > 0.05)
-            bd_alpha += (current_exceed_ratio-0.05)*100;
+            bd_alpha -= (current_exceed_ratio-0.05)*100;
         //else if(range_ratio < 60) bd_alpha+=10;
         if(current_less_ratio > 0.05)
-            bd_alpha -= (current_less_ratio-0.05)*100;
+            bd_alpha += (current_less_ratio-0.05)*100;
+   
+        //bd_alpha = trans_rate;
+        //printf("cocotion test alpha = %d\n", bd_alpha);
 } 
  //      } 
 //next:
@@ -2500,6 +2510,7 @@ static void kvmft_flush_output(MigrationState *s)
 //////////////////////////////////////////////////////////////////// 
     //bd_alpha = 2800; 
     //bd_alpha = 2000; 
+    //bd_alpha = trans_rate;
     //printf("cocotion test alpha = %d\n", bd_alpha);
 
 

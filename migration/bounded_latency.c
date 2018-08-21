@@ -8,17 +8,20 @@
 int first_enter = 1;
 //int next_time = 1000;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
-int bd_alpha = 1787; // initial alpha is 1 ms
+//int bd_alpha = 1787; // initial alpha is 1 ms
+int bd_alpha = 800; // initial alpha is 1 ms
 float bd_time_slot_us;
 //int bd_time_slot_us_pattern[] = {4000, 5000}                                                                                                                                                                     
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
 extern unsigned long pass_time_us_threshold;
 
-extern int time_stamp[20];
-extern int dirty_bytes_stamp[20];
-extern int dirty_pages_stamp[20];
-extern int filter_count;
+struct kvmft_update_latency mybdupdate;
+
+//extern int time_stamp[20];
+//extern int dirty_bytes_stamp[20];
+//extern int dirty_pages_stamp[20];
+//extern int filter_count;
 
 
 int average_exceed_runtime_us = EPOCH_TIME_IN_MS * 1000;
@@ -44,11 +47,11 @@ static int kvmft_bd_predic_stop(void)
     //int dirty_bytes = 0;
     int r;
 
-    struct kvmft_update_latency update;
+    //struct kvmft_update_latency update;
 
 
 //    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &dirty_bytes);
-    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
+    r = kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &mybdupdate);
 
 
 //    printf("cocotion test dirty_bytes = %d\n", dirty_bytes);
@@ -69,9 +72,9 @@ static int kvmft_bd_predic_stop(void)
         fclose(pFile); 
 */
 
-        dirty_pages_stamp[filter_count]   = update.dirty_page;
-        dirty_bytes_stamp[filter_count] = update.dirty_byte;
-        filter_count++;
+        //dirty_pages_stamp[filter_count]   = update.dirty_page;
+        //dirty_bytes_stamp[filter_count] = update.dirty_byte;
+        //filter_count++;
 //        printf("cocotion test filter_count = %d\n", filter_count);
  //       printf("cocotion test dirty_byte = %d\n", update.dirty_byte);
         
@@ -250,8 +253,8 @@ bool bd_timer_func(void)
 */
 
 
-        struct kvmft_update_latency update;
-        kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
+//        struct kvmft_update_latency update;
+ //       kvm_vm_ioctl(kvm_state, KVMFT_BD_PREDIC_STOP, &update);
 
         //printf("cocotion test @@@@@@@@@@@before take snapshot dirty bytes = %d\n", update.dirty_byte);
 
@@ -276,7 +279,7 @@ bool bd_timer_func(void)
         fclose(pFile);
 */
 
-    time_stamp[filter_count] = pass_time_us;
+    //time_stamp[filter_count] = pass_time_us;
 
 
  
@@ -304,7 +307,7 @@ bool bd_timer_func(void)
         return false;
     }
 
-    printf("cocotion test my nextT is %d\n", nexT);
+//    printf("cocotion test my nextT is %d\n", nexT);
     //nexT = 10;
  //   get_pass_time_us(&pass_time_us);
 

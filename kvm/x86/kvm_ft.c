@@ -1005,23 +1005,25 @@ static int bd_predic_stop(struct kvm *kvm,
 //    printk("cocotion test beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
     //if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
 //    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
-    if((beta) >= (target_latency_us-600)) {
+    if((beta) >= (target_latency_us-1000)) {
 //        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
-    printk("cocotion test ok jump @@@================================\n");
-    printk("current_dirty_byte = %d\n", current_dirty_byte);
-    printk("ctx->bd_alpha (trans_rate) = %d\n", ctx->bd_alpha);
-    printk("epoch_run_time = %d\n", epoch_run_time);
-    printk("beta = %d\n", beta);
+    //printk("cocotion test ok jump @@@================================\n");
+    //printk("current_dirty_byte = %d\n", current_dirty_byte);
+    //printk("ctx->bd_alpha (trans_rate) = %d\n", ctx->bd_alpha);
+    //printk("epoch_run_time = %d\n", epoch_run_time);
+    //printk("beta = %d\n", beta);
 
-
+/*
     int diff_bytes = current_dirty_byte - update->dirty_byte;
     update->dirty_byte = current_dirty_byte;
     int diff_time = epoch_run_time - update->epoch_time_us;
     update->epoch_time_us = epoch_run_time;
     int real_dirty_rate = diff_bytes/diff_time;
-    printk("real dirty rate = %d\n", real_dirty_rate);
+ */
 
-    printk("cocotion test end jump @@@================================\n");
+   //printk("real dirty rate = %d\n", real_dirty_rate);
+
+    //printk("cocotion test end jump @@@================================\n");
 
         return -1;
     }
@@ -1029,7 +1031,7 @@ static int bd_predic_stop(struct kvm *kvm,
 
     int predict_dirty_rate;
 
-
+/*
     //printk("cocotion test update_flag = %d\n", update_flag);
     if(update_flag == 1) {
         //update->count = 0;
@@ -1051,7 +1053,7 @@ static int bd_predic_stop(struct kvm *kvm,
         update_flag = 1;
         return 1000;
     }
-
+*/
 
     //int x = put_off*ctx->bd_average_dirty_bytes;
     //int x = dirty_bytes;
@@ -1074,19 +1076,21 @@ static int bd_predic_stop(struct kvm *kvm,
     //int r = ((y-E-ctx->bd_alpha)*R-x)/700;
 
     //int r = ((y-E-ctx->bd_alpha)*R-x)/(predict_dirty_rate+R);
-    int r = ((y-E-600)*(ctx->bd_alpha)-x)/(predict_dirty_rate+R);
+    int r = ((y-E-1000)*(ctx->bd_alpha)-x)/(predict_dirty_rate+R);
 
 
-    printk("cocotion test start @@@find nexT================================\n");
+    r -=500;
 
-    printk("cocotion test predict rate = %d\n", predict_dirty_rate);
-    printk("cocotion test now runtime = %d\n", E);
-    printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
-    printk("cocotion test current_dirty_byte = %d\n", x);
-    printk("nexT = %d\n", r);
+//    printk("cocotion test start @@@find nexT================================\n");
+
+ //   printk("cocotion test predict rate = %d\n", predict_dirty_rate);
+  //  printk("cocotion test now runtime = %d\n", E);
+   // printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
+   // printk("cocotion test current_dirty_byte = %d\n", x);
+   // printk("nexT = %d\n", r);
 
 
-    printk("cocotion test  ================================\n");
+    //printk("cocotion test  ================================\n");
 
     //int r = ((y-E-4000)*R-x)/(700+R);
 

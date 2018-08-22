@@ -2422,7 +2422,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
-    static int roundtimes = 100;
+    static int roundtimes = 50;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000)
@@ -2455,7 +2455,7 @@ static void kvmft_flush_output(MigrationState *s)
         int range_ratio = (1.0*range_count/roundtimes)*100;
 //        printf("cocotion test rang_count = %d\n", range_count);
         printf("cocotion test rang_ratio = %d\n", range_ratio);
-  //      printf("cocotion test bd_alpha = %d\n", bd_alpha);
+        printf("cocotion test bd_alpha = %d\n", bd_alpha);
         
         range_count = 0;
         
@@ -2482,13 +2482,15 @@ static void kvmft_flush_output(MigrationState *s)
         //else if(current_exceed_ratio > 0.01)
             //bd_alpha += (current_exceed_ratio-0.01)*100;
 
-        if(range_ratio < 85) {
-        if(current_exceed_ratio > 0.05)
+        if(range_ratio < 95) {
+        if(current_exceed_ratio > 0.01)
             bd_alpha -= (current_exceed_ratio-0.05)*100;
         //else if(range_ratio < 60) bd_alpha+=10;
-        if(current_less_ratio > 0.05)
+        if(current_less_ratio > 0.01)
             bd_alpha += (current_less_ratio-0.05)*100;
-   
+  
+        bd_alpha = (bd_alpha<400)?400:bd_alpha;
+ 
         //bd_alpha = trans_rate;
         //printf("cocotion test alpha = %d\n", bd_alpha);
 } 
@@ -2511,6 +2513,7 @@ static void kvmft_flush_output(MigrationState *s)
     //bd_alpha = 2800; 
     //bd_alpha = 2000; 
     //bd_alpha = trans_rate;
+    //bd_alpha = 550;
     //printf("cocotion test alpha = %d\n", bd_alpha);
 
 
@@ -2526,8 +2529,8 @@ static void kvmft_flush_output(MigrationState *s)
     pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
-        sprintf(pbuf, "%d\n", s->dirty_pfns_len);
-        fputs(pbuf, pFile);                                                                                                                      
+        //sprintf(pbuf, "%d\n", s->dirty_pfns_len);
+        //fputs(pbuf, pFile);                                                                                                                      
         sprintf(pbuf, "%d\n", latency_us);
         fputs(pbuf, pFile);                                                                                                                      
     }    

@@ -224,7 +224,7 @@ bool bd_timer_func(void)
 
     get_pass_time_us(&pass_time_us);
 //    if(pass_time_us >= bd_target*0.94) {
-    if(pass_time_us >= bd_target) {
+    if(pass_time_us >= bd_target-1000) {
         //next_time = 0;
   
 

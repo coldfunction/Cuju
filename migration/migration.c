@@ -2258,6 +2258,7 @@ unsigned long pass_time_us_threshold = EPOCH_TIME_IN_MS*1000/2;
 //int dirty_pages_stamp[200];
 //int filter_count = 0;
 
+extern struct kvmft_update_latency mybdupdate;
 
 
 
@@ -2301,7 +2302,7 @@ static void kvmft_flush_output(MigrationState *s)
 
     trans_rate = (trans_rate < 200)?200:trans_rate;
 
-
+    mybdupdate.last_trans_rate = trans_rate;
  
 /*
     pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
@@ -2482,18 +2483,22 @@ static void kvmft_flush_output(MigrationState *s)
         //else if(current_exceed_ratio > 0.01)
             //bd_alpha += (current_exceed_ratio-0.01)*100;
 
-        if(range_ratio < 95) {
+//        if(range_ratio < 95) {
         if(current_exceed_ratio > 0.01)
-            bd_alpha -= (current_exceed_ratio-0.05)*100;
+            bd_alpha -= (current_exceed_ratio-0.01)*100;
         //else if(range_ratio < 60) bd_alpha+=10;
         if(current_less_ratio > 0.01)
-            bd_alpha += (current_less_ratio-0.05)*100;
+            bd_alpha += (current_less_ratio-0.01)*100;
   
         bd_alpha = (bd_alpha<400)?400:bd_alpha;
- 
+
+        //roundtimes = 10; 
         //bd_alpha = trans_rate;
         //printf("cocotion test alpha = %d\n", bd_alpha);
-} 
+//}
+
+ //       else
+  //          roundtimes = 100; 
  //      } 
 //next:
        // if(current_exceed_ratio > 0.09) {

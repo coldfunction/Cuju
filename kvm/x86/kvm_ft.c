@@ -990,7 +990,44 @@ static int bd_predic_stop(struct kvm *kvm,
     //int beta = put_off*ctx->bd_average_dirty_bytes/ctx->bd_average_rate + epoch_run_time;
 //    int beta = *dirty_bytes/ctx->bd_average_rate + epoch_run_time;
 //    int beta = update->dirty_byte/ctx->bd_average_rate + epoch_run_time;
-    int beta = current_dirty_byte/ctx->bd_alpha + epoch_run_time;
+
+
+/*
+    int predict_transfer_rate;
+    if(update_flag == 1) {
+        //update->count = 0;
+        int diff_bytes = current_dirty_byte - update->dirty_byte;
+        update->dirty_byte = current_dirty_byte;
+        int diff_time = epoch_run_time - update->epoch_time_us;
+        update->epoch_time_us = epoch_run_time;
+        
+        int real_dirty_rate = diff_bytes/diff_time;
+        predict_transfer_rate = ctx->bd_alpha - real_dirty_rate;  
+    }
+    else {
+        update->dirty_byte = current_dirty_byte;
+   //     printk("cocotion test update->dirty_byte = %d\n", update->dirty_byte);
+        //update->dirty_page = global_dirty_count;
+        update->epoch_time_us = epoch_run_time;
+        update_flag = 1;
+    }
+*/
+
+
+
+
+
+
+
+    if(update->last_trans_rate < 200) update->last_trans_rate = 200;
+
+//    int beta = current_dirty_byte/ctx->bd_alpha + epoch_run_time;
+    int beta = current_dirty_byte/update->last_trans_rate + epoch_run_time;
+
+
+//    int beta = current_dirty_byte/predict_transfer_rate + epoch_run_time;
+
+
  
 /* 
     printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
@@ -1007,11 +1044,17 @@ static int bd_predic_stop(struct kvm *kvm,
 //    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
     if((beta) >= (target_latency_us-1000)) {
 //        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
-    //printk("cocotion test ok jump @@@================================\n");
-    //printk("current_dirty_byte = %d\n", current_dirty_byte);
+
+/*
+    printk("cocotion test ok jump @@@================================\n");
+    printk("current_dirty_byte = %d\n", current_dirty_byte);
     //printk("ctx->bd_alpha (trans_rate) = %d\n", ctx->bd_alpha);
-    //printk("epoch_run_time = %d\n", epoch_run_time);
-    //printk("beta = %d\n", beta);
+    printk("(last trans_rate) = %d\n", update->last_trans_rate);
+    printk("epoch_run_time = %d\n", epoch_run_time);
+    printk("beta = %d\n", beta);
+
+*/
+
 
 /*
     int diff_bytes = current_dirty_byte - update->dirty_byte;
@@ -1080,18 +1123,18 @@ static int bd_predic_stop(struct kvm *kvm,
 
 
     r -=500;
+/*
+    printk("cocotion test start @@@find nexT================================\n");
 
-//    printk("cocotion test start @@@find nexT================================\n");
-
- //   printk("cocotion test predict rate = %d\n", predict_dirty_rate);
-  //  printk("cocotion test now runtime = %d\n", E);
-   // printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
-   // printk("cocotion test current_dirty_byte = %d\n", x);
-   // printk("nexT = %d\n", r);
+    printk("cocotion test predict rate = %d\n", predict_dirty_rate);
+    printk("cocotion test now runtime = %d\n", E);
+    printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
+    printk("cocotion test current_dirty_byte = %d\n", x);
+    printk("nexT = %d\n", r);
 
 
-    //printk("cocotion test  ================================\n");
-
+    printk("cocotion test  ================================\n");
+*/
     //int r = ((y-E-4000)*R-x)/(700+R);
 
     //int r = 100;
@@ -3339,11 +3382,11 @@ int kvm_start_kernel_transfer(struct kvm *kvm,
         //return diff_and_transfer_second_half(kvm, trans_index, conn_index, max_conn);
     }
 
-    if (ram_len == 0) { 
-        ctx->bd_last_average_dirty_bytes = 0; 
-    } else {
-        ctx->bd_last_average_dirty_bytes = ram_len / ctx->page_nums_snapshot_k[trans_index]->put_off;
-    }    
+//    if (ram_len == 0) { 
+ //       ctx->bd_last_average_dirty_bytes = 0; 
+  //  } else {
+   //     ctx->bd_last_average_dirty_bytes = ram_len / ctx->page_nums_snapshot_k[trans_index]->put_off;
+    //}    
 
 
 

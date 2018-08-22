@@ -1390,6 +1390,7 @@ struct kvmft_update_latency {
     int dirty_byte;
     //__u32 count;
     __u32 epoch_time_us;
+    int last_trans_rate;
 };
 #define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)                                                                                                                            
 #define KVMFT_BD_SET_ALPHA                _IOW(KVMIO, 0xd3, __u32)

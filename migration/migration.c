@@ -2300,7 +2300,10 @@ static void kvmft_flush_output(MigrationState *s)
     int trans_rate = s->ram_len/trans_us;
     //printf("cocotion test trans_rate = %d\n", trans_rate);
 
-    trans_rate = (trans_rate < 200)?200:trans_rate;
+    if(trans_rate < 100) trans_rate = 100;
+
+    mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
+    if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
     mybdupdate.last_trans_rate = trans_rate;
  
@@ -2407,7 +2410,7 @@ static void kvmft_flush_output(MigrationState *s)
  //   }
     m_count++;
  */   
-    static float current_exceed_ratio = 0;
+//    static float current_exceed_ratio = 0;
 //    static float old_exceed_ratio = 0;
 //    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 //    if(count%500 == 0) {
@@ -2423,17 +2426,25 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
+//    static int roundtimes = 50;
     static int roundtimes = 50;
     static int range_count = 0;
 
-    if(latency_us>=9000 && latency_us<=11000)
+    if(latency_us>=9000 && latency_us<=11000) {
         range_count++;
+    //    bd_alpha = latency_us - mybdupdate.beta;
+    }
+    //else bd_alpha = 0;
+
+
+    //if(bd_alpha > 1000) bd_alpha = 1000;
+
+//    printf("cocotion test@@@@@@@@@@@@@@@@@ beta = %d\n", mybdupdate.beta);
 
 //    if(count%roundtimes == 0) {
  //       int range_ratio = (rang_count/roundtimes)*100;
   //      if(range_ratio < 80) 
    // }
-
 
 
 
@@ -2443,7 +2454,7 @@ static void kvmft_flush_output(MigrationState *s)
  //       bd_alpha--;
 
     if(count%roundtimes == 0) {
-        current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
+        float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
         latency_exceed_current_count = 0;
     
         float current_less_ratio = (float)latency_less_count/roundtimes;
@@ -2483,22 +2494,31 @@ static void kvmft_flush_output(MigrationState *s)
         //else if(current_exceed_ratio > 0.01)
             //bd_alpha += (current_exceed_ratio-0.01)*100;
 
-//        if(range_ratio < 95) {
-        if(current_exceed_ratio > 0.01)
-            bd_alpha -= (current_exceed_ratio-0.01)*100;
+        if(range_ratio < 95) {
+        if(current_exceed_ratio > 0.01) {
+ //           bd_alpha -= (current_exceed_ratio-0.01)*100;
+            bd_alpha += (current_exceed_ratio-0.01)*100;
+            //bd_alpha -= 10;
+        }
         //else if(range_ratio < 60) bd_alpha+=10;
-        if(current_less_ratio > 0.01)
-            bd_alpha += (current_less_ratio-0.01)*100;
-  
-        bd_alpha = (bd_alpha<400)?400:bd_alpha;
+        if(current_less_ratio > 0.01) {
+            //bd_alpha += (current_less_ratio-0.01)*100;
+            //bd_alpha -= (current_less_ratio-0.01)*130;
+            bd_alpha -= (current_less_ratio-0.01)*100;
+           // bd_alpha += 10;
+        }
+        //roundtimes = 10; 
+     
+        //bd_alpha = (bd_alpha<400)?400:bd_alpha;
+      //  if(bd_alpha<400) bd_alpha = 400;
 
         //roundtimes = 10; 
         //bd_alpha = trans_rate;
         //printf("cocotion test alpha = %d\n", bd_alpha);
-//}
+}
 
- //       else
-  //          roundtimes = 100; 
+        //else
+            //roundtimes = 50; 
  //      } 
 //next:
        // if(current_exceed_ratio > 0.09) {
@@ -2948,7 +2968,8 @@ static void *migration_thread(void *opaque)
     end_time = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
 
     if(enable_cuju) {
-
+        mybdupdate.last_trans_rate = 100;  
+        mybdupdate.predic_trans_rate = 100;  
 		printf("start cuju process\n");
 		ft_setup_migrate_state(s, 0);
         ft_setup_migrate_state(s2, 1);

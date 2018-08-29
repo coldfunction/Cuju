@@ -17,6 +17,7 @@ float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 extern unsigned long pass_time_us_threshold;
 
 struct kvmft_update_latency mybdupdate;
+//mybdupdate.last_trans_rate = 100;
 
 //extern int time_stamp[20];
 //extern int dirty_bytes_stamp[20];

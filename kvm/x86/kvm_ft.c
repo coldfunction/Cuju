@@ -983,7 +983,7 @@ static int bd_predic_stop(struct kvm *kvm,
     int current_dirty_byte = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
 
     //update->dirty_byte = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
-    update->dirty_page = global_dirty_count;
+    //update->dirty_page = global_dirty_count;
 
 
 
@@ -991,9 +991,10 @@ static int bd_predic_stop(struct kvm *kvm,
 //    int beta = *dirty_bytes/ctx->bd_average_rate + epoch_run_time;
 //    int beta = update->dirty_byte/ctx->bd_average_rate + epoch_run_time;
 
-
 /*
+
     int predict_transfer_rate;
+    int predict_dirty_rate;
     if(update_flag == 1) {
         //update->count = 0;
         int diff_bytes = current_dirty_byte - update->dirty_byte;
@@ -1001,16 +1002,23 @@ static int bd_predic_stop(struct kvm *kvm,
         int diff_time = epoch_run_time - update->epoch_time_us;
         update->epoch_time_us = epoch_run_time;
         
-        int real_dirty_rate = diff_bytes/diff_time;
-        predict_transfer_rate = ctx->bd_alpha - real_dirty_rate;  
+        //int real_dirty_rate = diff_bytes/diff_time;
+        //predict_transfer_rate = ctx->bd_alpha - real_dirty_rate;  
+        
+        predict_dirty_rate = diff_bytes/(diff_time+1);
+        predict_dirty_rate = 500*predict_dirty_rate;
+        if(predict_dirty_rate == 0) predict_dirty_rate = 100;
+          
     }
     else {
         update->dirty_byte = current_dirty_byte;
-   //     printk("cocotion test update->dirty_byte = %d\n", update->dirty_byte);
         //update->dirty_page = global_dirty_count;
         update->epoch_time_us = epoch_run_time;
         update_flag = 1;
+        return 500;
+        //return 10;
     }
+
 */
 
 
@@ -1018,14 +1026,25 @@ static int bd_predic_stop(struct kvm *kvm,
 
 
 
+//    printk("cocotion test predic_trans_rate = %d\n", update->predic_trans_rate);
 
-    if(update->last_trans_rate < 200) update->last_trans_rate = 200;
+    //if(update->last_trans_rate < 100) update->last_trans_rate = 100;
 
 //    int beta = current_dirty_byte/ctx->bd_alpha + epoch_run_time;
+
+    //if(update->last_trans_rate < 200) update->last_trans_rate = 200;
+
     int beta = current_dirty_byte/update->last_trans_rate + epoch_run_time;
+    //int beta = current_dirty_byte/update->predic_trans_rate + epoch_run_time;
 
 
 //    int beta = current_dirty_byte/predict_transfer_rate + epoch_run_time;
+
+    printk("@@@@@@@@@@@@@@@@@@@@@check if take snapshot\n");
+    printk("current dirty byte = %d\n", current_dirty_byte);
+    printk("current run time = %d\n", epoch_run_time);
+    printk("last trans rate = %d\n", update->last_trans_rate);
+    printk("current beta = %d\n", beta);
 
 
  
@@ -1042,18 +1061,21 @@ static int bd_predic_stop(struct kvm *kvm,
 //    printk("cocotion test beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
     //if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
 //    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
-    if((beta) >= (target_latency_us-1000)) {
+//    if((beta) >= (target_latency_us-1000)) {
+    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
+    printk("@@@@@@@@@@@@@@@@@@@@@cocotion test ok jump\n");
 //        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
+
+    update->beta = beta;
 /*
     printk("cocotion test ok jump @@@================================\n");
     printk("current_dirty_byte = %d\n", current_dirty_byte);
-    //printk("ctx->bd_alpha (trans_rate) = %d\n", ctx->bd_alpha);
     printk("(last trans_rate) = %d\n", update->last_trans_rate);
     printk("epoch_run_time = %d\n", epoch_run_time);
     printk("beta = %d\n", beta);
-
 */
+
 
 
 /*
@@ -1064,51 +1086,62 @@ static int bd_predic_stop(struct kvm *kvm,
     int real_dirty_rate = diff_bytes/diff_time;
  */
 
-   //printk("real dirty rate = %d\n", real_dirty_rate);
+//   printk("real dirty rate = %d\n", predict_dirty_rate);
 
     //printk("cocotion test end jump @@@================================\n");
 
         return -1;
     }
+    printk("@@@@@@@@@@@@@@@@@@@@@cocotion test nexT try\n");
     //printk("cocotion test nextT jump? beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
-    int predict_dirty_rate;
+//    int predict_dirty_rate;
 
 /*
     //printk("cocotion test update_flag = %d\n", update_flag);
     if(update_flag == 1) {
         //update->count = 0;
         int diff_bytes = current_dirty_byte - update->dirty_byte;
-//        printk("current dirty byte = %d\n", current_dirty_byte);
- //       printk("older dirty byte = %d\n", update->dirty_byte);
-  //      printk("diff bytes = %d\n", diff_bytes);
+        //printk("current dirty byte = %d\n", current_dirty_byte);
+        //printk("older dirty byte = %d\n", update->dirty_byte);
+        //printk("diff bytes = %d\n", diff_bytes);
         update->dirty_byte = current_dirty_byte;
         int diff_time = epoch_run_time - update->epoch_time_us;
+        printk("diff_time = %d\n", diff_time);
         update->epoch_time_us = epoch_run_time;
         
         predict_dirty_rate = diff_bytes/diff_time;
     }
     else {
         update->dirty_byte = current_dirty_byte;
-   //     printk("cocotion test update->dirty_byte = %d\n", update->dirty_byte);
+        //printk("cocotion test update->dirty_byte = %d\n", update->dirty_byte);
         //update->dirty_page = global_dirty_count;
         update->epoch_time_us = epoch_run_time;
         update_flag = 1;
-        return 1000;
+        return 500;
     }
+
 */
+ //   if(predict_dirty_rate < 10) predict_dirty_rate = 10;
+
+/*
 
     //int x = put_off*ctx->bd_average_dirty_bytes;
     //int x = dirty_bytes;
     //int x = update->dirty_byte;
     int x = current_dirty_byte;
     //int R = ctx->bd_average_rate;
-    int R = ctx->bd_alpha;
+    //int R = ctx->bd_alpha;
+    int R = update->last_trans_rate;
+    //int R = update->predic_trans_rate;
     int E = epoch_run_time;
     int y = target_latency_us;
 
 
-    predict_dirty_rate = 1;
+    //predict_dirty_rate = 1;
+
+    if(update->last_trans_rate == 0) update->last_trans_rate = 200;
+
 
     //return ((y-E-ctx->bd_alpha)*R-x)/(100+R);
     //int r = ((y-E-ctx->bd_alpha)*R-x)/(1000+R);
@@ -1119,19 +1152,22 @@ static int bd_predic_stop(struct kvm *kvm,
     //int r = ((y-E-ctx->bd_alpha)*R-x)/700;
 
     //int r = ((y-E-ctx->bd_alpha)*R-x)/(predict_dirty_rate+R);
-    int r = ((y-E-1000)*(ctx->bd_alpha)-x)/(predict_dirty_rate+R);
+    int r = ((y-E-1000)*(R)-x)/(predict_dirty_rate+R);
+*/
 
+//    r = (y-1000-E)/2;
 
-    r -=500;
+//    r -=500;
+
 /*
     printk("cocotion test start @@@find nexT================================\n");
 
     printk("cocotion test predict rate = %d\n", predict_dirty_rate);
     printk("cocotion test now runtime = %d\n", E);
-    printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
+    //printk("cocotion test bd_alpha (predict trans_rate) = %d\n", ctx->bd_alpha);
+    printk("cocotion test  (predict trans_rate) = %d\n", R);
     printk("cocotion test current_dirty_byte = %d\n", x);
     printk("nexT = %d\n", r);
-
 
     printk("cocotion test  ================================\n");
 */
@@ -1139,7 +1175,12 @@ static int bd_predic_stop(struct kvm *kvm,
 
     //int r = 100;
     //printk("cocotion test r = %d\n", r);
-    return (r<0)?0:r; 
+
+
+    int r = 10;
+//    return (r<0)?0:r; 
+    return r;
+
 //    return ((y-E-ctx->bd_alpha)*R-x)/(100+R);
 
 }

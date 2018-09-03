@@ -34,6 +34,9 @@ int total_dirty_bytes = 0;
 int dirty_bytes_per_pages = 0;
 int global_dirty_count = 0;
 
+
+//int global_time_record_in_timer_callback = 0;
+
 int z_count = 0;
 
 int update_flag = 0;
@@ -226,6 +229,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //ktime_t val; 
     global_mark_time = ktime_get();
     //global_mark_time = ktime_to_ns(val) / 1000;
+
+//    global_time_record_in_timer_callback = ktime_to_ns(val) / 1000; 
+     
+
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
 
@@ -1040,11 +1047,11 @@ static int bd_predic_stop(struct kvm *kvm,
 
 //    int beta = current_dirty_byte/predict_transfer_rate + epoch_run_time;
 
-    printk("@@@@@@@@@@@@@@@@@@@@@check if take snapshot\n");
-    printk("current dirty byte = %d\n", current_dirty_byte);
-    printk("current run time = %d\n", epoch_run_time);
-    printk("last trans rate = %d\n", update->last_trans_rate);
-    printk("current beta = %d\n", beta);
+  //  printk("@@@@@@@@@@@@@@@@@@@@@check if take snapshot\n");
+ //   printk("current dirty byte = %d\n", current_dirty_byte);
+  //  printk("current run time = %d\n", epoch_run_time);
+   // printk("last trans rate = %d\n", update->last_trans_rate);
+   // printk("current beta = %d\n", beta);
 
 
  
@@ -1062,12 +1069,12 @@ static int bd_predic_stop(struct kvm *kvm,
     //if((beta + ctx->bd_alpha) >= target_latency_us*94/100) {
 //    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
 //    if((beta) >= (target_latency_us-1000)) {
-    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
-    printk("@@@@@@@@@@@@@@@@@@@@@cocotion test ok jump\n");
+//    if((beta + ctx->bd_alpha) >= (target_latency_us-1000)) {
+ //   printk("@@@@@@@@@@@@@@@@@@@@@cocotion test ok jump\n");
 //        printk("cocotion test ok jump beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
 
-    update->beta = beta;
+ //   update->beta = beta;
 /*
     printk("cocotion test ok jump @@@================================\n");
     printk("current_dirty_byte = %d\n", current_dirty_byte);
@@ -1090,9 +1097,9 @@ static int bd_predic_stop(struct kvm *kvm,
 
     //printk("cocotion test end jump @@@================================\n");
 
-        return -1;
-    }
-    printk("@@@@@@@@@@@@@@@@@@@@@cocotion test nexT try\n");
+  //      return -1;
+   // }
+//    printk("@@@@@@@@@@@@@@@@@@@@@cocotion test nexT try\n");
     //printk("cocotion test nextT jump? beta + ctx->bd_alpha = %d\n", beta + ctx->bd_alpha);
 
 //    int predict_dirty_rate;
@@ -1177,7 +1184,7 @@ static int bd_predic_stop(struct kvm *kvm,
     //printk("cocotion test r = %d\n", r);
 
 
-    int r = 10;
+    int r = 1000;
 //    return (r<0)?0:r; 
     return r;
 
@@ -3883,12 +3890,15 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
 
 int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime)
 {
+    
+    extern ktime_t global_mark_start_time;
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;
     int ret; 
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
-    *epoch_runtime = time_in_us() - dlist->epoch_start_time;
+    //*epoch_runtime = time_in_us() - dlist->epoch_start_time;
+    *epoch_runtime = ktime_to_us(ktime_sub(ktime_get(), global_mark_start_time));
 //    printk("cocotion test %d\n", *epoch_runtime);
 }
 

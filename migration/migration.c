@@ -2283,7 +2283,8 @@ static void kvmft_flush_output(MigrationState *s)
    
 
    FILE *pFile;
-
+   char pbuf[200];
+/*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
     if(pFile != NULL){
@@ -2295,7 +2296,7 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
-
+*/
 
     int trans_rate = s->ram_len/trans_us;
     //printf("cocotion test trans_rate = %d\n", trans_rate);
@@ -2466,8 +2467,8 @@ static void kvmft_flush_output(MigrationState *s)
 
         int range_ratio = (1.0*range_count/roundtimes)*100;
 //        printf("cocotion test rang_count = %d\n", range_count);
-        printf("cocotion test rang_ratio = %d\n", range_ratio);
-        printf("cocotion test bd_alpha = %d\n", bd_alpha);
+//        printf("cocotion test rang_ratio = %d\n", range_ratio);
+ //       printf("cocotion test bd_alpha = %d\n", bd_alpha);
         
         range_count = 0;
         
@@ -2501,7 +2502,7 @@ static void kvmft_flush_output(MigrationState *s)
             //bd_alpha -= 10;
         }
         //else if(range_ratio < 60) bd_alpha+=10;
-        if(current_less_ratio > 0.01) {
+        else if(current_less_ratio > 0.01) {
             //bd_alpha += (current_less_ratio-0.01)*100;
             //bd_alpha -= (current_less_ratio-0.01)*130;
             bd_alpha -= (current_less_ratio-0.01)*100;
@@ -2515,6 +2516,9 @@ static void kvmft_flush_output(MigrationState *s)
         //roundtimes = 10; 
         //bd_alpha = trans_rate;
         //printf("cocotion test alpha = %d\n", bd_alpha);
+        //srand(time(NULL));
+
+        //bd_alpha = -200-rand()%120;
 }
 
         //else

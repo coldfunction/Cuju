@@ -1477,4 +1477,7 @@ struct kvm_cpu_state {
 #define KVM_SHM_SNAPMODE_NORMAL		1	
 #define KVM_SHM_SNAPMODE_TESTING	2
 
+
+#define MEASURE_EACH_TIME_SLOT_VIA_KERNEL
+
 #endif /* __LINUX_KVM_H */

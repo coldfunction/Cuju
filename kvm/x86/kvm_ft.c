@@ -42,6 +42,11 @@ int z_count = 0;
 int update_flag = 0;
 
 
+struct kvmft_context *global_ft_ctx;
+struct hrtimer global_hrtimer;
+struct kvm *global_kvm; 
+//int first_timer = 1;
+
 struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
 
@@ -204,6 +209,15 @@ int kvmft_fire_timer(struct kvm_vcpu *vcpu, int moff)
     return 0;
 }
 
+void kvm_shm_start_timer2(void)
+{
+	ktime_t ktime;
+
+    ktime = ktime_set(0, epoch_time_in_us * 1000);
+    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+
+}
+
 void kvm_shm_start_timer(struct kvm_vcpu *vcpu)
 {
 	ktime_t ktime;
@@ -217,8 +231,36 @@ static void spcl_kthread_notify_abandon(struct kvm *kvm);
 void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 {
     spcl_kthread_notify_abandon(vcpu->kvm);
-	hrtimer_cancel(&vcpu->hrtimer);
+	//hrtimer_cancel(&vcpu->hrtimer);
+	hrtimer_cancel(&global_hrtimer);
 }
+
+static int bd_predic_stop2(void)
+{
+    struct kvmft_dirty_list *dlist;
+    dlist = global_ft_ctx->page_nums_snapshot_k[global_ft_ctx->cur_index];
+    
+    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    int current_dirty_byte = bd_calc_dirty_bytes(global_ft_ctx, dlist);
+   
+    if(epoch_run_time >= target_latency_us ) {
+//        printk("cocotion test need takesnapshot\n");
+        global_vcpu->hrtimer_pending = true;
+        kvm_vcpu_kick(global_vcpu);
+        
+    }
+    else {
+        kvm_shm_start_timer2();
+ //       printk("cocotion test: start new timer\n");
+    }
+ 
+
+    int r = 1000;
+
+    return r;
+}
+
+
 
 static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         struct hrtimer *timer)
@@ -236,12 +278,16 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
 
-    struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
 
-    spcl_kthread_notify_abandon(vcpu->kvm);
 
-    vcpu->hrtimer_pending = true;
-    kvm_vcpu_kick(vcpu);
+    //struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
+
+    //spcl_kthread_notify_abandon(vcpu->kvm);
+
+    //vcpu->hrtimer_pending = true;
+    //kvm_vcpu_kick(vcpu);
+
+    bd_predic_stop2(); 
 
     return HRTIMER_NORESTART;
 }
@@ -250,8 +296,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 // called in vcpu_create..
 void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
 {
-    struct hrtimer *hrtimer = &vcpu->hrtimer;
+    //struct hrtimer *hrtimer = &vcpu->hrtimer;
+    struct hrtimer *hrtimer = &global_hrtimer;
 
+    //hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     hrtimer->function = &kvm_shm_vcpu_timer_callback;
     vcpu->hrtimer_pending = false;
@@ -773,7 +821,9 @@ static void xmit_kthread_notify_off(struct kvm *kvm, int off)
 
 int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 {
+
     struct kvmft_context *ctx = &kvm->ft_context;
+    global_ft_ctx = ctx;
     struct kvmft_master_slave_conn_info *info =
         &ctx->master_slave_info[cur_index];
     struct kvmft_dirty_list *dlist;
@@ -973,6 +1023,33 @@ void kvmft_prepare_upcall(struct kvm_vcpu *vcpu)
     for (i = 0; i < dlist->put_off; i++)
         gfn_list[i+1] = (uint32_t)dlist->pages[i];
 }
+
+/*
+static int bd_predic_stop2(void)
+{
+    struct kvmft_dirty_list *dlist;
+    dlist = global_ft_ctx->page_nums_snapshot_k[global_ft_ctx->cur_index];
+    
+    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    int current_dirty_byte = bd_calc_dirty_bytes(global_ft_ctx, dlist);
+   
+    if(epoch_run_time >= target_latency_us ) {
+        printk("cocotion test need takesnapshot\n");
+        global_vcpu->hrtimer_pending = true;
+        kvm_vcpu_kick(global_vcpu);
+        
+    }
+    else {
+        kvm_shm_start_timer2();
+    }
+ 
+
+    int r = 1000;
+
+    return r;
+}
+*/
+
 
 static int bd_predic_stop(struct kvm *kvm,
     struct kvmft_dirty_list *dlist, int put_off, struct kvmft_update_latency *update)
@@ -1482,7 +1559,8 @@ void kvm_shm_notify_vcpu_destroy(struct kvm_vcpu *vcpu)
     if (vcpu->hrtimer_running) {
         vcpu->hrtimer_running = false;
     }
-	hrtimer_cancel(&vcpu->hrtimer);
+	//hrtimer_cancel(&vcpu->hrtimer);
+	hrtimer_cancel(&global_hrtimer);
 }
 
 #if 0
@@ -3676,6 +3754,8 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     unsigned long cnt;
     struct kvmft_context *ctx = &kvm->ft_context;
 
+    global_kvm = kvm;
+
     // maximum integer is 2147*1e6
     if (info->epoch_time_in_ms > 2100) {
         printk("%s epoch_time_in_ms too bit, must be less then 2100\n",
@@ -3821,6 +3901,54 @@ int kvmft_ioctl_bd_set_alpha(struct kvm *kvm, int alpha)
 
     return 0;
 }   
+
+int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
+{
+    struct page *page1, *page2;
+    int i, j, count, total_dirty_bytes = 0;
+    
+    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+    count = dlist->put_off;
+
+
+    for (i = 0; i < count; ++i) {
+        gfn_t gfn = dlist->pages[i];
+
+
+        page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
+        page2 = find_later_backup(global_kvm, gfn, ctx->cur_index, ctx->master_slave_info[ctx->cur_index].run_serial);
+
+        if(page2 == NULL)
+            printk("page2 is NULL!!!##@@@@\n");
+        
+ //       if(page2 == NULL) {
+  //          page2 = gfn_to_page(global_kvm, gfn);
+   //     }
+//        char *backup = kmap_atomic(page1);
+ //       char *page = kmap_atomic(page2);
+
+        int len = 0;
+/*        kernel_fpu_begin();
+        for (j = 0; j < 4096; j += 32) {
+            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+        }
+        kernel_fpu_end();*/
+  //      kunmap_atomic(backup);
+   //     kunmap_atomic(page);
+
+        if(len == 0) len = 4096;
+        
+        total_dirty_bytes += len;
+
+    }
+    total_dirty_bytes += 28*count;
+        
+    if (count > 0) {
+        return total_dirty_bytes; 
+    }
+    return 0;
+}
+
 
 int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
 {

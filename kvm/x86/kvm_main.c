@@ -2614,7 +2614,9 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 
 	mutex_unlock(&kvm->lock);
 	kvm_arch_vcpu_postcreate(vcpu);
-	kvm_shm_setup_vcpu_hrtimer(vcpu);
+
+    if(id == 0)
+	    kvm_shm_setup_vcpu_hrtimer(vcpu);
 
 	return r;
 
@@ -2831,7 +2833,8 @@ out_free1:
 	}
 	case KVM_SHM_START_TIMER: {
         	r = 0;
-        	kvm_shm_start_timer(vcpu);
+        	//kvm_shm_start_timer(vcpu);
+        	kvm_shm_start_timer2();
        		break;
     	}
 	default:
@@ -3205,7 +3208,8 @@ static long kvm_vm_ioctl(struct file *filp,
 #endif
 
       r = 0;
-      kvm_shm_start_timer(kvm->vcpus[0]);
+      //kvm_shm_start_timer(kvm->vcpus[0]);
+      kvm_shm_start_timer2();
       break;
     }
     case KVM_SHM_SET_CHILD_PID: {

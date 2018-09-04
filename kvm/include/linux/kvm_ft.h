@@ -138,6 +138,8 @@ int kvm_shm_enable(struct kvm *kvm);
 int kvm_shm_start_log_share_dirty_pages(struct kvm *kvm, struct kvm_collect_log *log);
 int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_off, __u32 run_serial);
 void kvm_shm_start_timer(struct kvm_vcpu *vcpu);
+void kvm_shm_start_timer2(void);
+
 //int kvm_shm_log_full(struct kvm *kvm);
 int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
                      void *orig, bool is_user,
@@ -177,10 +179,13 @@ int kvmft_ioctl_set_master_slave_sockets(struct kvm *kvm,
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update);
 int kvmft_ioctl_bd_set_alpha(struct kvm *kvm, int alpha);
 int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm);
+int bd_calc_dirty_bytes(struct kvmft_context *global_ft_ctx, struct kvmft_dirty_list *dlist);
+
 int kvmft_ioctl_bd_check_dirty_page_number(struct kvm *kvm);
 int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm);
 int kvmft_ioctl_bd_runtime_exceeds(struct kvm *kvm, int *epoch_runtime);
 int kvmft_ioctl_bd_predic_stop(struct kvm *kvm, struct kvmft_update_latency *update);
+int kvmft_ioctl_bd_predic_stop2(void);
 int kvmft_ioctl_bd_perceptron(int latency_us);
 int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime);
 

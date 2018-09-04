@@ -2086,7 +2086,7 @@ int kvm_cpu_exec(CPUState *cpu)
             }
             break;
         case KVM_EXIT_HRTIMER:
-            if(!bd_timer_func())
+            //if(!bd_timer_func())
                 kvmft_tick_func();
             ret = EXCP_FT;
             break;

@@ -77,6 +77,11 @@ struct kvmft_master_slave_conn_info {
     wait_queue_head_t *events;
 };
 
+struct gfn_pfn_sync {
+    u8 flag;
+    u64 pfn; 
+};
+
 struct kvmft_context {
     unsigned long shared_page_num;
     unsigned long shared_watermark;
@@ -98,6 +103,10 @@ struct kvmft_context {
     // array of
     //  [struct page*, struct page*, ...]
     struct page ***shared_pages_snapshot_pages;
+
+    struct gfn_pfn_sync *gfn_pfn_sync_list;
+
+    //struct page **dirty_pages_via_gfn; 
 
     struct kvmft_master_slave_conn_info master_slave_info[KVM_MAX_MIGRATION_DESC];
 
@@ -144,6 +153,10 @@ void kvm_shm_start_timer2(void);
 int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
                      void *orig, bool is_user,
                      unsigned long *replacer_pfn);
+
+int kvmft_pfn_dirty(struct kvm *kvm, unsigned long gfn, u64 pfn);
+
+
 int kvm_shm_set_child_pid(struct kvm_shmem_child *);
 int kvm_shm_sync_dev_pages(void);
 void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu);
@@ -190,6 +203,8 @@ int kvmft_ioctl_bd_perceptron(int latency_us);
 int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime);
 
 int kvmft_bd_page_fault_check(void);
+
+
 
 #endif
 

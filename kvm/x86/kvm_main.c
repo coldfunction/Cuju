@@ -94,6 +94,7 @@
 #include "async_pf.h"
 #include "vfio.h"
 
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/kvm.h>
 
@@ -823,6 +824,8 @@ static int kvm_create_dirty_bitmap(struct kvm_memory_slot *memslot)
     if (ret < 0)
         goto nomem;
 
+
+    //printk("cocotion test gfn_to_put_off_bytes = %ld\n", gfn_to_put_off_bytes);
     ret = shared_pages_array_init(&memslot->epoch_gfn_to_put_offs,
                                   KVM_DIRTY_BITMAP_INIT_COUNT,
                                   gfn_to_put_off_bytes);
@@ -1553,6 +1556,59 @@ static bool hva_to_pfn_fast(unsigned long addr, bool atomic, bool *async,
 	return false;
 }
 
+int my_hva_to_pfn_slow(unsigned long addr, bool *async, bool write_fault,
+			   bool *writable, pfn_t *pfn)
+{
+	struct page *page[1];
+	int npages = 0;
+
+	might_sleep();
+
+	if (writable)
+		*writable = write_fault;
+
+	if (async) {
+		down_read(&current->mm->mmap_sem);
+		npages = get_user_page_nowait(current, current->mm,
+					      addr, write_fault, page);
+		up_read(&current->mm->mmap_sem);
+	} else
+//		npages = get_user_pages(current, current->mm, addr, 1,
+//						   write_fault, 0, page,
+//						   NULL);
+		npages = __get_user_pages_unlocked(current, current->mm, addr, 1,
+						   write_fault, 0, page,
+						   FOLL_TOUCH|FOLL_HWPOISON|FOLL_GET|FOLL_FORCE|FOLL_MLOCK);
+
+    return 1;
+/*
+    	if (npages != 1)
+		return npages;
+*/
+	/* map read fault as writable if possible */
+
+/*
+	if (unlikely(!write_fault) && writable) {
+		struct page *wpage[1];
+
+		npages = kvm___get_user_pages_fast(addr, 1, 1, wpage);
+		if (npages == 1) {
+			*writable = true;
+			put_page(page[0]);
+			page[0] = wpage[0];
+		}
+
+		npages = 1;
+	}
+	*pfn = page_to_pfn(page[0]);
+	return npages;
+*/
+}
+
+
+
+
+
 /*
  * The slow path to get the pfn of the specified host virtual address,
  * 1 indicates success, -errno is returned if error is detected.
@@ -1973,6 +2029,14 @@ static int __kvm_write_guest_page(struct kvm *kvm,struct kvm_memory_slot *memslo
 	if (r)
 		return -EFAULT;
 	mark_page_dirty_in_slot(memslot, gfn);
+
+/*
+    pfn_t pfn;
+    struct kvm_memory_slot *slot;
+    bool async = false;
+    pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
+    kvmft_pfn_dirty(kvm, gfn, pfn);
+*/
 	return 0;
 }
 
@@ -2100,6 +2164,15 @@ int kvm_write_guest_cached(struct kvm *kvm, struct gfn_to_hva_cache *ghc,
 	if (r)
 		return -EFAULT;
 	mark_page_dirty_in_slot(ghc->memslot, ghc->gpa >> PAGE_SHIFT);
+
+/*
+    pfn_t pfn;
+    gfn_t gfn = ghc->gpa >> PAGE_SHIFT;
+    struct kvm_memory_slot *slot;
+    bool async = false;
+    pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
+    kvmft_pfn_dirty(kvm, gfn, pfn);
+*/
 
 	return 0;
 }
@@ -3162,6 +3235,16 @@ static long kvm_vm_ioctl(struct file *filp,
         if (copy_from_user(&param, argp, sizeof(param)))
             goto out;
         r = kvmft_page_dirty(kvm, (gfn_t)param.gfn, param.hptr, 1, NULL);
+
+/*
+        pfn_t pfn;
+        gfn_t gfn = (gfn_t)param.gfn;
+        struct kvm_memory_slot *slot;
+        bool async = false;
+        pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
+        kvmft_pfn_dirty(kvm, gfn, pfn);
+*/
+
         break;
     }
     case KVM_CLEAR_DIRTY_BITMAP: {

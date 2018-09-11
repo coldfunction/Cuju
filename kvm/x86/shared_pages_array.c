@@ -38,6 +38,8 @@ int shared_pages_array_init(struct shared_pages_array *spa,
     spa->array_size = array_size;
 
     size = sizeof(void *) * array_size;
+    //printk("cocotion test memory pages size = %d\n", size);
+
     spa->kaddr = kmalloc(size, GFP_KERNEL | __GFP_ZERO);
     if (!spa->kaddr)
         goto nomem;

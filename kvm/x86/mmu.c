@@ -2685,11 +2685,22 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 			kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
 		}
 	}
-
+//    struct page *mypage;
+ //   unsigned long hva;
 set_pte:
 	if (mmu_spte_update(sptep, spte))
 		kvm_flush_remote_tlbs(vcpu->kvm);
 done:
+
+//	if (pte_access & ACC_WRITE_MASK) {
+//	    hva = gfn_to_hva(vcpu->kvm, gfn);
+//	    if (kvm_is_error_hva(hva)) {
+//		    printk("%s error hva for %lx\n", __func__, (long)gfn);
+//	    } 
+ //       else 
+  //          mypage = gfn_to_page(vcpu->kvm, gfn);
+
+//    }
 	return ret;
 }
 
@@ -3026,6 +3037,16 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 	 */
 	if (cmpxchg64(sptep, spte, spte | PT_WRITABLE_MASK) == spte)
 		kvm_vcpu_mark_page_dirty(vcpu, gfn);
+/*
+    pfn_t pfn;
+    struct kvm_memory_slot *slot;
+    bool async = false;
+    pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
+    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+*/
+    pfn_t pfn = gfn_to_pfn(vcpu->kvm, gfn);
+    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+    
 
 	return true;
 }
@@ -3104,6 +3125,8 @@ static bool fast_page_fault(struct kvm_vcpu *vcpu, gva_t gva, int level,
 	 * See Documentation/virtual/kvm/locking.txt to get more detail.
 	 */
 	ret = fast_pf_fix_direct_spte(vcpu, sp, iterator.sptep, spte);
+
+
 exit:
 	trace_fast_page_fault(vcpu, gva, error_code, iterator.sptep,
 			      spte, ret);
@@ -3161,6 +3184,7 @@ static int nonpaging_map(struct kvm_vcpu *vcpu, gva_t v, u32 error_code,
 			 prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
+    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 
 	return r;
 
@@ -3707,6 +3731,28 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 	r = __direct_map(vcpu, gpa, write, map_writable,
 			 level, gfn, pfn, prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
+
+
+
+    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+
+/*
+    struct page *mypage;
+
+    PageReserved(mypage = pfn_to_page(pfn));
+    char *backup = kmap_atomic(mypage);
+        
+        int j,k;
+        for (j = 0; j < 4096; j += 32) {
+            for(k = 0; k<32; k++) {
+                printk("cocotion test backup = %d\n", (backup+j)[k]) ;
+            }
+        }
+
+ 
+    kunmap_atomic(backup);
+
+*/
 
 	return r;
 

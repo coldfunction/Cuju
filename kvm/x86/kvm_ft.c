@@ -14,6 +14,8 @@
 #include <linux/module.h>
 #include <linux/mmu_context.h>
 
+
+
 #define SHOW_AVERAGE_FRAG   1
 #undef SHOW_AVERAGE_FRAG
 
@@ -33,6 +35,12 @@ int total_dirty_bytes = 0;
 //static long total_bytes = 0;
 int dirty_bytes_per_pages = 0;
 int global_dirty_count = 0;
+//struct page* global_pages;
+unsigned long global_addr = 0;
+int global_sample_dirty_page_count = 0;
+
+
+static DEFINE_SPINLOCK(myftlock);
 
 
 //int global_time_record_in_timer_callback = 0;
@@ -41,11 +49,15 @@ int z_count = 0;
 
 int update_flag = 0;
 
+int global_diff_gfn_count = 0;
+int global_diff_pfn_count = 0;
 
-struct kvmft_context *global_ft_ctx;
+
+//struct kvmft_context *global_ft_ctx;
 struct hrtimer global_hrtimer;
 struct kvm *global_kvm; 
 //int first_timer = 1;
+
 
 struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
@@ -85,11 +97,11 @@ static struct xmit_req {
 static int xmit_off[2];
 
 struct nocopy_callback_arg {
-	struct kvm *kvm;
-	unsigned long gfn;
-	atomic_t counter;
-	int16_t send;
-	int16_t sending;
+    struct kvm *kvm;
+    unsigned long gfn;
+    atomic_t counter;
+    int16_t send;
+    int16_t sending;
 };
 
 static inline s64 time_in_us(void) {
@@ -211,7 +223,7 @@ int kvmft_fire_timer(struct kvm_vcpu *vcpu, int moff)
 
 void kvm_shm_start_timer2(void)
 {
-	ktime_t ktime;
+    ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
     hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
@@ -220,7 +232,7 @@ void kvm_shm_start_timer2(void)
 
 void kvm_shm_start_timer(struct kvm_vcpu *vcpu)
 {
-	ktime_t ktime;
+    ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
     hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
@@ -231,20 +243,27 @@ static void spcl_kthread_notify_abandon(struct kvm *kvm);
 void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 {
     spcl_kthread_notify_abandon(vcpu->kvm);
-	//hrtimer_cancel(&vcpu->hrtimer);
-	hrtimer_cancel(&global_hrtimer);
+    //hrtimer_cancel(&vcpu->hrtimer);
+    hrtimer_cancel(&global_hrtimer);
 }
 
 static int bd_predic_stop2(void)
 {
+
+    struct kvmft_context *ctx;
+    ctx = &global_kvm->ft_context;
+    
+
     struct kvmft_dirty_list *dlist;
-    dlist = global_ft_ctx->page_nums_snapshot_k[global_ft_ctx->cur_index];
+    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
-    int current_dirty_byte = bd_calc_dirty_bytes(global_ft_ctx, dlist);
+    int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
+//    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
    
     if(epoch_run_time >= target_latency_us ) {
 //        printk("cocotion test need takesnapshot\n");
+
         global_vcpu->hrtimer_pending = true;
         kvm_vcpu_kick(global_vcpu);
         
@@ -305,7 +324,7 @@ void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
     vcpu->hrtimer_pending = false;
 
     global_vcpu = vcpu; 
-	printk("kvm_shm_setup_vcpu_hrtimer vcpu = %p\n",vcpu);
+    printk("kvm_shm_setup_vcpu_hrtimer vcpu = %p\n",vcpu);
 }
 
 /* Kernel build-in
@@ -343,6 +362,17 @@ static int prepare_for_page_backup(struct kvmft_context *ctx, int i)
         sizeof (struct page *) * ctx->shared_page_num, GFP_KERNEL);
     if (!ctx->shared_pages_snapshot_pages[i])
         return -ENOMEM;
+
+    //ctx->dirty_pages_via_gfn = kzalloc(
+     //   sizeof (struct page *) * ctx->shared_page_num, GFP_KERNEL);
+    //if (!ctx->dirty_pages_via_gfn)
+     //   return -ENOMEM;
+    
+    ctx->gfn_pfn_sync_list = kzalloc(
+        sizeof (struct  gfn_pfn_sync) * 262144, GFP_KERNEL);
+    if (!ctx->gfn_pfn_sync_list)
+        return -ENOMEM;
+
 
     printk("%s shared_snapshot_pages %p\n", __func__, ctx->shared_pages_snapshot_k[i]);
     return 0;
@@ -409,9 +439,10 @@ struct page *kvm_shm_alloc_page(struct kvm *kvm,
 {
     struct kvmft_context *ctx = &kvm->ft_context;
     struct page *page = alloc_pages(GFP_KERNEL, param->order);
+//    struct page *page2 = alloc_pages(GFP_KERNEL, param->order);
 
-	if (param->index1 == -1 && param->index2 == -1)
-		goto out;
+    if (param->index1 == -1 && param->index2 == -1)
+        goto out;
 
     if (page) {
         if (param->index1 > ctx->max_desc_count || param->index2 >= ctx->shared_page_num) {
@@ -423,31 +454,37 @@ struct page *kvm_shm_alloc_page(struct kvm *kvm,
             pfn_to_virt(page_to_pfn(page));
         ctx->shared_pages_snapshot_pages[param->index1][param->index2] = page;
     }
+    
+ //   if (page2) {
+  //      ctx->dirty_pages_via_gfn[param->index2] = page2;         
+   // }
+    //(ctx->gfn_pfn_sync_list)[param->index2].flag = 0;
+    
 out:
     return page;
 }
 
 static void kvm_shm_free_trackable(struct kvm *kvm)
 {
-	int i;
+    int i;
 
-	if (!kvm->trackable_list)
-		return;
+    if (!kvm->trackable_list)
+        return;
 
-	for (i = 0; i < kvm->trackable_list_len; ++i) {
-		struct kvm_trackable *kt = kvm->trackable_list + i;
-		if (kt->ppte) {
-			kfree(kt->ppte);
-			kt->ppte = NULL;
-		}
-		if (kt->page) {
-			kfree(kt->page);
-			kt->page = NULL;
-		}
-	}
+    for (i = 0; i < kvm->trackable_list_len; ++i) {
+        struct kvm_trackable *kt = kvm->trackable_list + i;
+        if (kt->ppte) {
+            kfree(kt->ppte);
+            kt->ppte = NULL;
+        }
+        if (kt->page) {
+            kfree(kt->page);
+            kt->page = NULL;
+        }
+    }
 
-	kfree(kvm->trackable_list);
-	kvm->trackable_list = NULL;
+    kfree(kvm->trackable_list);
+    kvm->trackable_list = NULL;
 }
 
 // log == NULL
@@ -456,45 +493,45 @@ int kvm_shm_start_log_share_dirty_pages(struct kvm *kvm,
 {
     struct kvm_memory_slot *memslot;
     struct kvmft_context *ctx;
-	struct kvm_memslots *slots;
-	bool is_dirty = false;
+    struct kvm_memslots *slots;
+    bool is_dirty = false;
 
-	ctx = &kvm->ft_context;
+    ctx = &kvm->ft_context;
 
-	mutex_lock(&kvm->slots_lock);
-	spin_lock(&kvm->mmu_lock);
+    mutex_lock(&kvm->slots_lock);
+    spin_lock(&kvm->mmu_lock);
 
-	slots = kvm_memslots(kvm);
+    slots = kvm_memslots(kvm);
 
-	kvm_for_each_memslot(memslot, slots) {
-		unsigned long i, mask, n;
-		unsigned long *dirty_bitmap;
-		if (!memslot->dirty_bitmap)
-			continue;
+    kvm_for_each_memslot(memslot, slots) {
+        unsigned long i, mask, n;
+        unsigned long *dirty_bitmap;
+        if (!memslot->dirty_bitmap)
+            continue;
 
-		dirty_bitmap = memslot->dirty_bitmap;
-		n = kvm_dirty_bitmap_bytes(memslot);
+        dirty_bitmap = memslot->dirty_bitmap;
+        n = kvm_dirty_bitmap_bytes(memslot);
 
-		for (i = 0; i < n / sizeof(long); ++i) {
-			gfn_t offset;
-			if (!dirty_bitmap[i])
-				continue;
+        for (i = 0; i < n / sizeof(long); ++i) {
+            gfn_t offset;
+            if (!dirty_bitmap[i])
+                continue;
 
-			is_dirty = true;
-			mask = xchg(&dirty_bitmap[i], 0);
+            is_dirty = true;
+            mask = xchg(&dirty_bitmap[i], 0);
 
-			offset = i * BITS_PER_LONG;
-			kvm_mmu_write_protect_pt_masked(kvm, memslot, offset, mask);
-		}
-	}
+            offset = i * BITS_PER_LONG;
+            kvm_mmu_write_protect_pt_masked(kvm, memslot, offset, mask);
+        }
+    }
 
-	if (is_dirty)
-		kvm_flush_remote_tlbs(kvm);
+    if (is_dirty)
+        kvm_flush_remote_tlbs(kvm);
 
-	spin_unlock(&kvm->mmu_lock);
-	mutex_unlock(&kvm->slots_lock);
+    spin_unlock(&kvm->mmu_lock);
+    mutex_unlock(&kvm->slots_lock);
 
-	ctx->log_full = false;
+    ctx->log_full = false;
     return 0;
 }
 
@@ -502,7 +539,7 @@ static int clear_dirty_bitmap(struct kvm *kvm,
                               int cur_index,
                               struct kvmft_dirty_list *list)
 {
-	struct kvm_memory_slot *memslot;
+    struct kvm_memory_slot *memslot;
     int i;
 
     for (i = list->put_off - 1; i >= 0; --i) {
@@ -523,7 +560,7 @@ static int clear_dirty_bitmap(struct kvm *kvm,
 static int confirm_dirty_bitmap_match(struct kvm *kvm, int cur_index,
                                     struct kvmft_dirty_list *list)
 {
-	struct kvm_memory_slot *memslot;
+    struct kvm_memory_slot *memslot;
     int i;
 
     for (i = list->put_off - 1; i >= 0; --i) {
@@ -546,35 +583,35 @@ static int confirm_dirty_bitmap_match(struct kvm *kvm, int cur_index,
 
 static int confirm_prev_dirty_bitmap_clear(struct kvm *kvm, int cur_index)
 {
-	struct kvm_memslots *slots;
-	struct kvm_memory_slot *memslot;
+    struct kvm_memslots *slots;
+    struct kvm_memory_slot *memslot;
 
-	slots = kvm_memslots(kvm);
+    slots = kvm_memslots(kvm);
 
-	kvm_for_each_memslot(memslot, slots) {
-		gfn_t base;
-		unsigned long npages;
-		unsigned long *dirty_bitmap;
-		int i;
-		dirty_bitmap = memslot->lock_dirty_bitmap;
+    kvm_for_each_memslot(memslot, slots) {
+        gfn_t base;
+        unsigned long npages;
+        unsigned long *dirty_bitmap;
+        int i;
+        dirty_bitmap = memslot->lock_dirty_bitmap;
         if (!dirty_bitmap)
             continue;
-		base = memslot->base_gfn;
+        base = memslot->base_gfn;
         npages = memslot->npages;
-		for (i = 0; i < npages; ++i) {
-			if (test_bit(i, dirty_bitmap)) {
-				printk("%s %x is still set.\n", __func__, (long)base + i);
+        for (i = 0; i < npages; ++i) {
+            if (test_bit(i, dirty_bitmap)) {
+                printk("%s %x is still set.\n", __func__, (long)base + i);
 //                return -EINVAL;
-			}
-		}
-	}
+            }
+        }
+    }
     return 0;
 }
 
 
 struct socket *sockfd_lookup(int fd, int *err);
 int kernel_sendpage(struct socket *sock, struct page *page, int offset,
-			size_t size, int flags);
+            size_t size, int flags);
 
 ssize_t do_tcp_sendpage_frag(struct sock *sk, struct page *page, int *offsets,
               int size_per_frag, int count, int flags);
@@ -582,7 +619,7 @@ ssize_t do_tcp_sendpage_frag(struct sock *sk, struct page *page, int *offsets,
 
 static void kvmft_protect_all_gva_spcl_pages(struct kvm *kvm, int cur_index)
 {
-	struct kvm_memory_slot *last_memslot = NULL;
+    struct kvm_memory_slot *last_memslot = NULL;
     struct kvmft_context *ctx;
     struct kvmft_dirty_list *dlist;
     int i, count;
@@ -823,24 +860,30 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 {
 
     struct kvmft_context *ctx = &kvm->ft_context;
-    global_ft_ctx = ctx;
     struct kvmft_master_slave_conn_info *info =
         &ctx->master_slave_info[cur_index];
     struct kvmft_dirty_list *dlist;
 
-	#ifdef ft_debug_mode_enable
-	printk("kvm_shm_flip_sharing cur_index = %x\n", cur_index);
-	#endif
+    #ifdef ft_debug_mode_enable
+    printk("kvm_shm_flip_sharing cur_index = %x\n", cur_index);
+    #endif
     //kvmft_protect_all_gva_spcl_pages(kvm, ctx->cur_index);
-	confirm_prev_dirty_bitmap_clear(kvm, cur_index);
+    confirm_prev_dirty_bitmap_clear(kvm, cur_index);
 
     ctx->cur_index = cur_index;
     info->run_serial = run_serial;
+//    printk("cocotion in flip_sharing: cur_index = %d\n", cur_index);
+//    printk("cocotion in flip_sharing: run_serial = %d\n", run_serial);
+
     ctx->log_full = false;
     ctx->bd_average_dirty_bytes = 100;
 
     bd_page_fault_check = 1;
     update_flag = 0;
+
+    int i;
+    for(i = 0; i < 262144; i++)
+        (ctx->gfn_pfn_sync_list)[i].flag = 0;
 
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
@@ -897,7 +940,7 @@ static void try_put_gfn_in_diff_req_list(struct kvm *kvm,
     struct kvmft_context *ctx;
     unsigned long gfn_off;
 
-	ctx = &kvm->ft_context;
+    ctx = &kvm->ft_context;
     gfn_off = gfn - memslot->base_gfn;
 
     if (ctx->diff_req_list_cur != NULL) {    // previous epoch is still transfering
@@ -1007,12 +1050,12 @@ static void ept_gva_reset(int count)
 void kvmft_prepare_upcall(struct kvm_vcpu *vcpu)
 {
     struct kvm *kvm = vcpu->kvm;
-	struct kvmft_context *ctx;
+    struct kvmft_context *ctx;
     struct kvmft_dirty_list *dlist;
     static uint32_t *gfn_list = NULL;
     int i;
 
-	ctx = &kvm->ft_context;
+    ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
     if (gfn_list == NULL) {
@@ -1420,6 +1463,63 @@ int kvmft_bd_page_fault_check()
     //else return 0;
 }
 
+int kvmft_pfn_dirty(struct kvm *kvm, unsigned long gfn, pfn_t pfn)
+{
+    
+    if (unlikely(!kvm_shm_is_enabled(kvm)))
+        return 0;
+    
+    struct kvmft_context *ctx;
+    ctx = &kvm->ft_context;
+   
+    struct kvm_memory_slot *memslot;
+    unsigned long gfn_off;
+
+    memslot = gfn_to_memslot(kvm, gfn);
+    if (unlikely(!memslot)) {
+        printk(KERN_ERR"%s can't find memslot for %lx\n", __func__, gfn);
+        memslots_dump(kvm);
+        return -ENOENT;
+    }
+
+    gfn_off = gfn - memslot->base_gfn;
+
+    global_sample_dirty_page_count++;
+
+    //printk("----------------------\n");
+    //printk("cocotion test gfn = %ld\n", gfn);
+    //printk("cocotion test gfn_off = %ld\n", gfn_off);
+
+
+    (ctx->gfn_pfn_sync_list)[gfn_off].pfn = pfn;
+    (ctx->gfn_pfn_sync_list)[gfn_off].flag = 1;
+
+    //printk("cocotion test gfn pfn flag = %d\n", (ctx->gfn_pfn_sync_list)[gfn_off].flag);
+    //printk("cocotion test gfn pfn = %ld\n", (ctx->gfn_pfn_sync_list)[gfn_off].pfn);
+
+
+    //printk("----------------------\n");
+
+/*
+    struct page *mypage;
+
+    PageReserved(mypage = pfn_to_page(pfn));
+    char *backup = kmap_atomic(mypage);
+        
+        int j,k;
+        for (j = 0; j < 4096; j += 32) {
+            for(k = 0; k<32; k++) {
+                printk("cocotion test backup = %d\n", (backup+j)[k]) ;
+            }
+        }
+
+ 
+    kunmap_atomic(backup);
+*/
+
+}
+
+
 // backup data in snapshot mode.
 // for pte, record list
 // for other, backup whole page
@@ -1427,17 +1527,19 @@ int kvmft_bd_page_fault_check()
 int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
         void *orig, bool is_user, unsigned long *replacer_pfn)
 {
-	struct kvmft_context *ctx;
+    struct kvmft_context *ctx;
     struct kvmft_dirty_list *dlist;
-	void **shared_pages_k;
+    void **shared_pages_k;
     struct kvm_memory_slot *memslot;
     unsigned long gfn_off;
     int put_index;
 
-	if (unlikely(!kvm_shm_is_enabled(kvm)))
-		return 0;
+    if (unlikely(!kvm_shm_is_enabled(kvm)))
+        return 0;
 
-	ctx = &kvm->ft_context;
+
+
+    ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
     memslot = gfn_to_memslot(kvm, gfn);
@@ -1455,42 +1557,47 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
     BUG_ON(!memslot->lock_dirty_bitmap);
 
     gfn_off = gfn - memslot->base_gfn;
-	#ifdef ft_debug_mode_enable
-	printk("kvmft_page_dirty gfn = %x \n",gfn);
-	#endif
+    
+    #ifdef ft_debug_mode_enable
+    printk("kvmft_page_dirty gfn = %x \n",gfn);
+    #endif
 
-    if (unlikely(test_and_set_bit(gfn_off, memslot->lock_dirty_bitmap)))
-        return wait_for_other_mark(memslot, ctx->cur_index, gfn_off, 5);
-
+    if (unlikely(test_and_set_bit(gfn_off, memslot->lock_dirty_bitmap))) {
+        int r = wait_for_other_mark(memslot, ctx->cur_index, gfn_off, 5);
+        return r;
+    }
     //ept_gva_new(ept_gva);
 
     put_index = __sync_fetch_and_add(&dlist->put_off, 1);
     if (unlikely(put_index >= ctx->shared_page_num)) {
-		printk(KERN_ERR"%s (%d) missing dirtied page in snapshot mode %p %ld.\n",
-				__func__, put_index, orig, gfn);
-		return -1;
-	}
+        printk(KERN_ERR"%s (%d) missing dirtied page in snapshot mode %p %ld.\n",
+                __func__, put_index, orig, gfn);
+        return -1;
+    }
 
     //printk("%s (%d) %d %lx\n", __func__, ctx->cur_index, put_index, gfn);
 
     ((uint16_t *)memslot->epoch_gfn_to_put_offs.kaddr[ctx->cur_index])[gfn_off] = put_index;
-	dlist->pages[put_index] = gfn;
+    dlist->pages[put_index] = gfn;
 
-	shared_pages_k = ctx->shared_pages_snapshot_k[ctx->cur_index];
-	orig = (void *)((unsigned long)orig & ~0x0FFFULL);
+    shared_pages_k = ctx->shared_pages_snapshot_k[ctx->cur_index];
+    orig = (void *)((unsigned long)orig & ~0x0FFFULL);
 
-	if (is_user) {
-		int copied = __copy_from_user(shared_pages_k[put_index], orig, 4096);
-		if (unlikely(copied)) {
-			printk(KERN_ERR"%s copy from user failed %lx (%p) %d.\n", __func__,
-					(long)gfn, orig, copied);
+
+    if (is_user) {
+        int copied = __copy_from_user(shared_pages_k[put_index], orig, 4096);
+        if (unlikely(copied)) {
+            printk(KERN_ERR"%s copy from user failed %lx (%p) %d.\n", __func__,
+                    (long)gfn, orig, copied);
             return -1;
-		}
-	} else {
-		//memcpy_page(shared_pages_k[put_index], orig);
-		memcpy_page_ermsb(shared_pages_k[put_index], orig);
+        }
+    } else {
+        //memcpy_page(shared_pages_k[put_index], orig);
+        memcpy_page_ermsb(shared_pages_k[put_index], orig);
         //memcpy_page_avx(shared_pages_k[put_index], orig);
-	}
+    }
+    
+//    printk("cocotion test orig = %d\n", *(char*)shared_pages_k[put_index]);
 
     if (unlikely(test_and_set_bit(gfn_off, memslot->epoch_dirty_bitmaps.kaddr[ctx->cur_index]))) {
         printk(KERN_ERR"%s dirty_bit set before lock_dirty_bit %d %ld\n", __func__, ctx->cur_index, (long)gfn);
@@ -1500,9 +1607,37 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
     //ctx->bd_average_dirty_bytes = kvmft_ioctl_bd_calc_dirty_bytes(kvm);
 
     if (unlikely(put_index >= dlist->dirty_stop_num))
-		ctx->log_full = true;
+        ctx->log_full = true;
 
 
+
+    //unsigned long addr = gfn_to_hva(kvm, gfn);
+    //global_addr = gfn_to_hva(kvm, gfn);
+    //void *addr = (void*) gfn_to_hva(kvm, gfn);
+    //mm_mpin(addr, 4096);
+
+    //struct page *page = gfn_to_page(kvm, gfn);
+    //char *testpage = kmap_atomic(global_page);
+    //kunmap_atomic(global_page);
+
+
+    //SetPageReserved(page);
+
+    //mlock_vma_page(page);
+
+
+    //munlock_vma_page(page);
+
+    //printk("cocotion test addr = %d\n", *(char*)addr);
+
+//    uint64_t pa = gfn_to_gpa(gfn);
+//    void *addr = gpa_to_hva(pa);
+
+    //global_page = gfn_to_page(kvm, gfn);
+    //ctx->dirty_pages_via_gfn[gfn_off] = gfn_to_page(kvm, gfn);
+    //ctx->dirty_pages_via_gfn[0] = gfn_to_page(kvm, gfn);
+    //global_pages = gfn_to_page(kvm, gfn);
+        //gfn_to_page(kvm, gfn);
 
    
 //     if (bd_page_fault_check && hrtimer_cancel(&global_vcpu->hrtimer)) {
@@ -1559,8 +1694,8 @@ void kvm_shm_notify_vcpu_destroy(struct kvm_vcpu *vcpu)
     if (vcpu->hrtimer_running) {
         vcpu->hrtimer_running = false;
     }
-	//hrtimer_cancel(&vcpu->hrtimer);
-	hrtimer_cancel(&global_hrtimer);
+    //hrtimer_cancel(&vcpu->hrtimer);
+    hrtimer_cancel(&global_hrtimer);
 }
 
 #if 0
@@ -1597,7 +1732,7 @@ int kvm_shm_set_child_pid(struct kvm_shmem_child *info)
 
     maps_info = *info;
 
-	return 0;
+    return 0;
 #if 0
 
     cp = find_task_by_vpid(pid);
@@ -1619,165 +1754,165 @@ int kvm_shm_sync_dev_pages(void)
 {
     if (!child_mm)
         return -EINVAL;
-	return -ENOENT;
+    return -ENOENT;
 }
 
 
 int kvm_shm_report_trackable(struct kvm *kvm,
-						struct kvm_shmem_report_trackable *t)
+                        struct kvm_shmem_report_trackable *t)
 {
-	int i, j;
-	unsigned long addr;
-	int ret = -ENOMEM;
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	pte_t *pte;
+    int i, j;
+    unsigned long addr;
+    int ret = -ENOMEM;
+    pgd_t *pgd;
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
 
-	printk("%s %d\n", __func__, __LINE__);
-	if (t->trackable_count > KVM_SHM_REPORT_TRACKABLE_COUNT)
-		return -EINVAL;
+    printk("%s %d\n", __func__, __LINE__);
+    if (t->trackable_count > KVM_SHM_REPORT_TRACKABLE_COUNT)
+        return -EINVAL;
 
-	printk("%s %d\n", __func__, __LINE__);
-	if (t->trackable_count <= 0)
-		return -EINVAL;
+    printk("%s %d\n", __func__, __LINE__);
+    if (t->trackable_count <= 0)
+        return -EINVAL;
 
-	printk("%s %d\n", __func__, __LINE__);
-	if (kvm->trackable_list)
-		return -EEXIST;
+    printk("%s %d\n", __func__, __LINE__);
+    if (kvm->trackable_list)
+        return -EEXIST;
 
-	printk("%s %d\n", __func__, __LINE__);
-	kvm->trackable_list = kmalloc(sizeof(struct kvm_trackable)*t->trackable_count,
-								GFP_KERNEL | __GFP_ZERO);
-	if (!kvm->trackable_list)
-		return -ENOMEM;
+    printk("%s %d\n", __func__, __LINE__);
+    kvm->trackable_list = kmalloc(sizeof(struct kvm_trackable)*t->trackable_count,
+                                GFP_KERNEL | __GFP_ZERO);
+    if (!kvm->trackable_list)
+        return -ENOMEM;
 
-	printk("%s %d\n", __func__, __LINE__);
-	for (i = 0; i < t->trackable_count; ++i) {
-		struct kvm_trackable *kt = kvm->trackable_list + i;
-		struct vm_area_struct *vma;
-		// validate size is 4096*x, addr is userspace.
-		if ((unsigned long)t->ptrs[i] >= TASK_SIZE_MAX ||
-				(unsigned long)t->ptrs[i] + t->sizes[i] >= TASK_SIZE_MAX) {
-			ret = -EINVAL;
-			goto err_out;
-		}
-		if (t->sizes[i] <= 0 || t->sizes[i] % 4096 != 0) {
-			ret = -EINVAL;
-			goto err_out;
-		}
-		vma = find_vma(current->mm, (unsigned long)t->ptrs[i]);
-		if (!vma) {
-			ret = -EINVAL;
-			goto err_out;
-		}
-		kt->ptr = t->ptrs[i];
-		kt->size = t->sizes[i];
-		kt->ppte = kmalloc(sizeof(pte_t *)*(kt->size/4096),
-							GFP_KERNEL | __GFP_ZERO);
-		kt->page = kmalloc(sizeof(struct page *)*(kt->size/4096),
-							GFP_KERNEL | __GFP_ZERO);
-		if (!kt->ppte || !kt->page)
-			goto err_out;
+    printk("%s %d\n", __func__, __LINE__);
+    for (i = 0; i < t->trackable_count; ++i) {
+        struct kvm_trackable *kt = kvm->trackable_list + i;
+        struct vm_area_struct *vma;
+        // validate size is 4096*x, addr is userspace.
+        if ((unsigned long)t->ptrs[i] >= TASK_SIZE_MAX ||
+                (unsigned long)t->ptrs[i] + t->sizes[i] >= TASK_SIZE_MAX) {
+            ret = -EINVAL;
+            goto err_out;
+        }
+        if (t->sizes[i] <= 0 || t->sizes[i] % 4096 != 0) {
+            ret = -EINVAL;
+            goto err_out;
+        }
+        vma = find_vma(current->mm, (unsigned long)t->ptrs[i]);
+        if (!vma) {
+            ret = -EINVAL;
+            goto err_out;
+        }
+        kt->ptr = t->ptrs[i];
+        kt->size = t->sizes[i];
+        kt->ppte = kmalloc(sizeof(pte_t *)*(kt->size/4096),
+                            GFP_KERNEL | __GFP_ZERO);
+        kt->page = kmalloc(sizeof(struct page *)*(kt->size/4096),
+                            GFP_KERNEL | __GFP_ZERO);
+        if (!kt->ppte || !kt->page)
+            goto err_out;
 
-		addr = (unsigned long)kt->ptr;
-		for (j = 0; j < kt->size/4096; ++j) {
-			if (is_vm_hugetlb_page(vma)) {
-				ret = -EINVAL;
-				goto err_out;
-			} else {
-				pgd = pgd_offset(current->mm, addr);
-				ret = -ENOENT;
-				if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
-					goto err_out;
-				}
-				pud = pud_offset(pgd, addr);
-				if (pud_none(*pud) || unlikely(pud_bad(*pud))) {
-					goto err_out;
-				}
-				pmd = pmd_offset(pud, addr);
-				if (pmd_none(*pmd) || unlikely(pmd_bad(*pmd))) {
-					goto err_out;
-				}
-				// NOTE, in 64bit, all kernel pages are mapped.
+        addr = (unsigned long)kt->ptr;
+        for (j = 0; j < kt->size/4096; ++j) {
+            if (is_vm_hugetlb_page(vma)) {
+                ret = -EINVAL;
+                goto err_out;
+            } else {
+                pgd = pgd_offset(current->mm, addr);
+                ret = -ENOENT;
+                if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd))) {
+                    goto err_out;
+                }
+                pud = pud_offset(pgd, addr);
+                if (pud_none(*pud) || unlikely(pud_bad(*pud))) {
+                    goto err_out;
+                }
+                pmd = pmd_offset(pud, addr);
+                if (pmd_none(*pmd) || unlikely(pmd_bad(*pmd))) {
+                    goto err_out;
+                }
+                // NOTE, in 64bit, all kernel pages are mapped.
                 // we only support 64bit kernel.
-				if (sizeof(long) != 8) {
-					ret = -EINVAL;
-					goto err_out;
-				}
+                if (sizeof(long) != 8) {
+                    ret = -EINVAL;
+                    goto err_out;
+                }
                 // NOTE, maybe we are unlucky? swapped out..
                 // we don't deal with it.
-				pte = pte_offset_map(pmd, addr);
-				if (!pte_present(*pte)) {
-					goto err_out;
-				}
-			}
+                pte = pte_offset_map(pmd, addr);
+                if (!pte_present(*pte)) {
+                    goto err_out;
+                }
+            }
 
-			kt->ppte[j] = pte;
-			kt->page[j] = pte_page(*pte);
-			if (!kt->page[j]) {
-				ret = -ENOENT;
-				goto err_out;
-			}
+            kt->ppte[j] = pte;
+            kt->page[j] = pte_page(*pte);
+            if (!kt->page[j]) {
+                ret = -ENOENT;
+                goto err_out;
+            }
             // TODO get_page in case page is swapped out.
-			if (pte_dirty(*pte)) {
+            if (pte_dirty(*pte)) {
                 set_page_dirty(kt->page[j]);
-				set_pte(pte, pte_mkclean(*pte));
-				__flush_tlb_single(addr);
-				// update_mmu_cache
-			}
-			addr += 4096;
-		}
-	}
-	kvm->trackable_list_len = t->trackable_count;
-	return 0;
+                set_pte(pte, pte_mkclean(*pte));
+                __flush_tlb_single(addr);
+                // update_mmu_cache
+            }
+            addr += 4096;
+        }
+    }
+    kvm->trackable_list_len = t->trackable_count;
+    return 0;
 err_out:
-	kvm_shm_free_trackable(kvm);
-	return ret;
+    kvm_shm_free_trackable(kvm);
+    return ret;
 }
 
 int kvm_shm_collect_trackable_dirty(struct kvm *kvm,
-									void * __user bitmap)
+                                    void * __user bitmap)
 {
-	static char bm[KVM_SHM_REPORT_TRACKABLE_COUNT/8] = {0};
-	int i, j, bytes, count = 0;
-	unsigned long addr;
-	for (i = 0; i < kvm->trackable_list_len; ++i) {
-		struct kvm_trackable *kt = kvm->trackable_list + i;
-		int dirty = 0;
-		addr = (unsigned long)kt->ptr;
-		for (j = 0; j < kt->size/4096; ++j) {
-			if (pte_dirty(*kt->ppte[j])) {
+    static char bm[KVM_SHM_REPORT_TRACKABLE_COUNT/8] = {0};
+    int i, j, bytes, count = 0;
+    unsigned long addr;
+    for (i = 0; i < kvm->trackable_list_len; ++i) {
+        struct kvm_trackable *kt = kvm->trackable_list + i;
+        int dirty = 0;
+        addr = (unsigned long)kt->ptr;
+        for (j = 0; j < kt->size/4096; ++j) {
+            if (pte_dirty(*kt->ppte[j])) {
                 set_page_dirty(kt->page[j]);
-				set_pte(kt->ppte[j], pte_mkclean(*kt->ppte[j]));
-				__flush_tlb_single(addr);
-				dirty = 1;
-			}
+                set_pte(kt->ppte[j], pte_mkclean(*kt->ppte[j]));
+                __flush_tlb_single(addr);
+                dirty = 1;
+            }
             addr += 4096;
-		}
-		if (dirty) {
-			set_bit(i, (long *)bm);
-			++count;
-		} else {
-			clear_bit(i, (long *)bm);
-		}
-	}
+        }
+        if (dirty) {
+            set_bit(i, (long *)bm);
+            ++count;
+        } else {
+            clear_bit(i, (long *)bm);
+        }
+    }
 
-	bytes = kvm->trackable_list_len / 8;
-	if (kvm->trackable_list_len % 8)
-		++bytes;
+    bytes = kvm->trackable_list_len / 8;
+    if (kvm->trackable_list_len % 8)
+        ++bytes;
 
-	i = copy_to_user(bitmap, bm, bytes);
+    i = copy_to_user(bitmap, bm, bytes);
 
-	if (i < 0)
-		return i;
-	return count;
+    if (i < 0)
+        return i;
+    return count;
 }
 
 int kvm_vm_ioctl_get_dirty_log_batch(struct kvm *kvm, __u32 cur_index)
 {
     struct kvm_memslots *slots;
-	struct kvm_memory_slot *memslot;
+    struct kvm_memory_slot *memslot;
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;
     int i;
@@ -1791,16 +1926,16 @@ int kvm_vm_ioctl_get_dirty_log_batch(struct kvm *kvm, __u32 cur_index)
 
     //printk("%s cindex %d putoff %d\n", __func__, cur_index, dlist->put_off);
 
-	//mutex_lock(&kvm->slots_lock);
+    //mutex_lock(&kvm->slots_lock);
 
-	slots = kvm_memslots(kvm);
+    slots = kvm_memslots(kvm);
 
-	kvm_for_each_memslot(memslot, slots) {
+    kvm_for_each_memslot(memslot, slots) {
         if (!memslot->epoch_dirty_bitmaps.kaddr[cur_index])
             continue;
         /*
-		if (!memslot->dirty_bitmap)
-			continue;
+        if (!memslot->dirty_bitmap)
+            continue;
         if (memslot->dirty_bitmap != memslot->epoch_dirty_bitmaps[cur_index]) {
             printk("%s sort epoch_dirty_bitmaps to cur_index %p != %p.\n",
                   __func__,
@@ -1811,12 +1946,12 @@ int kvm_vm_ioctl_get_dirty_log_batch(struct kvm *kvm, __u32 cur_index)
         */
         // TODO swap disabled
         //memslot->dirty_bitmap = memslot->epoch_dirty_bitmaps[!cur_index];
-	}
+    }
 
     //if (confirm_dirty_bitmap_match(kvm, cur_index, dlist))
     //    return -EINVAL;
 
-	spin_lock(&kvm->mmu_lock);
+    spin_lock(&kvm->mmu_lock);
     for (i = dlist->put_off - 1; i >= 0; --i) {
         unsigned long gfn = dlist->pages[i];
         memslot = gfn_to_memslot(kvm, gfn);
@@ -1825,21 +1960,21 @@ int kvm_vm_ioctl_get_dirty_log_batch(struct kvm *kvm, __u32 cur_index)
         clear_bit(gfn - memslot->base_gfn, memslot->epoch_dirty_bitmaps.kaddr[cur_index]);
     }
     kvm_flush_remote_tlbs(kvm);
-	spin_unlock(&kvm->mmu_lock);
+    spin_unlock(&kvm->mmu_lock);
 
     if (confirm_prev_dirty_bitmap_clear(kvm, cur_index))
         return -EINVAL;
 
     ctx->log_full = false;
 
-	//mutex_unlock(&kvm->slots_lock);
+    //mutex_unlock(&kvm->slots_lock);
 
     return 0;
 }
 
 int kvm_vm_ioctl_ft_protect_speculative_and_prepare_next_speculative(struct kvm *kvm, __u32 cur_index)
 {
-	struct kvm_memory_slot *last_memslot = NULL;
+    struct kvm_memory_slot *last_memslot = NULL;
     struct kvm_memslots *slots;
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;
@@ -1854,7 +1989,7 @@ int kvm_vm_ioctl_ft_protect_speculative_and_prepare_next_speculative(struct kvm 
     // clear lock_dirty_bitmap for all
     slots = kvm_memslots(kvm);
 
-	spin_lock(&kvm->mmu_lock);
+    spin_lock(&kvm->mmu_lock);
 
     count = 500;
     if (dlist->put_off < 500)
@@ -1881,7 +2016,7 @@ int kvm_vm_ioctl_ft_protect_speculative_and_prepare_next_speculative(struct kvm 
         //printk("%s cl %lx\n", __func__, gfn);
     }
 
-	spin_unlock(&kvm->mmu_lock);
+    spin_unlock(&kvm->mmu_lock);
 
     memcpy(ctx->spcl_backup_dirty_list, dlist->pages + start, sizeof(dlist->pages[0]) * ctx->spcl_backup_dirty_num);
 
@@ -1954,7 +2089,7 @@ static void spcl_sort_real_dirty_via_spte(struct kvm *kvm,
 
 int kvm_vm_ioctl_ft_write_protect_dirty(struct kvm *kvm, __u32 cur_index)
 {
-	struct kvm_memory_slot *last_memslot = NULL;
+    struct kvm_memory_slot *last_memslot = NULL;
     struct kvmft_context *ctx = &kvm->ft_context;
     struct kvmft_dirty_list *dlist;
     int i, count;
@@ -1966,19 +2101,19 @@ int kvm_vm_ioctl_ft_write_protect_dirty(struct kvm *kvm, __u32 cur_index)
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
     count = dlist->put_off;
-	#ifdef ft_debug_mode_enable
-	printk("count = %d\n", count);
-	printk("cur_index = %d\n", cur_index);
-	#endif
+    #ifdef ft_debug_mode_enable
+    printk("count = %d\n", count);
+    printk("cur_index = %d\n", cur_index);
+    #endif
 
-	//mutex_lock(&kvm->slots_lock);
+    //mutex_lock(&kvm->slots_lock);
 
-	spin_lock(&kvm->mmu_lock);
+    spin_lock(&kvm->mmu_lock);
     for (i = 0; i < count; i++) {
         gfn_t gfn = dlist->pages[i];
-		#ifdef ft_debug_mode_enable
-		printk("kvm_vm_ioctl_ft_write_protect_dirty gfn = %x\n", gfn);
-		#endif
+        #ifdef ft_debug_mode_enable
+        printk("kvm_vm_ioctl_ft_write_protect_dirty gfn = %x\n", gfn);
+        #endif
         if (!last_memslot || !in_memslot(last_memslot, gfn))
             last_memslot = gfn_to_memslot(kvm, gfn);
         clear_bit(gfn - last_memslot->base_gfn, last_memslot->lock_dirty_bitmap);
@@ -1986,7 +2121,7 @@ int kvm_vm_ioctl_ft_write_protect_dirty(struct kvm *kvm, __u32 cur_index)
     }
     if (count > 0)
         kvm_flush_remote_tlbs(kvm);
-	spin_unlock(&kvm->mmu_lock);
+    spin_unlock(&kvm->mmu_lock);
 
 #ifdef SPCL
     spcl_sort_real_dirty_via_spte(kvm, dlist);
@@ -1994,7 +2129,7 @@ int kvm_vm_ioctl_ft_write_protect_dirty(struct kvm *kvm, __u32 cur_index)
 
     //kvmft_test_copy_all_dirty_pages(kvm, dlist->pages, count);
 
-	//mutex_unlock(&kvm->slots_lock);
+    //mutex_unlock(&kvm->slots_lock);
 
     return 0;
 }
@@ -2056,19 +2191,19 @@ int ktcp_send(struct socket *sock, char *buf, int len)
         msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
         //msg.msg_iov = &iov;
         //msg.msg_iovlen = 1;
-	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
-      		msg.msg_iov = &iov;
-      		msg.msg_iovlen = 1;
-	#else
-	     iov_iter_init(&msg.msg_iter, READ, &iov, 1, len - done);
-	#endif
+    #if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
+            msg.msg_iov = &iov;
+            msg.msg_iovlen = 1;
+    #else
+         iov_iter_init(&msg.msg_iter, READ, &iov, 1, len - done);
+    #endif
 
         msg.msg_name = 0;
         msg.msg_namelen = 0;
 
         oldfs = get_fs();
         set_fs(KERNEL_DS);
-	size = sock_sendmsg(sock, &msg);
+    size = sock_sendmsg(sock, &msg);
         set_fs(oldfs);
 
         if (size == -EAGAIN)
@@ -2555,7 +2690,7 @@ static int wait_for_mdt_and_transfer_complete(struct kvm *kvm, int trans_index, 
 static void transfer_finish_callback(struct kvm *kvm, unsigned long gfn, int trans_index)
 {
 
-	struct kvm_memory_slot *memslot = NULL;
+    struct kvm_memory_slot *memslot = NULL;
 
     //printk("%s %d pending_page_num = %d\n", __func__, trans_index, atomic_read(&kvm->pending_page_num[trans_index]) - 1);
     #ifdef PAGE_TRANSFER_TIME_MEASURE
@@ -2588,7 +2723,7 @@ static void transfer_finish_callback(struct kvm *kvm, unsigned long gfn, int tra
 /*
 static void kvm_shm_tcp_get_callback(struct page *page)
 {
-	struct zerocopy_callback_arg *arg = page->net_priv;
+    struct zerocopy_callback_arg *arg = page->net_priv;
 
     if (arg) {
         atomic_inc(&arg->counter);
@@ -2688,8 +2823,12 @@ static struct page *find_later_backup(struct kvm *kvm,
     do {
         off = (off + 1) % ctx->max_desc_count;
         info = &ctx->master_slave_info[off];
-        if (info->run_serial <= run_serial)
+        if (info->run_serial <= run_serial) {
+            //printk("cocotion test break shit!!@@@\n");
+            //printk("cocotion test info->run_serial = %d\n", info->run_serial);
+            //printk("cocotion test run_serial = %d\n", run_serial);
             break;
+        }
         else {
             volatile void *bitmap = bitmaps[off];
 #ifdef DEBUG_SWAP_PTE
@@ -2697,6 +2836,7 @@ static struct page *find_later_backup(struct kvm *kvm,
 #endif
             if (test_bit(start_addr, bitmap)) {
                 int j = ((uint16_t *)gfn_to_put_off[off])[start_addr];
+                //printk("cocotion test great fuck\n");
                 return ctx->shared_pages_snapshot_pages[off][j];
             }
         }
@@ -2924,11 +3064,63 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
             dirty_bytes_per_pages += 32; 
         }
     }
+    kernel_fpu_end();
+///////////////////////////////////////////////cocotion test start
+
+
+    #ifdef ft_debug_bd
+
+    struct kvm_memory_slot *memslot;
+    unsigned long gfn_off;
+    memslot = gfn_to_memslot(global_kvm, gfn);
+    gfn_off = gfn - memslot->base_gfn;
+       
+    struct kvmft_context *ctx = &global_kvm->ft_context;
+    
+ 
+    pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
+        
+    struct page *mypage;
+
+    mypage = pfn_to_page(pfn);
+
+    char *mybackup = kmap_atomic(mypage);
+
+   
+     
+    int j,k;
+
+   // pfn_t real_pfn;
+  //  bool async = false;
+ //   real_pfn = __gfn_to_pfn_memslot(memslot, gfn, false, &async, true, true);
+//    if(real_pfn != pfn) global_diff_pfn_count++;
+    pfn_t real_pfn = gfn_to_pfn(global_kvm, gfn);
+    if(real_pfn != pfn) global_diff_pfn_count++;
+    
+
+    for (j = 0; j < 4096; j += 32) {
+        for(k = 0; k<32; k++) {
+           if((mybackup+j)[k] != (page+j)[k]) {
+                //printk("diff gfn is = %d\n", gfn);
+                global_diff_gfn_count++;
+                goto gfndiff;
+            }
+        }
+                
+    }
+
+gfndiff:
+
+
+    kunmap_atomic(mybackup);
+//////////////////////////////////////////////////cocotion test end
+
+    #endif
+
 //    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
     //printk("cocotion test total dirty bytes per page = %d\n", total_dirty_bytes_per_page);
 
 
-    kernel_fpu_end();
 
 //    printk("cocotion test @@@@@@ sizeof(*header) = %d\n", sizeof(*header));
 
@@ -3008,6 +3200,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     uint8_t *buf;
     unsigned int *gfns = dlist->pages;
 
+
+    int my_dirty_bytes_count = bd_calc_dirty_bytes(&kvm->ft_context, dlist);
+    printk("##########cocotion test final my dirty bytes count = %d\n", my_dirty_bytes_count);
+
+
 #ifdef PAGE_TRANSFER_TIME_MEASURE
     transfer_start_time = time_in_us();
     page_transfer_end_times_off = end;
@@ -3023,9 +3220,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int total_bytes = 0;
     total_dirty_bytes = 0;
     z_count = 0;
-    //printk("cocotion test before transfer the page num is %d\n", end-start);
+  //  printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
+
+//        printk("============== cocotion test transfer gfn = %d\n", gfn);
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
         page_transfer_start_times[i] = time_in_us();
@@ -3059,10 +3258,27 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             goto free;
         total += len;
     }
-//    printk("cocotion test count trans is %d\n", end-start);
- //   printk("cocotion test totoal dirty bytes is %d\n", total_dirty_bytes + (end-start)*28);
- //   printk("cocotion test total bytes transfer is %d\n", total);
-//    printk("cocotion test zero-count =  %d\n", z_count);
+
+
+
+//    #ifdef ft_debug_bd
+printk("cocotion test ============= tranfer start\n");
+    printk("cocotion test count trans is %d\n", end-start);
+    //printk("cocotion test totoal dirty bytes is %d\n", total_dirty_bytes + (end-start)*28);
+    printk("cocotion test total bytes transfer is %d\n", total);
+    printk("cocotion test real zero-count =  %d\n", z_count);
+    printk("cocotion test diff gfn total is %d\n", global_diff_gfn_count);
+    printk("cocotion test diff pfn total is %d\n", global_diff_pfn_count);
+
+    printk("cocotion test global_sample_dirty_page_count = %d\n", global_sample_dirty_page_count);
+    global_sample_dirty_page_count = 0;
+
+    global_diff_pfn_count = 0;
+    global_diff_gfn_count = 0;
+
+printk("cocotion test ============= tranfer end\n");
+ //   #endif
+
 
 
     kvmft_tcp_nodelay(sock);
@@ -3553,10 +3769,10 @@ void kvmft_gva_spcl_unprotect_page(struct kvm *kvm, unsigned long gfn)
     struct kvmft_dirty_list *dlist;
     int put_index;
 
-	if (unlikely(!kvm_shm_is_enabled(kvm)))
-		return;
+    if (unlikely(!kvm_shm_is_enabled(kvm)))
+        return;
 
-	ctx = &kvm->ft_context;
+    ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
     if (unlikely(!dlist->gva_spcl_pages))
@@ -3572,7 +3788,7 @@ void kvmft_gva_spcl_unprotect_page(struct kvm *kvm, unsigned long gfn)
         return;
     }
 
-	dlist->gva_spcl_pages[put_index] = gfn;
+    dlist->gva_spcl_pages[put_index] = gfn;
 }
 
 int kvmft_ioctl_set_master_slave_sockets(struct kvm *kvm,
@@ -3673,10 +3889,10 @@ void kvm_shm_exit(struct kvm *kvm)
     spcl_kthread_destroy(kvm);
     xmit_kthread_destroy(kvm);
 
-	//net_set_tcp_zero_copy_callbacks(NULL, NULL);
+    //net_set_tcp_zero_copy_callbacks(NULL, NULL);
 
-	if (kvm->trackable_list)
-		kvm_shm_free_trackable(kvm);
+    if (kvm->trackable_list)
+        kvm_shm_free_trackable(kvm);
 
     /*
        for (j = 0; j < 2; ++j) {
@@ -3713,10 +3929,21 @@ void kvm_shm_exit(struct kvm *kvm)
         }
     }
 
+//    for(i = 0; i < len; ++i) {
+       // if(ctx->dirty_pages_via_gfn[i]) {
+      //      __free_pages(ctx->dirty_pages_via_gfn[i], 0);
+     //       ctx->dirty_pages_via_gfn[i] = NULL;
+     //   }
+    //}
+
+
     kfree(ctx->page_nums_snapshot_k);
     kfree(ctx->page_nums_snapshot_page);
     kfree(ctx->shared_pages_snapshot_k);
     kfree(ctx->shared_pages_snapshot_pages);
+
+    //kfree(ctx->dirty_pages_via_gfn);
+    kfree(ctx->gfn_pfn_sync_list);
 
     kfifo_free(&kvm->trans_queue);
 
@@ -3822,7 +4049,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     for (i = 0; i < KVM_DIRTY_BITMAP_INIT_COUNT; ++i) {
         ret = prepare_for_page_backup(ctx, i);
         info->page_nums_pfn_snapshot[i] = page_to_pfn(ctx->page_nums_snapshot_page[i]);
-		//spin_lock_init(&ctx->page_nums_snapshot_k[i]->lock);
+        //spin_lock_init(&ctx->page_nums_snapshot_k[i]->lock);
     }
 
     // pages that read from disk
@@ -3830,7 +4057,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     // sacrifice one core,
     // DMA engine -- william
 
-//	net_set_tcp_zero_copy_callbacks(kvm_shm_tcp_get_callback, kvm_shm_tcp_put_callback);
+//  net_set_tcp_zero_copy_callbacks(kvm_shm_tcp_get_callback, kvm_shm_tcp_put_callback);
 
 #ifdef ENABLE_PRE_DIFF
     ret = diff_req_init();
@@ -3846,7 +4073,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
         tmp->trans_index = i;
         ctx->diff_req_list[i] = tmp;
     }
-	init_waitqueue_head(&kvm->diff_req_event);
+    init_waitqueue_head(&kvm->diff_req_event);
     ctx->diff_req_list_cur = NULL;
 
     kvm->diff_kthread = kthread_run(&diff_thread_func, kvm, "ft_diff");
@@ -3868,8 +4095,8 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     if (ret)
         goto err_free;
 
-	//init_waitqueue_head(&kvm->trans_queue_event);
-	init_waitqueue_head(&kvm->mdt_event);
+    //init_waitqueue_head(&kvm->trans_queue_event);
+    init_waitqueue_head(&kvm->mdt_event);
 
     if (modified_during_transfer_list_init(kvm))
         goto err_free;
@@ -3902,50 +4129,127 @@ int kvmft_ioctl_bd_set_alpha(struct kvm *kvm, int alpha)
     return 0;
 }   
 
+
 int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {
     struct page *page1, *page2;
     int i, j, count, total_dirty_bytes = 0;
-    
+   
+//    spin_lock(&myftlock);
+ 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     count = dlist->put_off;
 
+//    printk("cocotion test dirty page count = %d\n", count);
+
+    int total_zero_len = 0;
+    int invalid_count = 0;
 
     for (i = 0; i < count; ++i) {
+//        spin_lock(&myftlock);
         gfn_t gfn = dlist->pages[i];
 
-
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
-        page2 = find_later_backup(global_kvm, gfn, ctx->cur_index, ctx->master_slave_info[ctx->cur_index].run_serial);
 
-        if(page2 == NULL)
-            printk("page2 is NULL!!!##@@@@\n");
-        
- //       if(page2 == NULL) {
-  //          page2 = gfn_to_page(global_kvm, gfn);
-   //     }
-//        char *backup = kmap_atomic(page1);
- //       char *page = kmap_atomic(page2);
 
+        struct kvm_memory_slot *memslot;
+        unsigned long gfn_off;
+        memslot = gfn_to_memslot(global_kvm, gfn);
+        gfn_off = gfn - memslot->base_gfn;
+
+        //while((ctx->gfn_pfn_sync_list)[gfn_off].flag == 0);
+
+        //printk("cocotion test gfn pfn sync flag = %d\n", (ctx->gfn_pfn_sync_list)[gfn_off].pfn);
         int len = 0;
-/*        kernel_fpu_begin();
-        for (j = 0; j < 4096; j += 32) {
-            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
-        }
-        kernel_fpu_end();*/
-  //      kunmap_atomic(backup);
-   //     kunmap_atomic(page);
 
-        if(len == 0) len = 4096;
+        if((ctx->gfn_pfn_sync_list)[gfn_off].flag == 1)
+        {
+            pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
+            //(ctx->gfn_pfn_sync_list)[gfn_off].flag = 0; 
         
+            struct page *mypage;
+
+            //int pagereserved = PageReserved(mypage = pfn_to_page(pfn));
+            mypage = pfn_to_page(pfn);
+            //if(!pfn_valid(pfn) || pagereserved) invalid_count++;
+        
+
+            char *page = kmap_atomic(mypage);
+   
+            char *backup = kmap_atomic(page1) ;
+        
+            int j,k;
+            
+            kernel_fpu_begin();
+            for (j = 0; j < 4096; j += 32) {
+                //for(k = 0; k<32; k++) {
+                 //   if((page+j)[k] != (backup+j)[k]) {
+                  //      len += 32;
+                   //     break; 
+                    //}
+                //}
+                len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+                
+            }
+            kernel_fpu_end();
+
+ 
+            kunmap_atomic(page);
+            kunmap_atomic(backup);
+            
+            if(len == 0) {
+                total_zero_len++; 
+                len = 4096;
+            }
+
+            //printk("===============in flag gfn = %d\n", gfn);
+            invalid_count++;
+        }    
+        else {
+    
+            //page2 = gfn_to_page(kvm, gfn);
+            
+            //pfn_t pfn;
+            //struct kvm_memory_slot *slot;
+            //bool async = false;
+            //pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
+
+            //struct page *mypage = pfn_to_page(pfn);
+
+
+            //printk("===============not in flag gfn = %d\n", gfn);
+        }
+
+
+//        if(len == 0) {
+ //           total_zero_len++; 
+  //          len = 4096;
+   //     }
+       
+    //    printk("cocotion test len = %d\n", len) ;
         total_dirty_bytes += len;
 
     }
     total_dirty_bytes += 28*count;
+
+
+
+//    #ifdef ft_debug_bd
+
+    printk("total dirty bytes (not real)= %d\n", total_dirty_bytes) ;
+    
+    printk("cocotion test total_zero_len (not real) = %d\n", total_zero_len);
+  //  printk("cocotion test invalid count (not real)= %d\n", invalid_count);
+    printk("cocotion test total count (not real)= %d\n", count);
+ //   #endif
+    
+    printk("@@@@@@@@@@@@@cocotion test invalid count (not real)= %d\n", invalid_count);
         
     if (count > 0) {
+  //      spin_unlock(&myftlock);
         return total_dirty_bytes; 
     }
+ //   spin_unlock(&myftlock);
     return 0;
 }
 
@@ -4000,7 +4304,7 @@ int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm)
     }
     total_dirty_bytes += 28*count;
 //    printk("@@cocotion test count = %d\n", count);
-    //printk("@@cocotion test total dirty bytes before take snapshot= %d\n", total_dirty_bytes);
+    printk("@@cocotion test total dirty bytes before take snapshot= %d\n", total_dirty_bytes);
     
 
     if (count > 0) {

@@ -15,6 +15,7 @@
 #include <linux/mmu_context.h>
 
 
+//#define ft_debug_bd
 
 #define SHOW_AVERAGE_FRAG   1
 #undef SHOW_AVERAGE_FRAG
@@ -259,7 +260,7 @@ static int bd_predic_stop2(void)
     
     s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
-//    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
+    //printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
    
     if(epoch_run_time >= target_latency_us ) {
 //        printk("cocotion test need takesnapshot\n");
@@ -3201,9 +3202,12 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     unsigned int *gfns = dlist->pages;
 
 
+    
+
+    #ifdef ft_debug_bd
     int my_dirty_bytes_count = bd_calc_dirty_bytes(&kvm->ft_context, dlist);
     printk("##########cocotion test final my dirty bytes count = %d\n", my_dirty_bytes_count);
-
+    #endif
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
     transfer_start_time = time_in_us();
@@ -3261,10 +3265,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 
 
-//    #ifdef ft_debug_bd
+    #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
     printk("cocotion test count trans is %d\n", end-start);
-    //printk("cocotion test totoal dirty bytes is %d\n", total_dirty_bytes + (end-start)*28);
     printk("cocotion test total bytes transfer is %d\n", total);
     printk("cocotion test real zero-count =  %d\n", z_count);
     printk("cocotion test diff gfn total is %d\n", global_diff_gfn_count);
@@ -3277,7 +3280,7 @@ printk("cocotion test ============= tranfer start\n");
     global_diff_gfn_count = 0;
 
 printk("cocotion test ============= tranfer end\n");
- //   #endif
+    #endif
 
 
 
@@ -4205,7 +4208,7 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
             //printk("===============in flag gfn = %d\n", gfn);
             invalid_count++;
         }    
-        else {
+   //     else {
     
             //page2 = gfn_to_page(kvm, gfn);
             
@@ -4218,7 +4221,7 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
 
             //printk("===============not in flag gfn = %d\n", gfn);
-        }
+    //    }
 
 
 //        if(len == 0) {
@@ -4234,16 +4237,16 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
 
 
-//    #ifdef ft_debug_bd
+    #ifdef ft_debug_bd
 
     printk("total dirty bytes (not real)= %d\n", total_dirty_bytes) ;
     
     printk("cocotion test total_zero_len (not real) = %d\n", total_zero_len);
   //  printk("cocotion test invalid count (not real)= %d\n", invalid_count);
     printk("cocotion test total count (not real)= %d\n", count);
- //   #endif
     
     printk("@@@@@@@@@@@@@cocotion test invalid count (not real)= %d\n", invalid_count);
+    #endif
         
     if (count > 0) {
   //      spin_unlock(&myftlock);

@@ -3044,9 +3044,20 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
     pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, true, true);
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 */
+
+
+/*
     pfn_t pfn = gfn_to_pfn(vcpu->kvm, gfn);
+    if(is_error_noslot_pfn(pfn)) {
+        printk("cocotion test pfn is error\n");
+    }
+    else
+        kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+  */
+
+    //pfn_t pfn = kvm_vcpu_gfn_to_pfn(vcpu, gfn);
+    pfn_t pfn = gfn_to_pfn_atomic(vcpu->kvm, gfn) ;
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
-    
 
 	return true;
 }

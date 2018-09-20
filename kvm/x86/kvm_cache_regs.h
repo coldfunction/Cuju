@@ -104,4 +104,5 @@ static inline bool is_smm(struct kvm_vcpu *vcpu)
 	return vcpu->arch.hflags & HF_SMM_MASK;
 }
 
+
 #endif

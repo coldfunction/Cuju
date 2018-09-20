@@ -13,6 +13,44 @@
 #include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/mmu_context.h>
+#include <linux/interrupt.h>
+
+
+#include "irq.h"
+#include "mmu.h"
+#include "x86.h"
+#include "kvm_cache_regs.h"
+#include "cpuid.h"
+
+#include <asm/types.h>
+#include <linux/string.h>
+#include <linux/mm.h>
+#include <linux/highmem.h>
+#include <linux/swap.h>
+#include <linux/hugetlb.h>
+
+#include <linux/srcu.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
+
+#include <asm/page.h>
+#include <asm/cmpxchg.h>
+#include <asm/io.h>
+#include <asm/vmx.h>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //#define ft_debug_bd
@@ -41,6 +79,8 @@ unsigned long global_addr = 0;
 int global_sample_dirty_page_count = 0;
 
 
+struct page *bad_page;
+
 static DEFINE_SPINLOCK(myftlock);
 
 
@@ -53,11 +93,16 @@ int update_flag = 0;
 int global_diff_gfn_count = 0;
 int global_diff_pfn_count = 0;
 
+static int bd_predic_stop2(unsigned long data);
 
 //struct kvmft_context *global_ft_ctx;
 struct hrtimer global_hrtimer;
 struct kvm *global_kvm; 
+DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 //int first_timer = 1;
+//struct kvmft_update_latency global_update;
+//global_update.last_trans_rate = 100;
+int global_last_trans_rate = 100;
 
 
 struct kvm_vcpu *global_vcpu;
@@ -248,7 +293,8 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
     hrtimer_cancel(&global_hrtimer);
 }
 
-static int bd_predic_stop2(void)
+//static int bd_predic_stop2(void)
+static int bd_predic_stop2(unsigned long data)
 {
 
     struct kvmft_context *ctx;
@@ -257,16 +303,69 @@ static int bd_predic_stop2(void)
 
     struct kvmft_dirty_list *dlist;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+/*   
+    static unsigned long count = 0;
+    static unsigned long calc_dirty_time = 0;
+    static int old1   = 0;
+    static int old2   = 0;
+    static unsigned long other = 0;
+
+    count++;
+ */
+//    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+
+/*
+  //  if(count == 30) {
+    if(count > 1 && count <= 30) {
+        other = other + epoch_run_time - old1 - old2;
+        printk("cocotion test other is %d\n", other);
+        //printk("cocotion test original other = %ld\n", global_ other);
+ //       global_other = global_other + epoch_run_time - old1 - old2;   
+        printk("cocotion test epoch_run_time is %ld\n", epoch_run_time);
+        printk("cocotion test old1 is %ld\n", old1);
+        printk("cocotion test old2 is %ld\n", old2);
+     //   printk("cocotion test other is %ld\n", global_other);
+        printk("cocotion test other average time= %ld\n", other/(count-1));
+    }
+*/
+  /*  if(count > 1) {
+        other = other + epoch_run_time - old1 - old2;
+        printk("cocotion test other average time= %ld\n", other/(count-1));
+    }
+
+    old1 = epoch_run_time;
+*/
+    //printk("cocotion test epoch_run_time 1 = %d\n", epoch_run_time);
     
-    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
-    //printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
-   
-    if(epoch_run_time >= target_latency_us ) {
+
+
+    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
+
+/*
+    calc_dirty_time = calc_dirty_time + time_in_us() - dlist->epoch_start_time - epoch_run_time;
+ 
+   old2 = time_in_us() - dlist->epoch_start_time - epoch_run_time ;   
+
+ 
+    printk("cocotion test average calc_dirty_time  = %ld\n", calc_dirty_time/count);
+*/
+
+    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
+     
+    if(global_last_trans_rate < 400) global_last_trans_rate = 400;
+ 
+    int beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
+
+ 
+//    if(epoch_run_time >= target_latency_us ) {
+    if(beta >= target_latency_us ) {
+        
 //        printk("cocotion test need takesnapshot\n");
 
         global_vcpu->hrtimer_pending = true;
         kvm_vcpu_kick(global_vcpu);
+        //old1 = old2 = count = calc_dirty_time = other = 0 ;
         
     }
     else {
@@ -307,7 +406,24 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //vcpu->hrtimer_pending = true;
     //kvm_vcpu_kick(vcpu);
 
-    bd_predic_stop2(); 
+    //bd_predic_stop2();
+
+
+/*
+    unsigned long mycr3 = task_pid_nr(current);
+    if(global_vcpu->mycr3 != mycr3) {
+        printk("cocotion test my pid when tasklet ###= 0x%016llx\n", mycr3);
+        printk("cocotion test my pid when VMexit ###= 0x%016llx\n", global_vcpu->mycr3);
+    }
+    else {
+        printk("cocotion test my pid when tasklet ok same !!!@@@= 0x%016llx\n", mycr3);
+    }
+*/
+
+
+
+
+    tasklet_schedule(&calc_dirty_tasklet);
 
     return HRTIMER_NORESTART;
 }
@@ -882,10 +998,14 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     bd_page_fault_check = 1;
     update_flag = 0;
 
-    int i;
-    for(i = 0; i < 262144; i++)
-        (ctx->gfn_pfn_sync_list)[i].flag = 0;
-
+    if(!ctx->gfn_pfn_sync_list) {
+        ctx->gfn_pfn_sync_list = kzalloc(
+        sizeof (struct  gfn_pfn_sync) * 262144, GFP_KERNEL);
+    } else {
+        int i;
+        for(i = 0; i < 262144; i++)
+            (ctx->gfn_pfn_sync_list)[i].flag = 0;
+    }
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
 
@@ -1437,6 +1557,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     ctx->bd_average_latencies[put_off] = update->latency_us;
     ctx->bd_average_consts[put_off] = (update->latency_us - update->runtime_us - update->trans_us);
 
+//    global_update.last_trans_rate = update->last_trans_rate;
+
 
     if (update->trans_us > 0) { 
         ctx->bd_average_rates[put_off] = update->dirty_page * 1000 / update->trans_us;
@@ -1482,6 +1604,7 @@ int kvmft_pfn_dirty(struct kvm *kvm, unsigned long gfn, pfn_t pfn)
         memslots_dump(kvm);
         return -ENOENT;
     }
+
 
     gfn_off = gfn - memslot->base_gfn;
 
@@ -3975,6 +4098,8 @@ void kvm_shm_exit(struct kvm *kvm)
         kfree(ctx->spcl_backup_dirty_list);
 
     master_slave_conn_free(kvm);
+
+    __free_page(bad_page);
 }
 
 int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
@@ -3985,6 +4110,12 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     struct kvmft_context *ctx = &kvm->ft_context;
 
     global_kvm = kvm;
+
+    bad_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+    if(bad_page == NULL) {
+        goto err_free;     
+    }
+
 
     // maximum integer is 2147*1e6
     if (info->epoch_time_in_ms > 2100) {
@@ -4133,6 +4264,89 @@ int kvmft_ioctl_bd_set_alpha(struct kvm *kvm, int alpha)
 }   
 
 
+static bool kvm_is_mmio_pfn(pfn_t pfn)
+{
+   if (pfn_valid(pfn))
+       return !is_zero_pfn(pfn) && PageReserved(pfn_to_page(pfn));
+
+   return true;
+}
+
+
+struct page *gfn_to_page_atomic(struct kvm *kvm, gfn_t gfn)
+{
+   pfn_t pfn;
+
+   pfn = gfn_to_pfn_atomic(kvm, gfn);
+   if (!kvm_is_mmio_pfn(pfn))
+       return pfn_to_page(pfn);
+
+   WARN_ON(kvm_is_mmio_pfn(pfn));
+
+   get_page(bad_page);
+   return bad_page;
+}
+
+#include <linux/pid.h>
+#include <asm/io.h>
+
+unsigned long pid_to_cr3(int pid)
+{
+    struct task_struct *task;
+    struct mm_struct *mm;
+    void *cr3_virt;
+    unsigned long cr3_phys;
+
+    task = pid_task(find_vpid(pid), PIDTYPE_PID);
+
+    if (task == NULL)
+        return 0; // pid has no task_struct
+
+    mm = task->mm;
+
+    // mm can be NULL in some rare cases (e.g. kthreads)
+    // when this happens, we should check active_mm
+    if (mm == NULL) {
+        mm = task->active_mm;
+    }
+
+    if (mm == NULL)
+        return 0; // this shouldn't happen, but just in case
+
+    cr3_virt = (void *) mm->pgd;
+    cr3_phys = virt_to_phys(cr3_virt);
+
+    return cr3_phys;
+}
+
+
+#define __ex(x) __kvm_handle_fault_on_reboot(x)
+#define __ex_clear(x, reg) \
+	____kvm_handle_fault_on_reboot(x, "xor " reg " , " reg)
+
+static __always_inline unsigned long vmcs_readl(unsigned long field)
+{
+	unsigned long value;
+
+	asm volatile (__ex_clear(ASM_VMX_VMREAD_RDX_RAX, "%0")
+		      : "=a"(value) : "d"(field) : "cc");
+	return value;
+}
+
+static __always_inline u64 vmcs_read64(unsigned long field)
+{
+#ifdef CONFIG_X86_64
+	return vmcs_readl(field);
+#else
+	return vmcs_readl(field) | ((u64)vmcs_readl(field+1) << 32);
+#endif
+}
+
+
+//#include <linux/pid.h>
+//#include <asm/io.h>
+
+
 int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {
     struct page *page1, *page2;
@@ -4147,26 +4361,152 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
     int total_zero_len = 0;
     int invalid_count = 0;
-
+            
+    //unsigned long mycr3 = task_pid_nr(current);
+    unsigned long mycr3 = pid_to_cr3(task_pid_nr(current));
+    
+    //if(global_vcpu->mycr3 == mycr3)
     for (i = 0; i < count; ++i) {
 //        spin_lock(&myftlock);
         gfn_t gfn = dlist->pages[i];
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
-
-
+ 
         struct kvm_memory_slot *memslot;
         unsigned long gfn_off;
         memslot = gfn_to_memslot(global_kvm, gfn);
         gfn_off = gfn - memslot->base_gfn;
 
+        if((ctx->gfn_pfn_sync_list)[gfn_off].flag == 1) {
+            pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
+
+            page2 = pfn_to_page(pfn);
+            //page2 = gfn_to_page_atomic(global_kvm, gfn);
+
+        //cocotion now testing
+//            pfn_t pfn = (ctx->gfn_pfn_sync_list)[0].pfn;
+
+            
+//extern void mysetcr3(struct kvm_vcpu *vcpu, unsigned long cr3);
+            //unsigned long mycr3 = pid_to_cr3(task_pid_nr(current));
+            //unsigned long mycr3 = task_pid_nr(current);
+            
+
+            //unsigned long mycr3 = vmcs_read64(EPT_POINTER);
+
+            //__asm__("movl %0, %%CR3" : "=r"(global_vcpu->mycr3)); 
+           
+ //           int no = 100; 
+//            __asm__("movl %0, %%ebx;" : "=r"(no));
+            
+           // __asm__("movl %0, %%cr3;" : "=r"(global_vcpu->mycr3));
+
+            //asm volatile("movq %0,%%cr3" : : "r" (global_vcpu->mycr3));
+        
+            //printk("cocotion test my pid when tasklet = 0x%016llx\n", task_pid_nr(current));
+
+           // if((ctx->gfn_pfn_sync_list)[0].flag == 1 && global_vcpu->mycr3 == mycr3){
+           // gfn_t mygfn = (ctx->gfn_pfn_sync_list)[0].pfn;
+            
+
+            //gfn_to_pfn_atomic(global_kvm, mygfn);
+            //gfn_to_page_atomic(global_kvm, mygfn);
+
+            //printk("cocotion test my pid when tasklet (same) = 0x%016llx\n", mycr3);
+
+            
+            //if (global_vcpu->mycr3 != mycr3) break;
+            //if (global_vcpu->mycr3 == mycr3) continue;
+            //pfn_t mypfn = gfn_to_pfn(global_kvm, gfn);
+            //page2 = gfn_to_page_atomic(global_kvm, mygfn);
+            //printk("cocotion test my page = 0x%016llx\n", page2);
+            //break; 
+//            printk("cocotion test my pid when tasklet(same) = 0x%016llx\n", mycr3);
+ //           printk("cocotion test my pid when VMexit(same) = 0x%016llx\n", global_vcpu->mycr3);
+            
+            //kvm_mmu_load(global_vcpu);
+            
+	        //global_vcpu->arch.mmu.set_cr3(global_vcpu, global_vcpu->arch.mmu.root_hpa);
+
+
+//    printk("cocotion test my EPTP when tasklet = 0x%016llx\n", vmcs_read64(EPT_POINTER));
+ 
+ //   printk("cocotion test my pid when tasklet = 0x%016llx\n", task_pid_nr(current));
+
+
+            //spin_lock(&global_kvm->mmu_lock);
+            //gfn_to_page_atomic(global_kvm, mygfn);
+            //gfn_to_pfn_atomic(global_kvm, mygfn);
+            //gfn_t mygfn = (ctx->gfn_pfn_sync_list)[0].pfn;
+            //kvm_vcpu_gfn_to_pfn_atomic(global_vcpu, mygfn);
+            //spin_unlock(&global_kvm->mmu_lock);
+                //vmx_set_cr3(global_vcpu, global_vcpu->mycr3);
+            //    mysetcr3(global_vcpu, global_vcpu->mycr3);
+//                printk("cocotion test guest exit use CR3= %ld\n", global_vcpu->mycr3);
+ //               printk("cocotion test guest exit use CR3(2)= %ld\n", kvm_read_cr3(global_vcpu));
+                //printk("cocotion test in host use CR3 = %ld\n", pid_to_cr3(task_pid_nr(current)));
+            //}
+            //else if (global_vcpu->mycr3 != mycr3){
+                //printk("cocotion test my pid when tasklet = 0x%016llx\n", mycr3);
+                //printk("cocotion test my pid when VMexit = 0x%016llx\n", global_vcpu->mycr3);
+                
+            //}
+
+
+ //           pfn_to_page(pfn);
+//            (ctx->gfn_pfn_sync_list)[0].flag = 0;
+
+   //     }
+
+   /*     page2 = gfn_to_page_atomic(global_kvm, gfn); 
+        if(page2 == bad_page) {
+            printk("cocotion test yes you got bad page\n");
+            continue;
+        }
+*/
+        //spin_lock(&global_kvm->mmu_lock);
+        //page2 = gfn_to_page(global_kvm, gfn);
+        //spin_unlock(&global_kvm->mmu_lock);
+
+
+        char *backup = kmap_atomic(page1);
+        char *page = kmap_atomic(page2);
+
+        int len = 0;
+        kernel_fpu_begin();
+        for (j = 0; j < 4096; j += 32) {
+            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+        }
+        kernel_fpu_end();
+        kunmap_atomic(backup);
+        kunmap_atomic(page);
+
+        if(len == 0) {
+            total_zero_len++; 
+            len = 4096;
+        }
+
+
+
+
+        total_dirty_bytes+=len;
+        }
+
+
+//        struct kvm_memory_slot *memslot;
+ //       unsigned long gfn_off;
+  //      memslot = gfn_to_memslot(global_kvm, gfn);
+   //     gfn_off = gfn - memslot->base_gfn;
+
         //while((ctx->gfn_pfn_sync_list)[gfn_off].flag == 0);
 
         //printk("cocotion test gfn pfn sync flag = %d\n", (ctx->gfn_pfn_sync_list)[gfn_off].pfn);
+
+/*
+
         int len = 0;
 
-        if((ctx->gfn_pfn_sync_list)[gfn_off].flag == 1)
-        {
+        if((ctx->gfn_pfn_sync_list)[gfn_off].flag == 1) {
             pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
             //(ctx->gfn_pfn_sync_list)[gfn_off].flag = 0; 
         
@@ -4231,8 +4571,9 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
        
     //    printk("cocotion test len = %d\n", len) ;
         total_dirty_bytes += len;
-
+*/
     }
+
     total_dirty_bytes += 28*count;
 
 

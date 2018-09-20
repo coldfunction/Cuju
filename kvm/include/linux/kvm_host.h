@@ -329,6 +329,7 @@ struct kvm_vcpu {
 	bool hrtimer_running;
 	bool hrtimer_pending;
 
+    unsigned long mycr3;
 };
 
 static inline struct kvm_vcpu *hrtimer_to_vcpu(struct hrtimer *timer)

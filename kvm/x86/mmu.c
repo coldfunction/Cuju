@@ -2677,6 +2677,7 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 		kvm_vcpu_mark_page_dirty(vcpu, gfn);
 		spte |= shadow_dirty_mask;
 
+
 		hva = gfn_to_hva(vcpu->kvm, gfn);
 		if (kvm_is_error_hva(hva)) {
 			printk("%s error hva for %lx\n", __func__, (long)gfn);
@@ -2684,6 +2685,43 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 		else {
 			kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
 		}
+        //cocotion now testing
+    //    struct kvmft_context *ctx = &vcpu->kvm->ft_context;
+        //(ctx->gfn_pfn_sync_list)[0].pfn = gfn;
+   //     (ctx->gfn_pfn_sync_list)[0].flag = 1;
+//#include <linux/pid.h>
+//#include <asm/io.h>
+
+//        printk("cocotion test my pid when VM exit = %ld\n", task_pid_nr(current));
+ 
+//        vcpu->mycr3 = kvm_read_cr3(vcpu);
+
+//#include <linux/pid.h>
+//#include <asm/io.h>
+
+//extern unsigned long pid_to_cr3(int pid);
+
+ //       unsigned long mycr3 = pid_to_cr3(task_pid_nr(current));
+ //       unsigned long mycr3 = task_pid_nr(current);
+
+
+
+        //unsigned long mycr3 = kvm_read_cr3(vcpu);
+        
+//printk("cocotion test in vmexit use CR3(by read cr3) = %ld\n", vcpu->mycr3);
+//printk("cocotion test in vmexit use CR3 = %ld\n", pid_to_cr3(task_pid_nr(current)));
+        //if(vcpu->mycr3 != mycr3) {
+         //   printk("cocotion test could be difference cr3 @@@\n");
+          //  printk("cocotion test in vmexit use current CR3 @@@= %ld\n", mycr3);
+           // printk("cocotion test in vmexit use before CR3 @@@= %ld\n", vcpu->mycr3);
+    
+        //}
+        //else
+         //   printk("cocotion test in vmexit use current CR3 = %ld\n", mycr3);
+        
+  //      vcpu->mycr3= mycr3;
+        
+ 
 	}
 //    struct page *mypage;
  //   unsigned long hva;
@@ -2999,6 +3037,29 @@ static bool page_fault_can_be_fast(u32 error_code)
 	return true;
 }
 
+#define __ex(x) __kvm_handle_fault_on_reboot(x)
+#define __ex_clear(x, reg) \
+	____kvm_handle_fault_on_reboot(x, "xor " reg " , " reg)
+
+static __always_inline unsigned long vmcs_readl(unsigned long field)
+{
+	unsigned long value;
+
+	asm volatile (__ex_clear(ASM_VMX_VMREAD_RDX_RAX, "%0")
+		      : "=a"(value) : "d"(field) : "cc");
+	return value;
+}
+
+static __always_inline u64 vmcs_read64(unsigned long field)
+{
+#ifdef CONFIG_X86_64
+	return vmcs_readl(field);
+#else
+	return vmcs_readl(field) | ((u64)vmcs_readl(field+1) << 32);
+#endif
+}
+
+
 static bool
 fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 			u64 *sptep, u64 spte)
@@ -3022,6 +3083,22 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
         // what if someelse vcpu flushed tlb right before?
         kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
     }
+    struct kvmft_context *ctx = &vcpu->kvm->ft_context;
+//    (ctx->gfn_pfn_sync_list)[0].pfn = gfn_to_pfn_atomic(vcpu->kvm, gfn);
+    (ctx->gfn_pfn_sync_list)[0].pfn = gfn;
+    (ctx->gfn_pfn_sync_list)[0].flag = 1; 
+    //gfn_to_pfn_atomic(vcpu->kvm, gfn);
+  
+     
+    //printk("cocotion test my EPTP when VM exit = 0x%016llx\n", vmcs_read64(EPT_POINTER));
+
+//#include <linux/pid.h>
+//#include <asm/io.h>
+ 
+    //printk("cocotion test my pid when VM exit = 0x%016llx\n", task_pid_nr(current));
+//extern unsigned long pid_to_cr3(int pid);
+ //   vcpu->mycr3 = pid_to_cr3(task_pid_nr(current));
+//    vcpu->mycr3 = vmcs_read64(EPT_POINTER);
 
 	/*
 	 * Theoretically we could also set dirty bit (and flush TLB) here in
@@ -3056,6 +3133,9 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
   */
 
     //pfn_t pfn = kvm_vcpu_gfn_to_pfn(vcpu, gfn);
+
+
+    //cocotion now testing
     pfn_t pfn = gfn_to_pfn_atomic(vcpu->kvm, gfn) ;
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 
@@ -3195,6 +3275,7 @@ static int nonpaging_map(struct kvm_vcpu *vcpu, gva_t v, u32 error_code,
 			 prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
+    //cocotion now testing
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 
 	return r;
@@ -3743,9 +3824,12 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 			 level, gfn, pfn, prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
-
-
+//cocotion now testing
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+
+
+
+
 
 /*
     struct page *mypage;

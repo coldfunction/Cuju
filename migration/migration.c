@@ -2369,13 +2369,13 @@ static void kvmft_flush_output(MigrationState *s)
         latency_exceed_current_count++;
         latency_exceed += latency_us;
         exceeds++;
-        mybdupdate.last_trans_rate -= 10;
+        //mybdupdate.last_trans_rate -= 10;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
         latency_less_count++;
         latency_less += latency_us;
-        mybdupdate.last_trans_rate += 10;
+        //mybdupdate.last_trans_rate += 10;
     }
     else ok++; 
    

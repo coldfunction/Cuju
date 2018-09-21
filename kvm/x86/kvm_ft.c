@@ -276,14 +276,15 @@ static int bd_predic_stop2(unsigned long data)
     if(beta >= target_latency_us ) {
 //        printk("cocotion test need takesnapshot\n");
         //printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
-        global_vcpu->hrtimer_pending = true;
-        kvm_vcpu_kick(global_vcpu);
-        
+        if(hrtimer_cancel(&global_hrtimer)) {
+            global_vcpu->hrtimer_pending = true;
+            kvm_vcpu_kick(global_vcpu);
+        }
     }
-    else {
-        kvm_shm_start_timer2();
+//    else {
+ //       kvm_shm_start_timer2();
  //       printk("cocotion test: start new timer\n");
-    }
+ //   }
  
 
     int r = 1000;
@@ -306,10 +307,12 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //    global_time_record_in_timer_callback = ktime_to_ns(val) / 1000; 
      
 
+//cocotion test now start
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
 
-
+    printk("cocotion test runtime at timer interrupt = %d\n", runtime_difftime);
+/////////cocotion test now end
 
     //struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
 
@@ -319,9 +322,22 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //kvm_vcpu_kick(vcpu);
 
     //bd_predic_stop2();
-    tasklet_schedule(&calc_dirty_tasklet); 
 
-    return HRTIMER_NORESTART;
+
+    tasklet_schedule(&calc_dirty_tasklet); 
+    
+    //ktime_t tmp_time = ktime_get();
+    //diff = ktime_sub(tmp_time, global_mark_time);
+    //runtime_difftime = ktime_to_us(diff);
+    
+    //printk("cocotion test call print and schedular time@@@@ = %d\n", runtime_difftime);
+    
+    ktime_t ktime;
+    ktime = ktime_set(0, epoch_time_in_us * 1000);
+    
+    hrtimer_forward_now(timer, ktime);
+    //return HRTIMER_NORESTART;
+    return HRTIMER_RESTART;
 }
 
 // timer for triggerring ram transfer

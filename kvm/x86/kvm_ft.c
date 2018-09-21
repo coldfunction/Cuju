@@ -275,7 +275,7 @@ static int bd_predic_stop2(unsigned long data)
     //if(epoch_run_time >= target_latency_us ) {
     if(beta >= target_latency_us ) {
 //        printk("cocotion test need takesnapshot\n");
-        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
+        //printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
         global_vcpu->hrtimer_pending = true;
         kvm_vcpu_kick(global_vcpu);
         
@@ -3245,7 +3245,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
-    printk("cocotion test total bytes transfer is %d\n", total);
+//    printk("cocotion test total bytes transfer is %d\n", total);
 
     #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
@@ -3921,7 +3921,6 @@ void kvm_shm_exit(struct kvm *kvm)
      //   }
     //}
 
-    kfree(ctx->gfn_pfn_sync_list);
 
     kfree(ctx->page_nums_snapshot_k);
     kfree(ctx->page_nums_snapshot_page);

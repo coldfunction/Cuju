@@ -2282,8 +2282,8 @@ static void kvmft_flush_output(MigrationState *s)
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
    
 
-   FILE *pFile;
-   char pbuf[200];
+//   FILE *pFile;
+ //  char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2568,6 +2568,8 @@ static void kvmft_flush_output(MigrationState *s)
 //ignore_count:
 //   FILE *pFile;
 
+
+/*
     pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
@@ -2579,7 +2581,7 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
-
+*/
 
 
  /* 

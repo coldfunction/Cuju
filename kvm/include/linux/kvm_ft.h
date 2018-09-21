@@ -154,7 +154,7 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
                      void *orig, bool is_user,
                      unsigned long *replacer_pfn);
 
-int kvmft_pfn_dirty(struct kvm *kvm, unsigned long gfn, u64 pfn);
+int kvmft_pfn_dirty(struct kvm *kvm, u64 pfn, int put_index);
 
 
 int kvm_shm_set_child_pid(struct kvm_shmem_child *);

@@ -3056,8 +3056,9 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
   */
 
     //pfn_t pfn = kvm_vcpu_gfn_to_pfn(vcpu, gfn);
-    pfn_t pfn = gfn_to_pfn_atomic(vcpu->kvm, gfn) ;
-    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+    //cocotion now
+    //pfn_t pfn = gfn_to_pfn_atomic(vcpu->kvm, gfn) ;
+    //kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 
 	return true;
 }
@@ -3195,7 +3196,8 @@ static int nonpaging_map(struct kvm_vcpu *vcpu, gva_t v, u32 error_code,
 			 prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
-    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+    //cocotion now
+    //kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
 
 	return r;
 
@@ -3744,8 +3746,8 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
 
-
-    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+    //cocotion now
+//    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
     
 
 /*

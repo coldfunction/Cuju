@@ -13,6 +13,7 @@
 #include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/mmu_context.h>
+#include <linux/interrupt.h>
 
 
 //#define ft_debug_bd
@@ -53,10 +54,13 @@ int update_flag = 0;
 int global_diff_gfn_count = 0;
 int global_diff_pfn_count = 0;
 
+static int bd_predic_stop2(unsigned long data);
 
 //struct kvmft_context *global_ft_ctx;
 struct hrtimer global_hrtimer;
-struct kvm *global_kvm; 
+struct kvm *global_kvm;
+DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
+int global_last_trans_rate = 100; 
 //int first_timer = 1;
 
 
@@ -248,7 +252,8 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
     hrtimer_cancel(&global_hrtimer);
 }
 
-static int bd_predic_stop2(void)
+//static int bd_predic_stop2(void)
+static int bd_predic_stop2(unsigned long data)
 {
 
     struct kvmft_context *ctx;
@@ -258,13 +263,19 @@ static int bd_predic_stop2(void)
     struct kvmft_dirty_list *dlist;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     
-    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
+    s64 epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
    
-    if(epoch_run_time >= target_latency_us ) {
-//        printk("cocotion test need takesnapshot\n");
+//    if(global_last_trans_rate < 400) global_last_trans_rate = 400;
+    int beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
 
+
+
+    //if(epoch_run_time >= target_latency_us ) {
+    if(beta >= target_latency_us ) {
+//        printk("cocotion test need takesnapshot\n");
+        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
         global_vcpu->hrtimer_pending = true;
         kvm_vcpu_kick(global_vcpu);
         
@@ -307,7 +318,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //vcpu->hrtimer_pending = true;
     //kvm_vcpu_kick(vcpu);
 
-    bd_predic_stop2(); 
+    //bd_predic_stop2();
+    tasklet_schedule(&calc_dirty_tasklet); 
 
     return HRTIMER_NORESTART;
 }
@@ -882,9 +894,16 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     bd_page_fault_check = 1;
     update_flag = 0;
 
-    int i;
-    for(i = 0; i < 262144; i++)
-        (ctx->gfn_pfn_sync_list)[i].flag = 0;
+    if(!ctx->gfn_pfn_sync_list) {
+        ctx->gfn_pfn_sync_list = kzalloc(
+        sizeof (struct  gfn_pfn_sync) * 262144, GFP_KERNEL);
+    } else {
+        int i;
+        for(i = 0; i < 262144; i++)
+            (ctx->gfn_pfn_sync_list)[i].flag = 0;
+    } 
+
+
 
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
@@ -1437,6 +1456,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     ctx->bd_average_latencies[put_off] = update->latency_us;
     ctx->bd_average_consts[put_off] = (update->latency_us - update->runtime_us - update->trans_us);
 
+    global_last_trans_rate = update->last_trans_rate;
 
     if (update->trans_us > 0) { 
         ctx->bd_average_rates[put_off] = update->dirty_page * 1000 / update->trans_us;
@@ -3254,7 +3274,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     //printk("cocotion test total dirty bytes = %ld\n", total_dirty_bytes);
     //printk("cocotion test real transfer dirty bytes = %ld\n", total_bytes);
   //  printk("cocotion test real dirty bytes = %d\n", total_dirty_bytes_per_page);
-    //printk("cocotion test @@total transfer bytes = %ld\n", total_bytes);
+//    printk("cocotion test @@total transfer bytes = %ld\n", total_bytes);
 //    total_bytes = 0;
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
@@ -3264,6 +3284,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
+    printk("cocotion test total bytes transfer is %d\n", total);
 
     #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
@@ -4170,14 +4191,12 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
             pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
             //(ctx->gfn_pfn_sync_list)[gfn_off].flag = 0; 
         
-            struct page *mypage;
-
             //int pagereserved = PageReserved(mypage = pfn_to_page(pfn));
-            mypage = pfn_to_page(pfn);
+            page2 = pfn_to_page(pfn);
             //if(!pfn_valid(pfn) || pagereserved) invalid_count++;
         
 
-            char *page = kmap_atomic(mypage);
+            char *page = kmap_atomic(page2);
    
             char *backup = kmap_atomic(page1) ;
         

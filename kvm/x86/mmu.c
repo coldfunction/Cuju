@@ -3746,6 +3746,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 
 
     kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
+    
 
 /*
     struct page *mypage;

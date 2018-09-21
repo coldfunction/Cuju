@@ -160,6 +160,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     update.trans_us = trans_us;
     update.latency_us = latency_us;
 
+    update.last_trans_rate = mybdupdate.last_trans_rate;
+
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 }
 
@@ -192,7 +194,7 @@ void bd_reset_epoch_timer(void)
 //    bd_time_slot_us = average_ok_runtime_us;
     //bd_time_slot_us = bd_target/2;
 //    bd_time_slot_us = bd_target/2;
-    bd_time_slot_us = 1000;
+    bd_time_slot_us = 500;
 
 //    bd_time_slot_us = bd_target - 1000;
 

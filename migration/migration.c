@@ -2301,7 +2301,8 @@ static void kvmft_flush_output(MigrationState *s)
     int trans_rate = s->ram_len/trans_us;
     //printf("cocotion test trans_rate = %d\n", trans_rate);
 
-    if(trans_rate < 100) trans_rate = 100;
+//    if(trans_rate < 100) trans_rate = 100;
+    if(trans_rate < 400) trans_rate = 400;
 
     mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
@@ -2358,21 +2359,33 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long latency_less = 0;
 
     static unsigned long latency_exceed_current_count = 0;
-    
+   
+
+    static unsigned long int ok = 0;
+    static unsigned long int mcount = 0; 
     //if(latency_us > target_latency) {
     if(latency_us > target_latency + 1000) {
         latency_exceed_count++;
         latency_exceed_current_count++;
         latency_exceed += latency_us;
         exceeds++;
+        mybdupdate.last_trans_rate -= 10;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
         latency_less_count++;
         latency_less += latency_us;
+        mybdupdate.last_trans_rate += 10;
     }
-    
+    else ok++; 
+   
+
+    mcount++; 
     count++;
+
+    if(mcount == 0) mcount = ok = 1;
+    if(mcount%500 == 0)
+        printf("cocotion test ok percentage is %lf\n", (double)ok/mcount);
 
 //    float exceeds_rate = (float)exceeds / (float)count;
 

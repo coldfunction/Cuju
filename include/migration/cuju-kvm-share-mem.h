@@ -22,7 +22,7 @@
 #define KVM_SHARE_MEM   1
 #define EPOCH_TIME_IN_MS    10
 #define PAGES_PER_MS        200
-#define SHARED_DIRTY_SIZE   10000
+#define SHARED_DIRTY_SIZE   20000
 #define SHARED_DIRTY_WATERMARK  9600
 
 bool cuju_supported(void);

@@ -42,7 +42,8 @@ unsigned long global_addr = 0;
 int global_sample_dirty_page_count = 0;
 
 int global_current_dirty_byte = 0;
-
+int epoch_time_old_global = 0;
+int global_predict_dirty_rate = 0;
 
 static DEFINE_SPINLOCK(myftlock);
 
@@ -284,7 +285,7 @@ static int bd_predic_stop2(unsigned long data)
 
 
     //if(epoch_run_time >= target_latency_us ) {
-    if(beta >= target_latency_us - 500 ) {
+    if(beta >= target_latency_us - 1000 ) {
 //        printk("cocotion test need takesnapshot\n");
 //        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
         if(hrtimer_cancel(&global_hrtimer)) {
@@ -312,6 +313,8 @@ static int bd_predic_stop2(unsigned long data)
         old_dirty_bytes   = current_dirty_byte; 
         epoch_time_old_us = epoch_run_time;
 
+        epoch_time_old_global = epoch_time_old_us;    
+
         //update_flag = 2;
 
     } else if(update_flag == 0){
@@ -338,7 +341,10 @@ static int bd_predic_stop2(unsigned long data)
     int R = global_last_trans_rate;
     int D = predict_dirty_rate;
     int E = epoch_run_time;
-    int y = target_latency_us; 
+    int y = target_latency_us - 1000; 
+
+
+    global_predict_dirty_rate = D;
 
     int t = ((y-E)*R-x)/(D+R);
     if(t < 300)  t = 300;      
@@ -387,16 +393,18 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     //bd_predic_stop2();
 
-    
-    int beta = global_current_dirty_byte/global_last_trans_rate + runtime_difftime;
-    if(beta >= target_latency_us - 500 && update_flag == 1) {
+    if(update_flag == 1) {
+        int newdirty = global_predict_dirty_rate * (runtime_difftime - epoch_time_old_global);
+        int beta = (global_current_dirty_byte+newdirty)/global_last_trans_rate + runtime_difftime;
+        if(beta >= target_latency_us - 1000 ) {
             update_flag = 0;
         //if(hrtimer_cancel(&global_hrtimer)) {
-            global_vcpu->hrtimer_pending = true;
-            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-            kvm_vcpu_kick(global_vcpu);
-            return HRTIMER_NORESTART;
+                global_vcpu->hrtimer_pending = true;
+                global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+                kvm_vcpu_kick(global_vcpu);
+                return HRTIMER_NORESTART;
         //}
+        }
     }
 
     tasklet_schedule(&calc_dirty_tasklet); 

@@ -259,6 +259,7 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 static int bd_predic_stop2(unsigned long data)
 {
 
+    printk("cocotion test mypid = %d\n", task_pid_nr(current));
     struct kvmft_context *ctx;
     ctx = &global_kvm->ft_context;
     
@@ -270,7 +271,7 @@ static int bd_predic_stop2(unsigned long data)
     int epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
 
-    printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
+//    printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
  
     static int old_dirty_bytes = 0;
     static int epoch_time_old_us = 0;
@@ -380,7 +381,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
 
-    printk("cocotion test runtime at timer interrupt = %d\n", runtime_difftime);
+    //printk("cocotion test runtime at timer interrupt = %d\n", runtime_difftime);
     //bd_time_slot_us = 500;
     //bd_time_slot_us = 500;
 /////////cocotion test now end

@@ -197,8 +197,10 @@ void bd_reset_epoch_timer(void)
     //bd_time_slot_us = 1000;
     //bd_time_slot_us = 50;
     //bd_time_slot_us = 4000;
-    //bd_time_slot_us = 500;
-    bd_time_slot_us = 3000;
+    bd_time_slot_us = 500;
+    //bd_time_slot_us = 3000;
+//    bd_time_slot_us = 5000;
+    //bd_time_slot_us = 2000;
 
 //    bd_time_slot_us = bd_target - 1000;
 

@@ -2282,8 +2282,8 @@ static void kvmft_flush_output(MigrationState *s)
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
    
 
-   FILE *pFile;
-   char pbuf[200];
+//   FILE *pFile;
+ //  char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2369,13 +2369,13 @@ static void kvmft_flush_output(MigrationState *s)
         latency_exceed_current_count++;
         latency_exceed += latency_us;
         exceeds++;
-        //mybdupdate.last_trans_rate -= 10;
+        mybdupdate.last_trans_rate -= 50;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
         latency_less_count++;
         latency_less += latency_us;
-        //mybdupdate.last_trans_rate += 10;
+        mybdupdate.last_trans_rate += 50;
     }
     else {
         //mybdupdate.last_trans_rate = trans_rate;
@@ -2572,7 +2572,7 @@ static void kvmft_flush_output(MigrationState *s)
 //   FILE *pFile;
 
 
-
+/*
     pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
@@ -2584,7 +2584,7 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile); 
-
+*/
 
 
  /* 

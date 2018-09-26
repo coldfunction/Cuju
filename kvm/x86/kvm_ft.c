@@ -285,7 +285,7 @@ static int bd_predic_stop2(unsigned long data)
 
 
     //if(epoch_run_time >= target_latency_us ) {
-    if(beta >= target_latency_us - 1000 ) {
+    if(beta >= target_latency_us - 500 ) {
 //        printk("cocotion test need takesnapshot\n");
 //        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
         if(hrtimer_cancel(&global_hrtimer)) {
@@ -302,9 +302,9 @@ static int bd_predic_stop2(unsigned long data)
  //       printk("cocotion test: start new timer\n");
  //   }
  
+/*
 
-
-    if(update_flag == 1) {
+    if(update_flag == 1 || update_flag == 2) {
         int diff_time = epoch_run_time - epoch_time_old_us;
         int diff_bytes = current_dirty_byte - old_dirty_bytes;
         predict_dirty_rate = diff_bytes/diff_time;
@@ -315,28 +315,32 @@ static int bd_predic_stop2(unsigned long data)
 
         epoch_time_old_global = epoch_time_old_us;    
 
-        //update_flag = 2;
+        update_flag = 2;
+
+
+        //return 1;
 
     } else if(update_flag == 0){
         old_dirty_bytes   = current_dirty_byte; 
         epoch_time_old_us = epoch_run_time;
         update_flag = 1;
-        if(hrtimer_cancel(&global_hrtimer)) {
-            epoch_time_in_us = 1000;
-            ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
-            hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
-        } 
+        //if(hrtimer_cancel(&global_hrtimer)) {
+         //   epoch_time_in_us = 1000;
+          //  ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
+           // hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+        //} 
         return 1; 
     }
+*/
 //    else {
  //       if(hrtimer_cancel(&global_hrtimer)) {
-  //          epoch_time_in_us = 300;
+  //          epoch_time_in_us = 500;
    //         ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
     //        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
      //   } 
       //  return 1; 
-   // }
-
+    //}
+/*
     int x = current_dirty_byte;
     int R = global_last_trans_rate;
     int D = predict_dirty_rate;
@@ -350,11 +354,16 @@ static int bd_predic_stop2(unsigned long data)
     if(t < 300)  t = 300;      
  
     if(hrtimer_cancel(&global_hrtimer)) {
-        epoch_time_in_us = t - 200; 
+       // if(update_flag == 1)
+            //epoch_time_in_us = t - 200;
+            epoch_time_in_us = t;
+        //else 
+         //   epoch_time_in_us = 100;
+ 
         ktime_t ktime = ktime_set(0, t * 1000);
         hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
     }
-
+*/
     int r = 1000;
 
     return r;
@@ -393,10 +402,11 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     //bd_predic_stop2();
 
-    if(update_flag == 1) {
-        int newdirty = global_predict_dirty_rate * (runtime_difftime - epoch_time_old_global);
-        int beta = (global_current_dirty_byte+newdirty)/global_last_trans_rate + runtime_difftime;
-        if(beta >= target_latency_us - 1000 ) {
+//    if(update_flag == 2) {
+        //int newdirty = global_predict_dirty_rate * (runtime_difftime - epoch_time_old_global);
+        //int beta = (global_current_dirty_byte+newdirty)/global_last_trans_rate + runtime_difftime;
+        int beta = global_current_dirty_byte/global_last_trans_rate + runtime_difftime;
+        if(beta >= target_latency_us - 500 ) {
             update_flag = 0;
         //if(hrtimer_cancel(&global_hrtimer)) {
                 global_vcpu->hrtimer_pending = true;
@@ -405,7 +415,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
                 return HRTIMER_NORESTART;
         //}
         }
-    }
+ //   }
 
     tasklet_schedule(&calc_dirty_tasklet); 
     

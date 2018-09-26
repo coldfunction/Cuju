@@ -285,7 +285,7 @@ static int bd_predic_stop2(unsigned long data)
 
 
     //if(epoch_run_time >= target_latency_us ) {
-    if(beta >= target_latency_us - 1000 ) {
+    if(beta >= target_latency_us - 500 ) {
 //        printk("cocotion test need takesnapshot\n");
 //        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
         if(hrtimer_cancel(&global_hrtimer)) {
@@ -347,10 +347,11 @@ static int bd_predic_stop2(unsigned long data)
     global_predict_dirty_rate = D;
 
     int t = ((y-E)*R-x)/(D+R);
-    if(t < 300)  t = 300;      
+    //if(t < 300)  t = 300;      
+    if(t < 10)  t = 100;      
  
     if(hrtimer_cancel(&global_hrtimer)) {
-        epoch_time_in_us = t - 200; 
+        //epoch_time_in_us = t - 200; 
         ktime_t ktime = ktime_set(0, t * 1000);
         hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
     }

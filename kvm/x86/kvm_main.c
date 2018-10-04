@@ -872,11 +872,11 @@ static int kvm_extend_dirty_bitmap(struct kvm_memory_slot *memslot)
 #ifndef CONFIG_S390
     size_t array_size;
     int ret;
- 
+
     ret = shared_page_array_extend(&memslot->epoch_dirty_bitmaps);
     if (ret < 0)
         return ret;
- 
+
     ret = shared_page_array_extend(&memslot->epoch_gfn_to_put_offs);
     if (ret < 0)
         return ret;
@@ -2147,13 +2147,13 @@ int kvm_write_guest_cached(struct kvm *kvm, struct gfn_to_hva_cache *ghc,
 
 	if (slots->generation != ghc->generation)
 		kvm_gfn_to_hva_cache_init(kvm, ghc, ghc->gpa, ghc->len);
-	
+
     if (kvm_is_error_hva(ghc->hva))
 		return -EFAULT;
-	
+
 	if (unlikely(!ghc->memslot))
 		return kvm_write_guest(kvm, ghc->gpa, data, len);
-    
+
     r = kvmft_page_dirty(kvm, ghc->gpa >> PAGE_SHIFT,
                        		(void *)ghc->hva, 1, NULL);
 
@@ -3576,39 +3576,39 @@ out_free_irq_routing:
         break;
     }
     case KVMFT_BD_CALC_LEFT_RUNTIME: {
-        r = kvmft_ioctl_bd_calc_left_runtime(kvm);                                                                                                                                                                  
+        r = kvmft_ioctl_bd_calc_left_runtime(kvm);
         break;
     }
     case KVMFT_BD_RUNTIME_EXCEEDS: {
         int epoch_runtime;
-        r = kvmft_ioctl_bd_runtime_exceeds(kvm, &epoch_runtime);           
-        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
+        r = kvmft_ioctl_bd_runtime_exceeds(kvm, &epoch_runtime);
+        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;
         break;
     }
     case KVMFT_BD_GET_RUNTIME: {
         int epoch_runtime;
         kvmft_ioctl_bd_get_runtime(kvm, &epoch_runtime);
-        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;                                                                                                                                                      
+        copy_to_user(argp, &epoch_runtime, sizeof epoch_runtime) ;
         r = 0;
-        break; 
+        break;
     }
 
-//    case KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER: {                                                                                                                                                                        
+//    case KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER: {
  //       r = kvmft_ioctl_bd_check_dirty_page_number(kvm);
   //      if (r)
-   //         goto out; 
+   //         goto out;
     //    break;
-    //}  
-    case KVMFT_BD_PREDIC_STOP: {     
+    //}
+    case KVMFT_BD_PREDIC_STOP: {
         //__u32 dirty_bytes;
         struct kvmft_update_latency update;
 
         //if (copy_from_user(&dirty_bytes, argp, sizeof dirty_bytes))
         if (copy_from_user(&update, argp, sizeof update))
-            goto out; 
+            goto out;
         //r = kvmft_ioctl_bd_predic_stop(kvm, &dirty_bytes);
         r = kvmft_ioctl_bd_predic_stop(kvm, &update);
-        
+
         //if(copy_to_user(argp, &dirty_bytes, sizeof dirty_bytes))
         if(copy_to_user(argp, &update, sizeof update))
             goto out;
@@ -3617,38 +3617,38 @@ out_free_irq_routing:
     case KVMFT_BD_PERCEPTRON: {
         int latency_us;
         r = -EFAULT;
-        if (copy_from_user(&latency_us, argp, sizeof latency_us))                                                                                 
-            goto out; 
-        r = 0; 
+        if (copy_from_user(&latency_us, argp, sizeof latency_us))
+            goto out;
+        r = 0;
         kvmft_ioctl_bd_perceptron(latency_us);
         break;
-    }  
+    }
 //    case KVMFT_BD_IS_LOG_FULL: {
  //       r = kvmft_ioctl_bd_is_log_full(kvm);
   //      break;
    // }
     case KVMFT_BD_UPDATE_LATENCY: {
-        struct kvmft_update_latency update;                                                                                                                                                                         
+        struct kvmft_update_latency update;
         r = -EFAULT;
         if (copy_from_user(&update, argp, sizeof update))
-            goto out; 
-        r = 0; 
+            goto out;
+        r = 0;
         kvmft_bd_update_latency(kvm, &update);
         break;
-    }    
+    }
     case KVMFT_BD_SET_ALPHA: {
         __u32 alpha;
         r = -EFAULT;
         if (copy_from_user(&alpha, argp, sizeof alpha))
-            goto out; 
+            goto out;
         r = kvmft_ioctl_bd_set_alpha(kvm, (int)alpha);
         break;
-    } 
+    }
     case KVMFT_BD_PAGE_FAULT_CHECK: {
         r = kvmft_bd_page_fault_check();
         break;
     }
- 
+
     case KVM_SHM_GET_TIME_MARK: {
 
         if(copy_to_user(argp, &runtime_difftime, sizeof runtime_difftime))

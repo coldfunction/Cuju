@@ -77,6 +77,10 @@
 #include <asm/vmx.h>
 #include <linux/kvm_ft.h>
 
+
+struct task_struct *myglobaltask = NULL;
+//int myglobal_isok = 0;
+
 /*
  * When setting this variable to true it enables Two-Dimensional-Paging
  * where the hardware walks 2 page tables:
@@ -2680,7 +2684,7 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 		hva = gfn_to_hva(vcpu->kvm, gfn);
 		if (kvm_is_error_hva(hva)) {
 			printk("%s error hva for %lx\n", __func__, (long)gfn);
-		} 
+		}
 		else {
 			kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
 		}
@@ -2696,8 +2700,8 @@ done:
 //	    hva = gfn_to_hva(vcpu->kvm, gfn);
 //	    if (kvm_is_error_hva(hva)) {
 //		    printk("%s error hva for %lx\n", __func__, (long)gfn);
-//	    } 
- //       else 
+//	    }
+ //       else
   //          mypage = gfn_to_page(vcpu->kvm, gfn);
 
 //    }
@@ -3020,8 +3024,10 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
     } else {
         // tlb not flushed yet, so should be safe.
         // what if someelse vcpu flushed tlb right before?
+        //myglobal_isok = 1;
         kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
     }
+
 
 	/*
 	 * Theoretically we could also set dirty bit (and flush TLB) here in
@@ -3037,6 +3043,9 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 	 */
 	if (cmpxchg64(sptep, spte, spte | PT_WRITABLE_MASK) == spte)
 		kvm_vcpu_mark_page_dirty(vcpu, gfn);
+
+//    printk("cocotion test page fault my current pid = %d\n", current->pid);
+
 /*
     pfn_t pfn;
     struct kvm_memory_slot *slot;
@@ -3721,7 +3730,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
         // we need to make a copy, unprotect it and then run like old way;
         //  (dirtied in previous epoch, close to gva, high chance to be dirtied again)
         // otherwise, unprotect it and just let guest write. if guest actually wrote it,
-        // we need to make a copy in snapshot stage (postponed backup) and 
+        // we need to make a copy in snapshot stage (postponed backup) and
         // transfer the whole page since we don't have a backup
  		return 0;
 	}
@@ -3748,14 +3757,14 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 
     //cocotion now
 //    kvmft_pfn_dirty(vcpu->kvm, gfn, pfn);
-    
+
 
 /*
     struct page *mypage;
 
     PageReserved(mypage = pfn_to_page(pfn));
     char *backup = kmap_atomic(mypage);
-        
+
         int j,k;
         for (j = 0; j < 4096; j += 32) {
             for(k = 0; k<32; k++) {
@@ -3763,7 +3772,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
             }
         }
 
- 
+
     kunmap_atomic(backup);
 
 */
@@ -4193,6 +4202,8 @@ static void init_kvm_tdp_mmu(struct kvm_vcpu *vcpu)
 	context->get_cr3 = get_cr3;
 	context->get_pdptr = kvm_pdptr_read;
 	context->inject_page_fault = kvm_inject_page_fault;
+
+    myglobaltask = current;
 
 	if (!is_paging(vcpu)) {
 		context->nx = false;
@@ -5243,7 +5254,7 @@ bool kvm_mmu_clear_spte_dirty_bit(struct kvm *kvm, gfn_t gfn)
     }
 
     rmapp = &slot->rmap[gfn - slot->base_gfn];
-    for_each_rmap_spte(rmapp, &iter, sptep) { 
+    for_each_rmap_spte(rmapp, &iter, sptep) {
         dirty |= spte_remove_dirty_bit(kvm, sptep);
     }
 

@@ -273,7 +273,7 @@ static int bd_predic_stop2(unsigned long data)
 
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
     int epoch_run_time = time_in_us() - dlist->epoch_start_time;
-    //printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
+    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
 
 //    printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
 
@@ -3357,7 +3357,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
-//    printk("cocotion test total bytes transfer is %d\n", total);
+    printk("cocotion test total bytes transfer is %d\n", total);
 
     #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
@@ -4587,7 +4587,31 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
         //printk("cocotion test gfn pfn sync flag = %d\n", (ctx->gfn_pfn_sync_list)[gfn_off].pfn);
         int len = 0;
-/*
+
+        char *page = kmap_atomic(page2);
+        char *backup = kmap_atomic(page1) ;
+
+        int j,k;
+
+        kernel_fpu_begin();
+        for (j = 0; j < 4096; j += 32) {
+            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+        }
+        kernel_fpu_end();
+
+
+        kunmap_atomic(page);
+        kunmap_atomic(backup);
+
+        if(len == 0) {
+            total_zero_len++;
+            len = 4096;
+        }
+
+
+
+
+        /*
         if((ctx->gfn_pfn_sync_list)[i].flag == 1)
         {
             pfn_t pfn = (ctx->gfn_pfn_sync_list)[i].pfn;

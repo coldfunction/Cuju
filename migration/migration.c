@@ -2280,22 +2280,22 @@ static void kvmft_flush_output(MigrationState *s)
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
-   
 
-   FILE *pFile;
-   char pbuf[200];
+
+//   FILE *pFile;
+ //  char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
     if(pFile != NULL){
         sprintf(pbuf, "%d\n", s->ram_len);
-        fputs(pbuf, pFile);                                                                                                                      
+        fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_us);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
-    fclose(pFile); 
+    fclose(pFile);
 */
 
     int trans_rate = s->ram_len/trans_us;
@@ -2308,29 +2308,29 @@ static void kvmft_flush_output(MigrationState *s)
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
     mybdupdate.last_trans_rate = trans_rate;
- 
+
 /*
     pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
             sprintf(pbuf, "%d\n", filter_count);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
         for(i = 0; i < filter_count; i++) {
             sprintf(pbuf, "%d\n", time_stamp[i]);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
             sprintf(pbuf, "%d\n", dirty_pages_stamp[i]);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
             sprintf(pbuf, "%d\n", dirty_bytes_stamp[i]);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
         }
-    }    
+    }
     else
         printf("no profile\n");
-    fclose(pFile); 
+    fclose(pFile);
 
     filter_count = 0;
 */
- 
+
     //FILE *pFile;
 
     if(count == 0) {
@@ -2340,7 +2340,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 /*
     static int exceed_runtime_us = 0;
-    static unsigned long e_count = 0; 
+    static unsigned long e_count = 0;
     if(latency_us > target_latency) {
         exceed_runtime_us+=runtime_us;
         e_count++;
@@ -2348,10 +2348,10 @@ static void kvmft_flush_output(MigrationState *s)
         if(e_count == 1000) {
             average_exceed_runtime_us = exceed_runtime_us/1000;
             exceed_runtime_us = 0;
-            e_count = 0; 
+            e_count = 0;
         }
-    }  
-*/ 
+    }
+*/
  //   printf("cocotion test average_exceed_runtime_us = %d\n", average_exceed_runtime_us);
     static unsigned long latency_exceed_count = 0;
     static unsigned long latency_less_count = 0;
@@ -2359,10 +2359,10 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long latency_less = 0;
 
     static unsigned long latency_exceed_current_count = 0;
-   
+
 
     static unsigned long int ok = 0;
-    static unsigned long int mcount = 0; 
+    static unsigned long int mcount = 0;
     //if(latency_us > target_latency) {
     if(latency_us > target_latency + 1000) {
         latency_exceed_count++;
@@ -2380,10 +2380,10 @@ static void kvmft_flush_output(MigrationState *s)
     else {
         //mybdupdate.last_trans_rate = trans_rate;
         ok++;
-    } 
-   
+    }
 
-    mcount++; 
+
+    mcount++;
     count++;
 
     if(mcount == 0) mcount = ok = 1;
@@ -2404,12 +2404,12 @@ static void kvmft_flush_output(MigrationState *s)
 //    float approach_rate = average_latency / (float) target_latency;
 //    float approach_less_rate = (latency_less_count == 0)? 0: (latency_less/latency_less_count) / (float) target_latency;
 //    float approach_exceed_rate = (latency_exceed_count == 0)? 0: (latency_exceed/latency_exceed_count) / (float) target_latency;
-    
+
 
 /*
     static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
-    static int m_count = 1;    
+    static int m_count = 1;
 
 //    average_latency_us += latency_us;
     current_latency_sum_us += latency_us;
@@ -2421,12 +2421,12 @@ static void kvmft_flush_output(MigrationState *s)
         else if(average_latency_us < (target_latency*94/100))
            bd_alpha -= ((target_latency*94/100)-average_latency_us);
 
-    if(m_count == 500) {       
+    if(m_count == 500) {
         average_latency_us = current_latency_sum_us = m_count = 0;
-    } 
+    }
  //   }
     m_count++;
- */   
+ */
 //    static float current_exceed_ratio = 0;
 //    static float old_exceed_ratio = 0;
 //    printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
@@ -2437,7 +2437,7 @@ static void kvmft_flush_output(MigrationState *s)
     //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
 
-//////////////////////////////////////////////////////////////////// 
+////////////////////////////////////////////////////////////////////
  //   static int latency_array_us[500];
 //    static int latency_p = 1;
 
@@ -2460,7 +2460,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    if(count%roundtimes == 0) {
  //       int range_ratio = (rang_count/roundtimes)*100;
-  //      if(range_ratio < 80) 
+  //      if(range_ratio < 80)
    // }
 
 
@@ -2473,7 +2473,7 @@ static void kvmft_flush_output(MigrationState *s)
     if(count%roundtimes == 0) {
         float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
         latency_exceed_current_count = 0;
-    
+
         float current_less_ratio = (float)latency_less_count/roundtimes;
         latency_less_count = 0;
 
@@ -2485,11 +2485,11 @@ static void kvmft_flush_output(MigrationState *s)
 //        printf("cocotion test rang_count = %d\n", range_count);
 //        printf("cocotion test rang_ratio = %d\n", range_ratio);
  //       printf("cocotion test bd_alpha = %d\n", bd_alpha);
-        
+
         range_count = 0;
-        
+
 //        if(range_ratio < 80) {
-         //   if(range_ratio < 60) bd_alpha+=10; 
+         //   if(range_ratio < 60) bd_alpha+=10;
      /*       if(current_less_ratio > 0.05){
                  bd_alpha-= (current_less_ratio - 0.1)*100;
             }
@@ -2497,7 +2497,7 @@ static void kvmft_flush_output(MigrationState *s)
                  bd_alpha+=(current_exceed_ratio - 0.1)*100;
             }
 */
-     
+
    //     goto next;
 
         //if(average_latency_us > target_latency)
@@ -2524,12 +2524,12 @@ static void kvmft_flush_output(MigrationState *s)
             bd_alpha -= (current_less_ratio-0.01)*100;
            // bd_alpha += 10;
         }
-        //roundtimes = 10; 
-     
+        //roundtimes = 10;
+
         //bd_alpha = (bd_alpha<400)?400:bd_alpha;
       //  if(bd_alpha<400) bd_alpha = 400;
 
-        //roundtimes = 10; 
+        //roundtimes = 10;
         //bd_alpha = trans_rate;
         //printf("cocotion test alpha = %d\n", bd_alpha);
         //srand(time(NULL));
@@ -2538,8 +2538,8 @@ static void kvmft_flush_output(MigrationState *s)
 }
 
         //else
-            //roundtimes = 50; 
- //      } 
+            //roundtimes = 50;
+ //      }
 //next:
        // if(current_exceed_ratio > 0.09) {
         //   bd_alpha += (current_exceed_ratio-0.09)*100;
@@ -2554,9 +2554,9 @@ static void kvmft_flush_output(MigrationState *s)
     //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
     //printf("cocotion test average_latency_us = %d\n", average_latency_us);
-//////////////////////////////////////////////////////////////////// 
-    //bd_alpha = 2800; 
-    //bd_alpha = 2000; 
+////////////////////////////////////////////////////////////////////
+    //bd_alpha = 2800;
+    //bd_alpha = 2000;
     //bd_alpha = trans_rate;
     //bd_alpha = 550;
     //printf("cocotion test alpha = %d\n", bd_alpha);
@@ -2572,75 +2572,75 @@ static void kvmft_flush_output(MigrationState *s)
 //   FILE *pFile;
 
 
-
+/*
     pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
         //sprintf(pbuf, "%d\n", s->dirty_pfns_len);
-        //fputs(pbuf, pFile);                                                                                                                      
+        //fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", latency_us);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
-    fclose(pFile); 
+    fclose(pFile);
+*/
 
 
-
- /* 
+ /*
     FILE *pFile;
     pFile = fopen("alpha.txt", "a");
     char pbuf[200];
     if(pFile != NULL){
         sprintf(pbuf, "%d\n", bd_alpha);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
     fclose(pFile);
 */
- 
+
 /*
     char pbuf[200];
 
     pFile = fopen("current_exceed_ratio.txt", "a");
     if(pFile != NULL){
         sprintf(pbuf, "%f\n", current_exceed_ratio);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
-    else
-        printf("no profile\n");
-    fclose(pFile); 
-     
-    pFile = fopen("exceeds_ratio.txt", "a");
-    if(pFile != NULL){
-        sprintf(pbuf, "%f\n", exceeds_rate);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
-    else
-        printf("no profile\n");
-    fclose(pFile);
- */ 
-/*
-    pFile = fopen("bd_time_slot_us.txt", "a");
-    if(pFile != NULL){
-        sprintf(pbuf, "%d\n", average_ok_runtime_us);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
     fclose(pFile);
 
-*/ 
+    pFile = fopen("exceeds_ratio.txt", "a");
+    if(pFile != NULL){
+        sprintf(pbuf, "%f\n", exceeds_rate);
+        fputs(pbuf, pFile);
+    }
+    else
+        printf("no profile\n");
+    fclose(pFile);
+ */
+/*
+    pFile = fopen("bd_time_slot_us.txt", "a");
+    if(pFile != NULL){
+        sprintf(pbuf, "%d\n", average_ok_runtime_us);
+        fputs(pbuf, pFile);
+    }
+    else
+        printf("no profile\n");
+    fclose(pFile);
+
+*/
 /*
     pFile = fopen("approach_rate.txt", "a");
     if(pFile != NULL){
         sprintf(pbuf, "%f\n", approach_rate);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
-    fclose(pFile); 
+    fclose(pFile);
 */
 
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
@@ -2662,18 +2662,18 @@ static void kvmft_flush_output(MigrationState *s)
     char pbuf[200];
     if(pFile != NULL){
         sprintf(pbuf, "%d\n", runtime_us);
-        fputs(pbuf, pFile);                                                                                                                      
-    }    
+        fputs(pbuf, pFile);
+    }
     else
         printf("no profile\n");
-    fclose(pFile); 
+    fclose(pFile);
 
 
     if(pFile2 != NULL){
         //sprintf(pbuf, "%d\n", trans_us);
         sprintf(pbuf, "%d\n", real_runtime_us);
-        fputs(pbuf, pFile2);                                                                                                                      
-    }    
+        fputs(pbuf, pFile2);
+    }
     else
         printf("no profile\n");
     fclose(pFile2);
@@ -2682,17 +2682,17 @@ static void kvmft_flush_output(MigrationState *s)
 /*
     if(pFile3 != NULL){
         sprintf(pbuf, "%d\n", latency_us);
-        fputs(pbuf, pFile3);                                                                                                                      
-    }    
+        fputs(pbuf, pFile3);
+    }
     else
         printf("no profile\n");
-    fclose(pFile3); 
+    fclose(pFile3);
 */
     assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
 
     bd_update_stat(s->dirty_pfns_len, s->flush_start_time-s->transfer_start_time,
         s->flush_start_time - s->run_real_start_time,
-        s->snapshot_start_time - s->run_real_start_time,                                                                                                                                                            
+        s->snapshot_start_time - s->run_real_start_time,
         s->send_commit1_time - s->invoke_commit1_bh_time,
         s->recv_ack1_time - s->send_commit1_time,
         s->ram_len,
@@ -2990,8 +2990,8 @@ static void *migration_thread(void *opaque)
     end_time = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
 
     if(enable_cuju) {
-        mybdupdate.last_trans_rate = 100;  
-        mybdupdate.predic_trans_rate = 100;  
+        mybdupdate.last_trans_rate = 100;
+        mybdupdate.predic_trans_rate = 100;
 		printf("start cuju process\n");
 		ft_setup_migrate_state(s, 0);
         ft_setup_migrate_state(s2, 1);
@@ -3287,7 +3287,7 @@ static void migrate_run(MigrationState *s)
 {
     //assert(!cpuset_attach_thread3(0, 7));
     //thread_set_realtime3();
- 
+
    static unsigned long run_serial = 0;
 
     FTPRINTF("%s %d\n", __func__, s->cur_off);
@@ -3331,14 +3331,14 @@ static void migrate_run(MigrationState *s)
 //#define VMFT_CPUSET_DIR "/dev/cgroup/vmft3/"
 int cpuset_attach_thread3(pid_t pid, int cpu_id)
 {
-//  char fname[64];                                                                                                                                 
- // int len; 
+//  char fname[64];
+ // int len;
   //int fd;
-  //  FILE *fd; 
+  //  FILE *fd;
   cpu_set_t cpuset;
 
   //len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
-  //fname[len] = 0; 
+  //fname[len] = 0;
 
   //fd = fopen(fname, O_WRONLY);
   //fd = fopen(fname, "w+");
@@ -3368,16 +3368,16 @@ int cpuset_attach_thread3(pid_t pid, int cpu_id)
 
 static void thread_set_realtime3(void)
 {
-    int err;                                                                                         
+    int err;
     struct sched_param param = {
-        .sched_priority = 99 
-    };   
+        .sched_priority = 99
+    };
 
     err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-    if (err != 0) { 
+    if (err != 0) {
         printf("%s pthread_setschedparam failed\n", __func__);
         exit(-1);
-    }    
+    }
 }
 */
 
@@ -3388,10 +3388,10 @@ static void migrate_timer(void *opaque)
 
     static unsigned long trans_serial = 0;
     MigrationState *s = opaque;
-    
+
     if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
         return ;
-    
+
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
     s->snapshot_start_time = time_in_double();
 
@@ -3492,7 +3492,7 @@ static void migrate_timer(void *opaque)
 
 void kvmft_tick_func(void)
 {
- 
+
     FTPRINTF("\n\n%s %d\n", __func__, migrate_token_owner ?
         migrate_token_owner->cur_off : -1);
 
@@ -3509,7 +3509,7 @@ void kvmft_tick_func(void)
  //   qemu_thread_create(&thread,
   //                          "ft_migrate_timer",
    //                         migrate_timer,
-    //                        s,   
+    //                        s,
      //                       QEMU_THREAD_JOINABLE);
 
     //double snapshot_start = time_in_double();
@@ -3518,7 +3518,7 @@ void kvmft_tick_func(void)
 
     //s->snapshot_start_time = time_in_double();
     //s->snapshot_start_time = snapshot_start;
-    
+
 
 
    // if (s->ft_state != CUJU_FT_TRANSACTION_RUN)

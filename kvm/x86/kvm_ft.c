@@ -273,7 +273,7 @@ static int bd_predic_stop2(unsigned long data)
 
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
     int epoch_run_time = time_in_us() - dlist->epoch_start_time;
-    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
+//    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
 
 //    printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
 
@@ -489,12 +489,6 @@ static int prepare_for_page_backup(struct kvmft_context *ctx, int i)
     //if (!ctx->dirty_pages_via_gfn)
      //   return -ENOMEM;
 
-//    ctx->gfn_pfn_sync_list = kzalloc(
- //       sizeof (struct  gfn_pfn_sync) * 262144, GFP_KERNEL);
-  //  if (!ctx->gfn_pfn_sync_list)
-   //     return -ENOMEM;
-
-
     printk("%s shared_snapshot_pages %p\n", __func__, ctx->shared_pages_snapshot_k[i]);
     return 0;
 }
@@ -575,11 +569,6 @@ struct page *kvm_shm_alloc_page(struct kvm *kvm,
             pfn_to_virt(page_to_pfn(page));
         ctx->shared_pages_snapshot_pages[param->index1][param->index2] = page;
     }
-
- //   if (page2) {
-  //      ctx->dirty_pages_via_gfn[param->index2] = page2;
-   // }
-    //(ctx->gfn_pfn_sync_list)[param->index2].flag = 0;
 
 out:
     return page;
@@ -1001,18 +990,6 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 
     bd_page_fault_check = 1;
     update_flag = 0;
-
-//    if(!ctx->gfn_pfn_sync_list) {
- //       ctx->gfn_pfn_sync_list = kzalloc(
-  //      sizeof (struct  gfn_pfn_sync) * 262144, GFP_KERNEL);
-   // } else {
-    //    int i;
-     //   for(i = 0; i < 262144; i++)
-      //      (ctx->gfn_pfn_sync_list)[i].flag = 0;
-    //}
-
-
-
 
     dlist = ctx->page_nums_snapshot_k[cur_index];
 
@@ -1592,16 +1569,6 @@ int kvmft_bd_page_fault_check()
     //else return 0;
 }
 
-int kvmft_pfn_dirty(struct kvm *kvm, pfn_t pfn, int put_index)
-{
-
-    struct kvmft_context *ctx;
-    ctx = &kvm->ft_context;
-
-    (ctx->gfn_pfn_sync_list)[put_index].pfn = pfn;
-    (ctx->gfn_pfn_sync_list)[put_index].flag = 1;
-}
-
 
 // backup data in snapshot mode.
 // for pte, record list
@@ -1663,14 +1630,6 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
     ((uint16_t *)memslot->epoch_gfn_to_put_offs.kaddr[ctx->cur_index])[gfn_off] = put_index;
     dlist->pages[put_index] = gfn;
 
-//    extern int myglobal_isok;
- //   if(myglobal_isok) {
-        //pfn_t pfn = gfn_to_pfn_atomic(kvm, gfn);
-        //kvmft_pfn_dirty(kvm, pfn, put_index) ;
-  //      kvmft_pfn_dirty(kvm, 0, put_index) ;
-   //     myglobal_isok = 0;
-    //}
-
     shared_pages_k = ctx->shared_pages_snapshot_k[ctx->cur_index];
     orig = (void *)((unsigned long)orig & ~0x0FFFULL);
 
@@ -1700,43 +1659,6 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
     if (unlikely(put_index >= dlist->dirty_stop_num))
         ctx->log_full = true;
 
-
-
-    //unsigned long addr = gfn_to_hva(kvm, gfn);
-    //global_addr = gfn_to_hva(kvm, gfn);
-    //void *addr = (void*) gfn_to_hva(kvm, gfn);
-    //mm_mpin(addr, 4096);
-
-    //struct page *page = gfn_to_page(kvm, gfn);
-    //char *testpage = kmap_atomic(global_page);
-    //kunmap_atomic(global_page);
-
-
-    //SetPageReserved(page);
-
-    //mlock_vma_page(page);
-
-
-    //munlock_vma_page(page);
-
-    //printk("cocotion test addr = %d\n", *(char*)addr);
-
-//    uint64_t pa = gfn_to_gpa(gfn);
-//    void *addr = gpa_to_hva(pa);
-
-    //global_page = gfn_to_page(kvm, gfn);
-    //ctx->dirty_pages_via_gfn[gfn_off] = gfn_to_page(kvm, gfn);
-    //ctx->dirty_pages_via_gfn[0] = gfn_to_page(kvm, gfn);
-    //global_pages = gfn_to_page(kvm, gfn);
-        //gfn_to_page(kvm, gfn);
-
-
-//     if (bd_page_fault_check && hrtimer_cancel(&global_vcpu->hrtimer)) {
- //       global_vcpu->hrtimer_pending = true;
-  //      global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-   //     kvm_vcpu_kick(global_vcpu);
-    //    bd_page_fault_check = 0;
-     //}
 
 #ifdef ENABLE_PRE_DIFF
     try_put_gfn_in_diff_req_list(kvm, memslot, gfn);
@@ -3156,57 +3078,6 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         }
     }
     kernel_fpu_end();
-///////////////////////////////////////////////cocotion test start
-
-
-    #ifdef ft_debug_bd
-
-    struct kvm_memory_slot *memslot;
-    unsigned long gfn_off;
-    memslot = gfn_to_memslot(global_kvm, gfn);
-    gfn_off = gfn - memslot->base_gfn;
-
-    struct kvmft_context *ctx = &global_kvm->ft_context;
-
-
-    pfn_t pfn = (ctx->gfn_pfn_sync_list)[gfn_off].pfn;
-
-    struct page *mypage;
-
-    mypage = pfn_to_page(pfn);
-
-    char *mybackup = kmap_atomic(mypage);
-
-
-
-    int j,k;
-
-   // pfn_t real_pfn;
-  //  bool async = false;
- //   real_pfn = __gfn_to_pfn_memslot(memslot, gfn, false, &async, true, true);
-//    if(real_pfn != pfn) global_diff_pfn_count++;
-    pfn_t real_pfn = gfn_to_pfn(global_kvm, gfn);
-    if(real_pfn != pfn) global_diff_pfn_count++;
-
-
-    for (j = 0; j < 4096; j += 32) {
-        for(k = 0; k<32; k++) {
-           if((mybackup+j)[k] != (page+j)[k]) {
-                //printk("diff gfn is = %d\n", gfn);
-                global_diff_gfn_count++;
-                goto gfndiff;
-            }
-        }
-
-    }
-
-gfndiff:
-
-
-    kunmap_atomic(mybackup);
-//////////////////////////////////////////////////cocotion test end
-
-    #endif
 
 //    printk("dirty bytes per page in real transfer= %d\n", dirty_bytes_per_pages);
     //printk("cocotion test total dirty bytes per page = %d\n", total_dirty_bytes_per_page);
@@ -3316,11 +3187,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int total_bytes = 0;
     total_dirty_bytes = 0;
     z_count = 0;
+
+
   //  printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
-        unsigned long gfn = gfns[i];
-        ctx->gfn_pfn_sync_list[i].flag = 0;
-
+		unsigned long gfn = gfns[i];
 //        printk("============== cocotion test transfer gfn = %d\n", gfn);
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
@@ -3357,7 +3228,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
-    printk("cocotion test total bytes transfer is %d\n", total);
+//    printk("cocotion test total bytes transfer is %d\n", total);
 
     #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
@@ -4039,8 +3910,6 @@ void kvm_shm_exit(struct kvm *kvm)
     kfree(ctx->shared_pages_snapshot_k);
     kfree(ctx->shared_pages_snapshot_pages);
 
-    //kfree(ctx->dirty_pages_via_gfn);
-    kfree(ctx->gfn_pfn_sync_list);
 
     kfifo_free(&kvm->trans_queue);
 
@@ -4131,12 +4000,6 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     ctx->shared_page_num = info->shared_page_num; // + 1024; // 1024 is guard
     ctx->shared_watermark = info->shared_watermark;
     ctx->cur_index = KVM_SHM_INIT_INDEX;
-
-
-    ctx->gfn_pfn_sync_list = kzalloc(
-        sizeof (struct  gfn_pfn_sync) * ctx->shared_page_num, GFP_KERNEL);
-    if (!ctx->gfn_pfn_sync_list)
-        return -ENOMEM;
 
 
     // allocate shared_dirty_page_nums, include safe guard.
@@ -4526,37 +4389,6 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
 
-//        struct task_struct *current_backup = current_thread_info()->task;
- //       current_thread_info()->task = myglobaltask;
-        //page2 = gfn_to_page_new(global_kvm, gfn);
-
-
-//        printk("cocotion test kvm process id is myglobaltask->pid = %d\n", myglobaltask->pid);
- //       printk("cocotion test current id is = %d\n", current->pid);
-
-//		preempt_disable();
-//        if(current->pid == myglobaltask->pid) {
-			//int mycr3 = pid_to_cr3(current->pid);
-			//int yourcr3 = pid_to_cr3(myglobaltask->pid);
-			//if(mycr3 != yourcr3)
-				//printk("cocotion test mycr3 = %d your cr3 = %d\n", mycr3, yourcr3);
-            //page2 = gfn_to_page(global_kvm, gfn);
-//            spin_lock(&myftlock);
-  //          if((ctx->gfn_pfn_sync_list)[i].flag == 1) {
-//    		    pfn_t real_pfn = gfn_to_pfn_atomic(global_kvm, gfn);
-                //pfn_t pfn = (ctx->gfn_pfn_sync_list)[i].pfn;
-                //page2 = pfn_to_page(pfn);
-   //         }
- //           spin_unlock(&myftlock);
-
- //       }
-//		preempt_enable();
-
-        //if(current->pid == myglobaltask->pid)
-         //   page2 = gfn_to_page(global_kvm, gfn);
-
-
-
 
         struct task_struct *current_backup = get_cpu_var(current_task);
         if(current_backup != myglobaltask) {
@@ -4575,17 +4407,6 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
 
 
-        //      current_thread_info()->task = current_backup;
-
-
-//        struct kvm_memory_slot *memslot;
- //       unsigned long gfn_off;
-  //      memslot = gfn_to_memslot(global_kvm, gfn);
-   //     gfn_off = gfn - memslot->base_gfn;
-
-        //while((ctx->gfn_pfn_sync_list)[gfn_off].flag == 0);
-
-        //printk("cocotion test gfn pfn sync flag = %d\n", (ctx->gfn_pfn_sync_list)[gfn_off].pfn);
         int len = 0;
 
         char *page = kmap_atomic(page2);
@@ -4608,38 +4429,6 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
             len = 4096;
         }
 
-
-
-
-        /*
-        if((ctx->gfn_pfn_sync_list)[i].flag == 1)
-        {
-            pfn_t pfn = (ctx->gfn_pfn_sync_list)[i].pfn;
-            page2 = pfn_to_page(pfn);
-
-            char *page = kmap_atomic(page2);
-
-            char *backup = kmap_atomic(page1) ;
-
-            int j,k;
-
-            kernel_fpu_begin();
-            for (j = 0; j < 4096; j += 32) {
-                len += 32 * (!!memcmp_avx_32(backup + j, page + j));
-
-            }
-            kernel_fpu_end();
-
-
-            kunmap_atomic(page);
-            kunmap_atomic(backup);
-
-            if(len == 0) {
-                total_zero_len++;
-                len = 4096;
-            }
-            invalid_count++;
-        }*/
         total_dirty_bytes += len;
 
     }

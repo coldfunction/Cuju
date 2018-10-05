@@ -79,7 +79,6 @@
 
 
 struct task_struct *myglobaltask = NULL;
-//int myglobal_isok = 0;
 
 /*
  * When setting this variable to true it enables Two-Dimensional-Paging
@@ -3024,7 +3023,6 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
     } else {
         // tlb not flushed yet, so should be safe.
         // what if someelse vcpu flushed tlb right before?
-        //myglobal_isok = 1;
         kvmft_page_dirty(vcpu->kvm, gfn, (void *)hva, 1, NULL);
     }
 

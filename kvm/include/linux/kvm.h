@@ -1316,8 +1316,8 @@ struct kvm_shmem_init {
   unsigned long shared_page_num;
   unsigned long shared_watermark;
   unsigned long page_nums_size;
-  unsigned long page_nums_pfn_dirty[2]; // start of struct 
-  unsigned long page_nums_pfn_snapshot[2]; // start of struct 
+  unsigned long page_nums_pfn_dirty[2]; // start of struct
+  unsigned long page_nums_pfn_snapshot[2]; // start of struct
   unsigned long epoch_time_in_ms;
   unsigned long pages_per_ms;
 };
@@ -1356,7 +1356,7 @@ struct kvm_shmem_mark_page_dirty {
 struct kvm_shmem_extend {
   // output from kvm to qemu
   unsigned long page_nums_size;
-  unsigned long page_nums_pfn_snapshot; // start of struct 
+  unsigned long page_nums_pfn_snapshot; // start of struct
 };
 #define KVM_SHM_EXTEND                    _IOW(KVMIO, 0xcb, struct kvm_shmem_extend)
 struct kvm_shmem_start_kernel_transfer {
@@ -1369,7 +1369,7 @@ struct kvm_shmem_start_kernel_transfer {
 #define KVM_START_KERNEL_TRANSFER         _IOW(KVMIO,  0xcc, struct kvm_shmem_start_kernel_transfer)
 struct kvm_vcpu_get_shared_all_state {
     __u32 pfn;
-    __u32 order;                                                                                             
+    __u32 order;
 };
 #define KVM_VCPU_GET_SHARED_ALL_STATE     _IOW(KVMIO,  0xcd, struct kvm_vcpu_get_shared_all_state)
 #define KVM_FT_PROTECT_SPECULATIVE_PREPARE_NEXT_SPECULATIVE        _IOW(KVMIO,  0xce, __u32)
@@ -1393,8 +1393,9 @@ struct kvmft_update_latency {
     int last_trans_rate;
     int predic_trans_rate;
     int beta;
+    int ram_len;
 };
-#define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)                                                                                                                            
+#define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 #define KVMFT_BD_SET_ALPHA                _IOW(KVMIO, 0xd3, __u32)
 #define KVMFT_BD_CALC_LEFT_RUNTIME        _IO(KVMIO, 0xd4)
 #define KVMFT_BD_RUNTIME_EXCEEDS          _IO(KVMIO, 0xd5)
@@ -1474,7 +1475,7 @@ struct kvm_cpu_state {
 
 #define KVM_SHM_SNAPMODE_OFF		0
 // will check dirty_bitmap of previous epoch
-#define KVM_SHM_SNAPMODE_NORMAL		1	
+#define KVM_SHM_SNAPMODE_NORMAL		1
 #define KVM_SHM_SNAPMODE_TESTING	2
 
 

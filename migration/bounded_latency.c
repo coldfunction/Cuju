@@ -11,7 +11,7 @@ static int bd_target = EPOCH_TIME_IN_MS * 1000;
 //int bd_alpha = 1787; // initial alpha is 1 ms
 int bd_alpha = -200; // initial alpha is 1 ms
 float bd_time_slot_us;
-//int bd_time_slot_us_pattern[] = {4000, 5000}                                                                                                                                                                     
+//int bd_time_slot_us_pattern[] = {4000, 5000}
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 
 extern unsigned long pass_time_us_threshold;
@@ -27,20 +27,20 @@ struct kvmft_update_latency mybdupdate;
 
 int average_exceed_runtime_us = EPOCH_TIME_IN_MS * 1000;
 int average_ok_runtime_us = EPOCH_TIME_IN_MS * 1000/3 - 100;
-int bd_time_slot_adjust = -100;   
+int bd_time_slot_adjust = -100;
 
-int kvmft_bd_set_alpha(int alpha); 
+int kvmft_bd_set_alpha(int alpha);
 
 
 int kvmft_bd_set_alpha(int alpha)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_SET_ALPHA, &alpha);
-}                                                                                                                                                                                                                   
+}
 /*
 static int kvmft_bd_check_dirty_page_number(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CHECK_DIRTY_PAGE_NUMBER);
-}                                                                                                                                                                                                                   
+}
 */
 
 static int kvmft_bd_predic_stop(void)
@@ -66,11 +66,11 @@ static int kvmft_bd_predic_stop(void)
         char pbuf[200];
         if(pFile != NULL){
             sprintf(pbuf, "%d\n", dirty_bytes);
-            fputs(pbuf, pFile);                                                                                                                      
-        }    
+            fputs(pbuf, pFile);
+        }
         else
             printf("no profile\n");
-        fclose(pFile); 
+        fclose(pFile);
 */
 
         //dirty_pages_stamp[filter_count]   = update.dirty_page;
@@ -78,7 +78,7 @@ static int kvmft_bd_predic_stop(void)
         //filter_count++;
 //        printf("cocotion test filter_count = %d\n", filter_count);
  //       printf("cocotion test dirty_byte = %d\n", update.dirty_byte);
-        
+
 
  //   }
 
@@ -87,23 +87,23 @@ static int kvmft_bd_predic_stop(void)
 
 
 /*
-static int bd_calc_left_runtime(void)                                                                                                                                                                               
+static int bd_calc_left_runtime(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CALC_LEFT_RUNTIME);
 }
 */
 
 
-//static FILE *bdofile = NULL; 
+//static FILE *bdofile = NULL;
 //static FILE *ofile = NULL;
 
-void bd_update_stat(int dirty_num, 
-                    double tran_time_s, 
-                    double delay_time_s, 
-                    double run_time_s, 
-                    double invoke_commit1_s, 
-                    double recv_ack1_s, 
-                    int ram_len, 
+void bd_update_stat(int dirty_num,
+                    double tran_time_s,
+                    double delay_time_s,
+                    double run_time_s,
+                    double invoke_commit1_s,
+                    double recv_ack1_s,
+                    int ram_len,
                     int average_predict)
 {
     kvmft_bd_set_alpha(bd_alpha);
@@ -111,23 +111,23 @@ void bd_update_stat(int dirty_num,
     if (delay_time_s * 1000 * 1000 > bd_target * 110 / 100) {
         bd_alpha += 200;
         kvmft_bd_set_alpha(bd_alpha);
-    } else if (delay_time_s * 1000 * 1000 > bd_target * 102 / 100) {                                                                                                                                                
-        bd_alpha += 50; 
+    } else if (delay_time_s * 1000 * 1000 > bd_target * 102 / 100) {
+        bd_alpha += 50;
         kvmft_bd_set_alpha(bd_alpha);
     } else if (delay_time_s * 1000 * 1000 >= bd_target * 98 / 100) {
         // [98%, 102%]
         // slowly back off
-        bd_alpha += 10; 
+        bd_alpha += 10;
         kvmft_bd_set_alpha(bd_alpha);
     } else {
-        bd_alpha -= 25; 
+        bd_alpha -= 25;
         kvmft_bd_set_alpha(bd_alpha);
-    }   
+    }
 */
 /*    if (ofile == NULL) {
         ofile = fopen("/tmp/bd_delay", "w");
         assert(ofile);
-    }   
+    }
 */
     //if (dirty_num < 500)
     //    return;
@@ -172,7 +172,7 @@ static int bd_page_fault_check(void)
 }*/
 
 /*
-static int bd_calc_dirty_bytes(void)                                                                                                                                                                                
+static int bd_calc_dirty_bytes(void)
 {
     return kvm_vm_ioctl(kvm_state, KVMFT_BD_CALC_DIRTY_BYTES);
 }
@@ -182,10 +182,10 @@ static int bd_calc_dirty_bytes(void)
 static int bd_is_last_count(int count)
 {
     if (EPOCH_TIME_IN_MS < 10) {
-        return count == 10;                                                                                                                                                                                         
+        return count == 10;
     } else {
         return count == EPOCH_TIME_IN_MS;
-    }   
+    }
 }
 */
 
@@ -197,8 +197,9 @@ void bd_reset_epoch_timer(void)
     //bd_time_slot_us = 1000;
     //bd_time_slot_us = 50;
     //bd_time_slot_us = 4000;
-    //bd_time_slot_us = 500;
+//    bd_time_slot_us = 500;
     bd_time_slot_us = 3000;
+//    bd_time_slot_us = 4000;
 
 //    bd_time_slot_us = bd_target - 1000;
 
@@ -206,11 +207,11 @@ void bd_reset_epoch_timer(void)
  //       bd_time_slot_us = 100;
 
     Error *err = NULL;
-    qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);                                                                                                                                                                             
+    qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);
     if (err) {
         error_report_err(err);
         return;
-    }    
+    }
 
 }
 /*
@@ -239,12 +240,12 @@ bool bd_timer_func(void)
 
 //    if(pFile != NULL){
         sprintf(pbuf, "%ld\n", kernel_time_us);
-        fputs(pbuf, pFile);                                                                                                                      
- //   }    
+        fputs(pbuf, pFile);
+ //   }
   //  else
    //     printf("no profile\n");
-    //fclose(pFile); 
-    
+    //fclose(pFile);
+
     //printf("%ld\n", kernel_time_us);
 
 
@@ -258,12 +259,12 @@ bool bd_timer_func(void)
 
     //printf("%d\n", pass_time_us);
     sprintf(pbuf, "%d\n", pass_time_us);
-    fputs(pbuf, pFile);                                                                                                                      
+    fputs(pbuf, pFile);
     real_pass_time_us += pass_time_us;
-   
+
     //printf("cocotion test real_pass_time_us = %d\n", real_pass_time_us);
     //printf("%d\n", real_pass_time_us);
- 
+
 //    if(pass_time_us >= bd_target*0.94) {
   //  if(pass_time_us >= bd_target-1000) {
    // if(real_pass_time_us >= bd_target-1000) {
@@ -273,60 +274,60 @@ bool bd_timer_func(void)
         get_pass_time_us(&pass_time_us2);
         //printf("%d\n", pass_time_us2-pass_time_us);
         sprintf(pbuf, "%d\n", pass_time_us2-pass_time_us);
-        fputs(pbuf, pFile);                                                                                                                      
-        
-        
-        real_pass_time_us += (pass_time_us2-pass_time_us); 
+        fputs(pbuf, pFile);
+
+
+        real_pass_time_us += (pass_time_us2-pass_time_us);
         //printf("%d\n", real_pass_time_us);
         sprintf(pbuf, "%d\n", real_pass_time_us);
-        fputs(pbuf, pFile);                                                                                                                      
-      
-        fputs("@\n", pFile);                                                                                                                      
-        
+        fputs(pbuf, pFile);
 
-        real_pass_time_us = 0; 
+        fputs("@\n", pFile);
 
-/* 
+
+        real_pass_time_us = 0;
+
+/*
         FILE *pFile;
-        int i; 
+        int i;
         pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
-        
+
         char pbuf[200];
         if(pFile != NULL){
             sprintf(pbuf, "%d\n", filter_count);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
             for(i = 0; i < filter_count; i++) {
                 sprintf(pbuf, "%d\n", time_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
                 sprintf(pbuf, "%d\n", dirty_pages_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
                 sprintf(pbuf, "%d\n", dirty_bytes_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
 
-        real_pass_time_us = 0; 
+        real_pass_time_us = 0;
 */
-/* 
+/*
         FILE *pFile;
-        int i; 
+        int i;
         pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
-        
+
         char pbuf[200];
         if(pFile != NULL){
             sprintf(pbuf, "%d\n", filter_count);
-            fputs(pbuf, pFile);                                                                                                                      
+            fputs(pbuf, pFile);
             for(i = 0; i < filter_count; i++) {
                 sprintf(pbuf, "%d\n", time_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
                 sprintf(pbuf, "%d\n", dirty_pages_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
                 sprintf(pbuf, "%d\n", dirty_bytes_stamp[i]);
-                fputs(pbuf, pFile);                                                                                                                      
+                fputs(pbuf, pFile);
             }
             filter_count = 0;
-        }    
+        }
         else
             printf("no profile\n");
-        fclose(pFile); 
+        fclose(pFile);
 */
 
 
@@ -335,23 +336,23 @@ bool bd_timer_func(void)
 
         //printf("cocotion test @@@@@@@@@@@before take snapshot dirty bytes = %d\n", update.dirty_byte);
 
-        fclose(pFile); 
+        fclose(pFile);
         return false;
     }
- 
+
     //if(bd_page_fault_check() && kvmft_bd_predic_stop())  {
 //    if(bd_page_fault_check())  {
- 
 
-/*   
+
+/*
         FILE *pFile;
 
         pFile = fopen("mytime.txt", "a");
         char pbuf[200];
         if(pFile != NULL){
             sprintf(pbuf, "%d\n", pass_time_us);
-            fputs(pbuf, pFile);                                                                                                                      
-        }    
+            fputs(pbuf, pFile);
+        }
         else
             printf("no profile\n");
         fclose(pFile);
@@ -360,9 +361,9 @@ bool bd_timer_func(void)
     //time_stamp[filter_count] = pass_time_us;
 
 
- 
-   
-    //kvmft_bd_predic_stop();   
+
+
+    //kvmft_bd_predic_stop();
     //get_pass_time_us(&pass_time_us);
 
 //    if(first_enter)
@@ -377,23 +378,23 @@ bool bd_timer_func(void)
   //      return false;
    // }
 
-    
-    
+
+
     //kvmft_bd_predic_stop();
     int nexT;
     if( (nexT = kvmft_bd_predic_stop()) < 0) {
     get_pass_time_us(&pass_time_us2);
     //printf("%d\n", pass_time_us2-pass_time_us);
-        
-    sprintf(pbuf, "%d\n", pass_time_us2-pass_time_us);
-    fputs(pbuf, pFile);                                                                                                                      
 
-    real_pass_time_us += (pass_time_us2-pass_time_us); 
+    sprintf(pbuf, "%d\n", pass_time_us2-pass_time_us);
+    fputs(pbuf, pFile);
+
+    real_pass_time_us += (pass_time_us2-pass_time_us);
     //printf("%d\n", real_pass_time_us);
     sprintf(pbuf, "%d\n", real_pass_time_us);
-    fputs(pbuf, pFile);                                                                                                                      
-    
-    fclose(pFile); 
+    fputs(pbuf, pFile);
+
+    fclose(pFile);
         return false;
     }
 
@@ -407,7 +408,7 @@ bool bd_timer_func(void)
 //    if(bd_target-pass_time_us < 0)
 //    if(bd_target-1000-pass_time_us < 0)
  //       qmp_cuju_adjust_epoch(0, &err);
-  //  else 
+  //  else
         //qmp_cuju_adjust_epoch((bd_target-pass_time_us)/2, &err);
    //     qmp_cuju_adjust_epoch(nexT, &err);
         //qmp_cuju_adjust_epoch(bd_time_slot_us, &err);
@@ -416,20 +417,20 @@ bool bd_timer_func(void)
 
     get_pass_time_us(&pass_time_us2);
     //printf("%d\n", pass_time_us2-pass_time_us);
-        
-    sprintf(pbuf, "%d\n", pass_time_us2-pass_time_us);
-    fputs(pbuf, pFile);                                                                                                                      
 
-    real_pass_time_us += (pass_time_us2-pass_time_us); 
+    sprintf(pbuf, "%d\n", pass_time_us2-pass_time_us);
+    fputs(pbuf, pFile);
+
+    real_pass_time_us += (pass_time_us2-pass_time_us);
     //printf("%d\n", real_pass_time_us);
     sprintf(pbuf, "%d\n", real_pass_time_us);
-    fputs(pbuf, pFile);                                                                                                                      
-    
-    fclose(pFile); 
+    fputs(pbuf, pFile);
+
+    fclose(pFile);
 
     kvm_shmem_start_timer();
-    //bd_page_fault_check(); 
-    return true;                                                                                                                                                                                                      
+    //bd_page_fault_check();
+    return true;
 }
 
 

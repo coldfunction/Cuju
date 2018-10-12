@@ -2304,6 +2304,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    if(trans_rate < 100) trans_rate = 100;
     if(trans_rate < 400) trans_rate = 400;
 
+    //mybdupdate.ram_len = s->ram_len;
     mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
@@ -2369,26 +2370,60 @@ static void kvmft_flush_output(MigrationState *s)
         latency_exceed_current_count++;
         latency_exceed += latency_us;
         exceeds++;
-        //mybdupdate.last_trans_rate -= 10;
+        //mybdupdate.ram_len = s->ram_len - (latency_us - target_latency - 1000);
+        //mybdupdate.ram_len = s->ram_len - 500;
+        mybdupdate.ram_len = mybdupdate.ram_len -  (latency_us - target_latency - 1000);
+
+        //
+        mybdupdate.last_trans_rate -= 100;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
         latency_less_count++;
         latency_less += latency_us;
-        //mybdupdate.last_trans_rate += 10;
+        //mybdupdate.ram_len = s->ram_len + target_latency-1000-latency_us;
+        //mybdupdate.ram_len = s->ram_len + 500;
+        mybdupdate.ram_len = mybdupdate.ram_len +  (target_latency-1000-latency_us);
+        mybdupdate.last_trans_rate += 100;
     }
     else {
         //mybdupdate.last_trans_rate = trans_rate;
+        mybdupdate.ram_len = s->ram_len;
+
         ok++;
     }
+
+
+    static unsigned long latency_sum = 0;
+    latency_sum += latency_us;
 
 
     mcount++;
     count++;
 
+
+//    static float oldptg = 0;
+
     if(mcount == 0) mcount = ok = 1;
-    if(mcount%500 == 0)
+    if(mcount%500 == 0) {
         printf("cocotion test ok percentage is %lf\n", (double)ok/mcount);
+        latency_sum /= 500;
+/*
+        if((double)ok/mcount < oldptg){
+            if(latency_sum > target_latency + 1000)
+                mybdupdate.last_trans_rate -= 10;
+            else if(latency_sum < target_latency-1000) {
+                mybdupdate.last_trans_rate += 10;
+            }
+
+        }*/
+        latency_sum = 0;
+        //oldptg = (double)ok/mcount;
+
+    }
+
+
+
 
 //    float exceeds_rate = (float)exceeds / (float)count;
 

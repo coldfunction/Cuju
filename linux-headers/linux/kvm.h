@@ -1425,8 +1425,9 @@ struct kvmft_update_latency {
     int last_trans_rate;
     int predic_trans_rate;
     int beta;
+    int ram_len;
 };
-#define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)                                                                                                                            
+#define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 #define KVMFT_BD_SET_ALPHA                _IOW(KVMIO, 0xd3, __u32)
 #define KVMFT_BD_CALC_LEFT_RUNTIME        _IO(KVMIO, 0xd4)
 #define KVMFT_BD_RUNTIME_EXCEEDS          _IO(KVMIO, 0Xd5)

@@ -45,6 +45,14 @@ int global_current_dirty_byte = 0;
 int epoch_time_old_global = 0;
 int global_predict_dirty_rate = 0;
 
+int global_total_last_transfer_bytes = 0;
+int global_predic_t_bytes = 0;
+int current_beta = 0;
+
+
+enum hrtimer_restart enHRTimer=HRTIMER_RESTART;
+
+
 extern struct task_struct *myglobaltask;
 
 
@@ -263,7 +271,6 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 static int bd_predic_stop2(unsigned long data)
 {
 
-    //printk("cocotion test mypid = %d\n", task_pid_nr(current));
     struct kvmft_context *ctx;
     ctx = &global_kvm->ft_context;
 
@@ -271,8 +278,81 @@ static int bd_predic_stop2(unsigned long data)
     struct kvmft_dirty_list *dlist;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
+
+    extern ktime_t global_mark_time, global_mark_start_time;
+//    extern u64 runtime_difftime;
+//    global_mark_time = ktime_get();
+ //   ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
+  //  runtime_difftime = ktime_to_us(diff);
+
+//    int epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    //int epoch_run_time = time_in_us() - global_mark_start_time;
+
+    ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
+    int epoch_run_time = ktime_to_us(diff);
+
+    int beta;
+//    static int current_beta = 0;
+
+ /*   if(current_beta + 500 >= target_latency_us - 500) {
+            hrtimer_cancel(&global_hrtimer);
+            enHRTimer = HRTIMER_NORESTART;
+
+            update_flag = 2;
+			global_current_dirty_byte = 0;
+			global_predict_dirty_rate = 0;
+            global_vcpu->hrtimer_pending = true;
+            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+            kvm_vcpu_kick(global_vcpu);
+
+            current_beta = 0;
+
+			return 1;
+    }*/
+
+
+/*
+    int newdirty = global_predict_dirty_rate * (epoch_run_time - epoch_time_old_global);
+    int beta = (global_current_dirty_byte+newdirty)/global_last_trans_rate + epoch_run_time;
+
+	printk("============\n");
+	printk("cocotiion test epoch_run_time 1.  = %d, beta = %d\n", epoch_run_time, beta);
+	printk("cocotiion test newdirty 1.  = %d\n", newdirty);
+	printk("cocotion test guess all dirty 1. = %d\n", global_current_dirty_byte+newdirty);
+	printk("cocotion test guess trans_rate 1. = %d\n", global_last_trans_rate);
+	printk("============\n");
+
+
+    //if(beta >= target_latency_us - 500 ) {
+    if(beta >= target_latency_us - 200 ) {
+//        printk("cocotion test need takesnapshot\n");
+//        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
+        //if(hrtimer_cancel(&global_hrtimer)) {
+            //epoch_time_in_us = 4000;
+            //epoch_time_in_us = 500;
+            hrtimer_cancel(&global_hrtimer);
+            enHRTimer = HRTIMER_NORESTART;
+
+            update_flag = 0;
+			global_predict_dirty_rate = 0;
+			global_current_dirty_byte = 0;
+            global_vcpu->hrtimer_pending = true;
+            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+            kvm_vcpu_kick(global_vcpu);
+			return 1;
+        //}
+    }
+*/
+
+
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
-    int epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    //epoch_run_time = time_in_us() - dlist->epoch_start_time;
+    //epoch_run_time = time_in_us() - global_mark_start_time;
+    //
+    diff = ktime_sub(ktime_get(), global_mark_start_time);
+    epoch_run_time = ktime_to_us(diff);
+    //
+    //
 //    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
 
 //    printk("cocotion test epoch_run_time = %d\n", epoch_run_time);
@@ -285,21 +365,32 @@ static int bd_predic_stop2(unsigned long data)
 //    if(global_last_trans_rate < 400) global_last_trans_rate = 400;
 
     global_current_dirty_byte = current_dirty_byte;
-    int beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
+    beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
+    current_beta = beta;
+	//printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
 
-
+    //if(epoch_run_time < 7000) beta = 0;
 
     //if(epoch_run_time >= target_latency_us ) {
+//    if(beta >= target_latency_us - 500 ) {
     if(beta >= target_latency_us - 500 ) {
 //        printk("cocotion test need takesnapshot\n");
 //        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
+
         if(hrtimer_cancel(&global_hrtimer)) {
-            //epoch_time_in_us = 4000;
-            //epoch_time_in_us = 500;
-            update_flag = 0;
+          //  hrtimer_cancel(&global_hrtimer);
+            enHRTimer = HRTIMER_NORESTART;
+
+            update_flag = 2;
+			global_current_dirty_byte = 0;
+			global_predict_dirty_rate = 0;
             global_vcpu->hrtimer_pending = true;
             global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
             kvm_vcpu_kick(global_vcpu);
+
+            current_beta = 0;
+
+            return 1;
         }
     }
 //    else {
@@ -307,7 +398,7 @@ static int bd_predic_stop2(unsigned long data)
  //       printk("cocotion test: start new timer\n");
  //   }
 
-
+/*
 
     if(update_flag == 1) {
         int diff_time = epoch_run_time - epoch_time_old_us;
@@ -326,13 +417,13 @@ static int bd_predic_stop2(unsigned long data)
         old_dirty_bytes   = current_dirty_byte;
         epoch_time_old_us = epoch_run_time;
         update_flag = 1;
-        if(hrtimer_cancel(&global_hrtimer)) {
-            epoch_time_in_us = 1000;
-            ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
-            hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
-        }
+		global_predict_dirty_rate = 0;
+		global_current_dirty_byte = 0;
         return 1;
     }
+*/
+
+
 //    else {
  //       if(hrtimer_cancel(&global_hrtimer)) {
   //          epoch_time_in_us = 300;
@@ -342,25 +433,66 @@ static int bd_predic_stop2(unsigned long data)
       //  return 1;
    // }
 
+
+/*
+
     int x = current_dirty_byte;
     int R = global_last_trans_rate;
     int D = predict_dirty_rate;
     int E = epoch_run_time;
-    int y = target_latency_us - 1000;
+    //int y = target_latency_us - 500;
+    int y = target_latency_us - 200;
 
-
+//    if (D<=0) D = 10;
+    //global_predict_dirty_rate = (D == 0)?100:D;
     global_predict_dirty_rate = D;
+
+//    global_predict_dirty_rate = D;
 
     int t = ((y-E)*R-x)/(D+R);
     //if(t < 300)  t = 300;
+
     if(t < 10)  t = 100;
 
-    if(hrtimer_cancel(&global_hrtimer)) {
+    //if(global_total_last_transfer_bytes != 0) {
+		//unsigned long int predic_t_bytes = (x+t*D + global_total_last_transfer_bytes)/2;
+		//unsigned long int predic_t_bytes = global_total_last_transfer_bytes;
+
+
+        //printk("predic_t_bytes now is %d\n", predic_t_bytes);
+        //if (global_predic_t_bytes == 0) global_predic_t_bytes = global_total_last_transfer_bytes;
+
+        //predic_t_bytes = predic_t_bytes * ((global_total_last_transfer_bytes*1000)/global_predic_t_bytes);
+        //predic_t_bytes /= 1000;
+        //printk("predic_t_bytes next is %d\n", predic_t_bytes);
+        //int factor = global_predic_t_bytes*1000/global_total_last_transfer_bytes;
+        //int factor = global_total_last_transfer_bytes*1000/global_predic_t_bytes;
+
+
+        //global_predic_t_bytes = predic_t_bytes;
+		//int predic_t = predic_t_bytes/R;
+		//t = target_latency_us - 500 - (predic_t + E);
+
+       // t = (global_total_last_transfer_bytes - x) / D;
+
+        //printk("cocotion test predic_t = %d, E = %d\n", predic_t, E);
+	//}
+    //if(t < 10)  t = 100;
+
+
+	printk("cocotion test nextT = %d\n", t);
+
+    //if(hrtimer_cancel(&global_hrtimer)) {
         //epoch_time_in_us = t - 200;
+        //epoch_time_in_us = t;
+        hrtimer_cancel(&global_hrtimer);
+        enHRTimer = HRTIMER_NORESTART;
+        update_flag = 2;
         ktime_t ktime = ktime_set(0, t * 1000);
         hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
-    }
+    //}
 
+ */
     int r = 1000;
 
     return r;
@@ -398,7 +530,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //kvm_vcpu_kick(vcpu);
 
     //bd_predic_stop2();
-
+/*
     if(update_flag == 1) {
         int newdirty = global_predict_dirty_rate * (runtime_difftime - epoch_time_old_global);
         int beta = (global_current_dirty_byte+newdirty)/global_last_trans_rate + runtime_difftime;
@@ -412,8 +544,40 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         //}
         }
     }
+*/
 
-    tasklet_schedule(&calc_dirty_tasklet);
+
+//    if(current_beta + 500 >= target_latency_us - 500) {
+    if(global_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us - 500) {
+       // hrtimer_cancel(&global_hrtimer);
+        global_vcpu->hrtimer_pending = true;
+        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(global_vcpu);
+        //printk("cocotion test runtime at fucking timer interrupt @@@@@@@@ = %d\n", runtime_difftime);
+        current_beta = 0;
+        return HRTIMER_NORESTART;
+
+    }
+
+//    if(update_flag == 2 && runtime_difftime > 5000) {
+//
+/*
+    if(update_flag == 2) {
+        //if(hrtimer_cancel(&global_hrtimer)) {
+        //hrtimer_cancel(&global_hrtimer);
+        global_vcpu->hrtimer_pending = true;
+        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(global_vcpu);
+        printk("cocotion test runtime at timer interrupt @@@@@@@@ = %d\n", runtime_difftime);
+        current_beta = 0;
+        return HRTIMER_NORESTART;
+        //}
+    }
+*/
+
+
+
+    //tasklet_schedule(&calc_dirty_tasklet);
     //bd_predic_stop2(0);
 
 
@@ -425,11 +589,20 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //printk("cocotion test call print and schedular time@@@@ = %d\n", runtime_difftime);
     //epoch_time_in_us = 1000;
     //epoch_time_in_us = 500;
-    ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
+
+
+	epoch_time_in_us = 500;
+	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
     //return HRTIMER_NORESTART;
-    return HRTIMER_RESTART;
+    //return HRTIMER_RESTART;
+
+    current_beta = 0;
+    if(enHRTimer == HRTIMER_RESTART)
+        tasklet_schedule(&calc_dirty_tasklet);
+
+    return enHRTimer;
 }
 
 // timer for triggerring ram transfer
@@ -997,6 +1170,8 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 
     dlist->epoch_start_time = time_in_us();
 
+    enHRTimer=HRTIMER_RESTART;
+
     spcl_kthread_notify_new(kvm, run_serial);
 
     return 0;
@@ -1542,6 +1717,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     ctx->bd_average_consts[put_off] = (update->latency_us - update->runtime_us - update->trans_us);
 
     global_last_trans_rate = update->last_trans_rate;
+    global_total_last_transfer_bytes = update->ram_len;
 
     if (update->trans_us > 0) {
         ctx->bd_average_rates[put_off] = update->dirty_page * 1000 / update->trans_us;
@@ -3228,7 +3404,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
-//    printk("cocotion test total bytes transfer is %d\n", total);
+//    printk("@@@cocotion test fucking total bytes transfer is %d\n", total);
+	//global_total_last_transfer_bytes = total;
 
     #ifdef ft_debug_bd
 printk("cocotion test ============= tranfer start\n");
@@ -4384,7 +4561,8 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
     int total_zero_len = 0;
     int invalid_count = 0;
 
-    for (i = 0; i < count; ++i) {
+    for (i = 0; i < count/2; ++i) {
+//    for (i = 0; i < count; ++i) {
         gfn_t gfn = dlist->pages[i];
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
@@ -4434,7 +4612,7 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
     }
     total_dirty_bytes += 28*count;
 
-
+	total_dirty_bytes = total_dirty_bytes * 2;
 
     #ifdef ft_debug_bd
 

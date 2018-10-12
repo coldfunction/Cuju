@@ -2281,7 +2281,7 @@ static void kvmft_flush_output(MigrationState *s)
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
-
+//fucking
 //   FILE *pFile;
  //  char pbuf[200];
 /*
@@ -2607,8 +2607,8 @@ static void kvmft_flush_output(MigrationState *s)
 //   FILE *pFile;
 
 
-/*
-    pFile = fopen("latency_us.txt", "a");
+//fucking
+/*    pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
         //sprintf(pbuf, "%d\n", s->dirty_pfns_len);

@@ -2282,8 +2282,8 @@ static void kvmft_flush_output(MigrationState *s)
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
 //fucking
-//   FILE *pFile;
- //  char pbuf[200];
+  // FILE *pFile;
+   //char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2308,7 +2308,7 @@ static void kvmft_flush_output(MigrationState *s)
     mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
-    mybdupdate.last_trans_rate = trans_rate;
+//    mybdupdate.last_trans_rate = trans_rate;
 
 /*
     pFile = fopen("time_stamp_and_dirty_byes.txt", "a");
@@ -2364,6 +2364,9 @@ static void kvmft_flush_output(MigrationState *s)
 
     static unsigned long int ok = 0;
     static unsigned long int mcount = 0;
+
+    static int ok_trans_rate = 400;
+
     //if(latency_us > target_latency) {
     if(latency_us > target_latency + 1000) {
         latency_exceed_count++;
@@ -2375,7 +2378,9 @@ static void kvmft_flush_output(MigrationState *s)
         mybdupdate.ram_len = mybdupdate.ram_len -  (latency_us - target_latency - 1000);
 
         //
-        mybdupdate.last_trans_rate -= 100;
+        //mybdupdate.last_trans_rate -= 100;
+        //if(mybdupdate.last_trans_rate < 100)
+            //mybdupdate.last_trans_rate = 100;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
@@ -2384,12 +2389,15 @@ static void kvmft_flush_output(MigrationState *s)
         //mybdupdate.ram_len = s->ram_len + target_latency-1000-latency_us;
         //mybdupdate.ram_len = s->ram_len + 500;
         mybdupdate.ram_len = mybdupdate.ram_len +  (target_latency-1000-latency_us);
-        mybdupdate.last_trans_rate += 100;
+        //mybdupdate.last_trans_rate += 100;
+        //if(mybdupdate.last_trans_rate < 100)
+            //mybdupdate.last_trans_rate = 100;
     }
     else {
         //mybdupdate.last_trans_rate = trans_rate;
         mybdupdate.ram_len = s->ram_len;
-
+        //mybdupdate.last_trans_rate = trans_rate;
+        ok_trans_rate = trans_rate;
         ok++;
     }
 
@@ -2406,7 +2414,8 @@ static void kvmft_flush_output(MigrationState *s)
 
     if(mcount == 0) mcount = ok = 1;
     if(mcount%500 == 0) {
-        printf("cocotion test ok percentage is %lf\n", (double)ok/mcount);
+        double ok_percentage = (double)ok/mcount;
+        printf("cocotion test ok percentage is %lf\n", ok_percentage);
         latency_sum /= 500;
 /*
         if((double)ok/mcount < oldptg){
@@ -2419,6 +2428,12 @@ static void kvmft_flush_output(MigrationState *s)
         }*/
         latency_sum = 0;
         //oldptg = (double)ok/mcount;
+
+
+        //(0.9-ok_percentage)*100
+
+
+
 
     }
 
@@ -2479,7 +2494,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
 //    static int roundtimes = 50;
-    static int roundtimes = 50;
+    static int roundtimes = 500;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000) {
@@ -2551,6 +2566,9 @@ static void kvmft_flush_output(MigrationState *s)
  //           bd_alpha -= (current_exceed_ratio-0.01)*100;
             bd_alpha += (current_exceed_ratio-0.01)*100;
             //bd_alpha -= 10;
+
+            mybdupdate.last_trans_rate -= (current_exceed_ratio-0.01)*100;
+
         }
         //else if(range_ratio < 60) bd_alpha+=10;
         else if(current_less_ratio > 0.01) {
@@ -2558,7 +2576,13 @@ static void kvmft_flush_output(MigrationState *s)
             //bd_alpha -= (current_less_ratio-0.01)*130;
             bd_alpha -= (current_less_ratio-0.01)*100;
            // bd_alpha += 10;
+
+            mybdupdate.last_trans_rate += (current_less_ratio-0.01)*100;
         }
+        //mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate+trans_rate)/2;
+        mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate+ok_trans_rate)/2;
+//        printf("cocotion test fucking last trans rate = %d\n", mybdupdate.last_trans_rate);
+
         //roundtimes = 10;
 
         //bd_alpha = (bd_alpha<400)?400:bd_alpha;
@@ -2608,7 +2632,8 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 //fucking
-/*    pFile = fopen("latency_us.txt", "a");
+/*
+    pFile = fopen("latency_us.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
         //sprintf(pbuf, "%d\n", s->dirty_pfns_len);
@@ -3025,7 +3050,7 @@ static void *migration_thread(void *opaque)
     end_time = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
 
     if(enable_cuju) {
-        mybdupdate.last_trans_rate = 100;
+        mybdupdate.last_trans_rate = 400;
         mybdupdate.predic_trans_rate = 100;
 		printf("start cuju process\n");
 		ft_setup_migrate_state(s, 0);

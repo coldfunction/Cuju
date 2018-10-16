@@ -17,7 +17,7 @@ float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
 extern unsigned long pass_time_us_threshold;
 
 struct kvmft_update_latency mybdupdate;
-//mybdupdate.last_trans_rate = 100;
+//mybdupdate.last_trans_rate = 400;
 
 //extern int time_stamp[20];
 //extern int dirty_bytes_stamp[20];
@@ -202,7 +202,8 @@ void bd_reset_epoch_timer(void)
 //bd_time_slot_us = 3000;
 
 //    bd_time_slot_us = 4000;
-    bd_time_slot_us = 5500;
+//    5950 seems good
+    bd_time_slot_us = 5000;
 
 //    bd_time_slot_us = bd_target - 1000;
 

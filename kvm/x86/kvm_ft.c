@@ -375,7 +375,7 @@ static int bd_predic_stop2(unsigned long data)
     //if(epoch_run_time < 7000) beta = 0;
 
     //if(epoch_run_time >= target_latency_us ) {
-//    if(beta >= target_latency_us - 500 ) {
+   // if(beta >= target_latency_us - 500 ) {
     if(beta >= target_latency_us ) {
 //        printk("cocotion test need takesnapshot\n");
 //        printk("cocotion before takesnapshot current_dirty_byte = %d\n", current_dirty_byte);
@@ -445,7 +445,7 @@ static int bd_predic_stop2(unsigned long data)
     int R = global_last_trans_rate;
     int D = predict_dirty_rate;
     int E = epoch_run_time;
-    //int y = target_latency_us - 500;
+//    int y = target_latency_us - 500;
     int y = target_latency_us;
 
 //    if (D<=0) D = 10;
@@ -455,7 +455,8 @@ static int bd_predic_stop2(unsigned long data)
 //    global_predict_dirty_rate = D;
 
     int t = ((y-E)*R-x)/(D+R);
-    if(t < 300)  t = 300;
+    //if(t < 300)  t = 300;
+    if(t < 10)  t = 10;
 
     //if(t < 10)  t = 100;
 
@@ -485,7 +486,7 @@ static int bd_predic_stop2(unsigned long data)
     //if(t < 10)  t = 100;
 
 
-	printk("cocotion test nextT = %d\n", t);
+	//printk("cocotion test fucking nextT = %d\n", t);
 
     if(hrtimer_cancel(&global_hrtimer)) {
         //epoch_time_in_us = t - 200;
@@ -554,7 +555,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     int predict_current_dirty_byte = internal_diff * global_predict_dirty_rate + global_current_dirty_byte;
 
 //    if(current_beta + 500 >= target_latency_us - 500) {
-    //if(global_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us - 500) {
+//    if(global_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us - 500) {
     if(predict_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us) {
        // hrtimer_cancel(&global_hrtimer);
         global_vcpu->hrtimer_pending = true;
@@ -604,7 +605,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //epoch_time_in_us = 500;
 
 
-	epoch_time_in_us = 1000;
+	epoch_time_in_us = 1700;
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);

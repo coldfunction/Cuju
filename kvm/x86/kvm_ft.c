@@ -368,7 +368,7 @@ static int bd_predic_stop2(unsigned long data)
 
 
     global_current_dirty_byte = current_dirty_byte;
-    beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
+    beta = current_dirty_byte/global_last_trans_rate + epoch_run_time + ctx->bd_alpha;
     //current_beta = beta;
 //	printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
 
@@ -454,7 +454,7 @@ static int bd_predic_stop2(unsigned long data)
 
 //    global_predict_dirty_rate = D;
 
-    int t = ((y-E)*R-x)/(D+R);
+    int t = ((y-E-ctx->bd_alpha)*R-x)/(D+R);
     //if(t < 300)  t = 300;
     if(t < 10)  t = 10;
 
@@ -556,7 +556,12 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 //    if(current_beta + 500 >= target_latency_us - 500) {
 //    if(global_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us - 500) {
-    if(predict_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us) {
+    struct kvmft_context *ctx = &global_kvm->ft_context;
+
+//    printk("cocotion fucking test ctx->bd_alpha = %d\n", ctx->bd_alpha);
+ //   printk("cocotion fucking test runtimediff = %d\n", runtime_difftime);
+  //  printk("cocotion fucking test predict_current_dirty_byte = %d\n", predict_current_dirty_byte);
+    if(predict_current_dirty_byte/global_last_trans_rate + runtime_difftime + ctx->bd_alpha >= target_latency_us) {
        // hrtimer_cancel(&global_hrtimer);
         global_vcpu->hrtimer_pending = true;
         global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
@@ -605,7 +610,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //epoch_time_in_us = 500;
 
 
-	epoch_time_in_us = 1700;
+//	epoch_time_in_us = 1700;
+	epoch_time_in_us = 3000;
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
@@ -4575,8 +4581,11 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
     int total_zero_len = 0;
     int invalid_count = 0;
 
-    for (i = 0; i < count/2; ++i) {
+    printk("cocotion fucking test start ====== \n");
+//    for (i = 0; i < count/2; ++i) {
 //    for (i = 0; i < count; ++i) {
+//    for (i = count-count/4; i < count; ++i) {
+    for (i = count/3; i < count-count/3; ++i) {
         gfn_t gfn = dlist->pages[i];
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
@@ -4621,12 +4630,15 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
             len = 4096;
         }
 
+        printk("%d\n", len);
+
         total_dirty_bytes += len;
 
     }
     total_dirty_bytes += 28*count;
 
-	total_dirty_bytes = total_dirty_bytes * 2;
+//	total_dirty_bytes = total_dirty_bytes * 2;
+	total_dirty_bytes = total_dirty_bytes * 3;
 
     #ifdef ft_debug_bd
 

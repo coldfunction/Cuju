@@ -359,7 +359,7 @@ static int bd_predic_stop2(unsigned long data)
     if(t < 10)  t = 10;
 */
 
-
+/*
     int t = global_nextT;
     if(hrtimer_cancel(&global_hrtimer)) {
         //enHRTimer = HRTIMER_NORESTART;
@@ -368,7 +368,7 @@ static int bd_predic_stop2(unsigned long data)
         ktime_t ktime = ktime_set(0, t * 1000);
         hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
     }
-
+*/
     int r = 1000;
 
     return r;
@@ -4423,6 +4423,15 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
         global_nextT = 500;
     if(count > 700)
         global_nextT = 200;
+
+    int t = global_nextT;
+    if(hrtimer_cancel(&global_hrtimer)) {
+        //enHRTimer = HRTIMER_NORESTART;
+        enHRTimer = HRTIMER_RESTART;
+        update_flag = 2;
+        ktime_t ktime = ktime_set(0, t * 1000);
+        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+    }
 
 
     printk("cocotion fucking dirty num = %d\n", count);

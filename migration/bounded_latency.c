@@ -9,7 +9,7 @@ int first_enter = 1;
 //int next_time = 1000;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
 //int bd_alpha = 1787; // initial alpha is 1 ms
-int bd_alpha = -200; // initial alpha is 1 ms
+int bd_alpha = 6000; // initial alpha is 1 ms
 float bd_time_slot_us;
 //int bd_time_slot_us_pattern[] = {4000, 5000}
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;
@@ -204,8 +204,13 @@ void bd_reset_epoch_timer(void)
 
 //    bd_time_slot_us = 4000;
 //    5950 seems good
-    bd_time_slot_us = 5000; //ok
-//    bd_time_slot_us = 3000;
+
+
+   // bd_time_slot_us = 5000; //ok
+    bd_time_slot_us = bd_alpha; //ok
+
+
+    //    bd_time_slot_us = 3000;
 
 //    bd_time_slot_us = bd_target - 1000;
 

@@ -2531,8 +2531,10 @@ static void kvmft_flush_output(MigrationState *s)
 
         //(0.9-ok_percentage)*100
 
-
-
+        if(ok_percentage > 0.90) {
+            bd_alpha+=10;
+        }
+        printf("cocotion test bd_alpha = %d\n", bd_alpha);
 
     }
 
@@ -2664,9 +2666,11 @@ static void kvmft_flush_output(MigrationState *s)
 
 
         if(range_ratio < 95 && down_count > 5) {
+            bd_alpha-=10;
+
         if(current_exceed_ratio > 0.01) {
  //           bd_alpha -= (current_exceed_ratio-0.01)*100;
-            bd_alpha += (current_exceed_ratio-0.01)*100;
+           // bd_alpha += (current_exceed_ratio-0.01)*100;
             //bd_alpha -= 10;
 
          //   if(down_count%2 == 0)
@@ -2677,7 +2681,7 @@ static void kvmft_flush_output(MigrationState *s)
         if(current_less_ratio > 0.01) {
             //bd_alpha += (current_less_ratio-0.01)*100;
             //bd_alpha -= (current_less_ratio-0.01)*130;
-            bd_alpha -= (current_less_ratio-0.01)*100;
+            //bd_alpha -= (current_less_ratio-0.01)*100;
            // bd_alpha += 10;
 
            // if(down_count%2 == 1)
@@ -2703,6 +2707,11 @@ static void kvmft_flush_output(MigrationState *s)
       //  printf("down_count > 5\n");
        // printf("predict next trans_rate = %d\n", mybdupdate.last_trans_rate);
 }
+
+    if(range_ratio < 95 && down_count <=5) {
+        bd_alpha+=10;
+
+    }
 
         //else
             //roundtimes = 50;

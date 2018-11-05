@@ -43,7 +43,8 @@ static int kvmft_bd_check_dirty_page_number(void)
 }
 */
 
-static int kvmft_bd_predic_stop(void)
+//static int kvmft_bd_predic_stop(void)
+int kvmft_bd_predic_stop(void)
 {
     //int dirty_bytes = 0;
     int r;
@@ -203,7 +204,8 @@ void bd_reset_epoch_timer(void)
 
 //    bd_time_slot_us = 4000;
 //    5950 seems good
-    bd_time_slot_us = 5000;
+    bd_time_slot_us = 5000; //ok
+//    bd_time_slot_us = 3000;
 
 //    bd_time_slot_us = bd_target - 1000;
 

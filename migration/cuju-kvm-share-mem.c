@@ -48,7 +48,7 @@ static void dirty_pages_userspace_add(unsigned long gfn)
     for (i = 0; i < cnt; i++)
         if (dirty_pages_userspace[i] == gfn)
             return;
-    
+
     i = __sync_fetch_and_add(&dirty_pages_userspace_off, 1);
     dirty_pages_userspace[i] = gfn;
     assert(i < 1024);
@@ -585,14 +585,14 @@ static inline int memcmp_avx2(void *orig, void *curr)
   __m256d a = _mm256_load_pd((double const *)orig);
   __m256d b = _mm256_load_pd((double const *)curr);
   __m256d e = _mm256_cmp_pd(a, b, _CMP_EQ_OQ);
-  
+
   if (!_mm256_testc_pd(e, memcmp_256pd_allone))
     return 1;
 
   a = _mm256_load_pd((double const *)(orig + 32));
   b = _mm256_load_pd((double const *)(curr + 32));
   e = _mm256_cmp_pd(a, b, _CMP_EQ_OQ);
-  
+
   if (!_mm256_testc_pd(e, memcmp_256pd_allone))
     return 1;
 
@@ -686,7 +686,7 @@ static inline int memcmp_sse2_64(void *orig, void *curr)
 static inline int gather_16(char *orig_page, char *curr_page)
 {
   return memcmp_sse2_16(orig_page, curr_page);
- 
+
 }
 
 static inline int gather_32(char *orig_page, char *curr_page)
@@ -746,13 +746,13 @@ static inline int gather_512(char *orig_page, char *curr_page, char *output)
 int cpuset_attach_thread(pid_t pid, int cpu_id)
 {
   char fname[64];
-  int len; 
+  int len;
   //int fd;
-    FILE *fd; 
+    FILE *fd;
 //  cpu_set_t cpuset;
 
   len = sprintf(fname, "%s/tasks", VMFT_CPUSET_DIR);
-  fname[len] = 0; 
+  fname[len] = 0;
 
   //fd = fopen(fname, O_WRONLY);
   fd = fopen(fname, "w");
@@ -795,7 +795,7 @@ static void compress_init(void)
     x1[63] = 63;
     assert(memcmp_sse2_64(x1, x2) == 0);
 
- 
+
 
     for (i = 0; i < 64; ++i) {
         x1[i] = i;
@@ -892,7 +892,7 @@ void *kvm_shmem_alloc_trackable(unsigned int size)
 		printf("%s out of trackable_ptrs array.\n", __func__);
 		return NULL;
 	}
-	
+
 	ptr->ptr = mmap(NULL, (size_t)size, PROT_READ | PROT_WRITE,
 					MAP_ANONYMOUS | MAP_SHARED | MAP_LOCKED | MAP_POPULATE,
 					-1, 0);
@@ -1197,7 +1197,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
     MigrationState *s;
     int ret;
 
-    assert(!cpuset_attach_thread(0, 7)); 
+    assert(!cpuset_attach_thread(0, 7));
     thread_set_realtime();
 
     while (1) {
@@ -1429,7 +1429,8 @@ void kvm_shmem_load_ram(void *buf, int size)
     struct __attribute__((__packed__)) c16x8_header {
         uint64_t gfn;
         uint32_t size;
-        uint8_t h[16];
+        //uint8_t h[16];
+        uint8_t h[32];
     } cheader = {0};
 
     static void *load_bitmap = NULL;
@@ -1524,12 +1525,12 @@ int kvmft_set_master_slave_sockets(MigrationState *s, int nsocks)
 int kvm_shm_get_time_mark_from_kernel(uint64_t *kernel_time)
 {
     return kvm_vm_ioctl(kvm_state, KVM_SHM_GET_TIME_MARK, kernel_time);
-}                     
+}
 
 int kvm_shm_get_time_mark_from_kernel_start(uint64_t *kernel_time)
 {
     return kvm_vm_ioctl(kvm_state, KVM_SHM_GET_TIME_MARK_START, kernel_time);
-}                     
+}
 
 void kvmft_update_epoch_flush_time_linear(double time_s)
 {
@@ -1578,7 +1579,7 @@ void kvmft_update_epoch_flush_time_linear(double time_s)
         a0 = y1 / n - a1 * x1 / n;
         e = y[0] - a0 - a1 * x[0];
         a0 += e;
-        printf("\nY=%.2f+%.2fX\n",a0,a1); 
+        printf("\nY=%.2f+%.2fX\n",a0,a1);
         new_f = (max_s - a0) / a1;
         if (time_s > max_s)
             new_f -= 0.01;

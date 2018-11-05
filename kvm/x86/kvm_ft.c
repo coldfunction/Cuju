@@ -49,6 +49,8 @@ int global_total_last_transfer_bytes = 0;
 int global_predic_t_bytes = 0;
 //int current_beta = 0;
 
+int global_compress_dirty_page_time = 0;
+
 
 enum hrtimer_restart enHRTimer=HRTIMER_RESTART;
 
@@ -605,7 +607,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //epoch_time_in_us = 500;
 
 
-	epoch_time_in_us = 1700;
+	epoch_time_in_us = 1700; //ok
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
@@ -1720,6 +1722,8 @@ static void __bd_average_init(struct kvmft_context *ctx)
 // latency = runtime + constant + dirty_page_number / rate
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
+
+    global_compress_dirty_page_time = 0;
 
     struct kvmft_context *ctx;
     int i, put_off;
@@ -3368,6 +3372,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 #endif
 
     buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+//    buf = kmalloc(256 * 1024 + 8192, GFP_KERNEL);
     if (!buf)
         return -ENOMEM;
 
@@ -3378,6 +3383,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     total_dirty_bytes = 0;
     z_count = 0;
 
+    //ktime_t compress_start_time = ktime_get();
+    //ktime_t diff1;
+    //int compress1 = 0;
 
   //  printk("cocotion test before transfer the page num is %d\n", end-start);
     for (i = start; i < end; ++i) {
@@ -3393,11 +3401,31 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
+//        ktime_t compress_start_time1 = ktime_get();
+
         len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
+
+ //       diff1 = ktime_sub(ktime_get(), compress_start_time1);
+ //       global_compress_dirty_page_time += (int)ktime_to_us(diff);
+  //      compress1 += (int)ktime_to_us(diff1);
+  //      printk("cocotion test trans time diff = %d\n", global_compress_dirty_page_time);
+
         total_bytes+=len;
         if (len >= 64 * 1024) {
+        //if (len >= 128 * 1024) {
+//        if (len >= 256 * 1024) {
+
+    //        ktime_t compress_start_time = ktime_get();
             ret = ktcp_send(sock, buf, len);
+    //        ktime_t diff = ktime_sub(ktime_get(), compress_start_time);
+     //       int tmp = (int)ktime_to_us(diff);
+            //printk("cocotion test start===============\n");
+            //printk("cocotion test little time = %d\n", tmp);
+            //printk("cocotion test little len = %d\n", len);
+            //printk("cocotion test little rate = %d\n", len/tmp);
+      //      global_compress_dirty_page_time += tmp;
+
             if (ret < 0)
                 goto free;
             total += len;
@@ -3411,12 +3439,18 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //    printk("cocotion test @@total transfer bytes = %ld\n", total_bytes);
 //    total_bytes = 0;
     if (len > 0) {
+       // ktime_t compress_start_time = ktime_get();
         ret = ktcp_send(sock, buf, len);
+        //ktime_t diff = ktime_sub(ktime_get(), compress_start_time);
+        //global_compress_dirty_page_time += (int)ktime_to_us(diff);
         if (ret < 0)
             goto free;
         total += len;
     }
 
+   // ktime_t diff = ktime_sub(ktime_get(), compress_start_time);
+    //global_compress_dirty_page_time = (int)ktime_to_us(diff);
+    //global_compress_dirty_page_time -= compress1;
 
 //    printk("@@@cocotion test fucking total bytes transfer is %d\n", total);
 	//global_total_last_transfer_bytes = total;
@@ -3533,10 +3567,16 @@ static int diff_and_tran_kthread_func(void *opaque)
         end = (desc->conn_index + 1) * dlist->put_off / desc->conn_count;
         len = 0;
 
+//        printk("cocotion test compress fucking start\n");
+ //       ktime_t compress_start_time = ktime_get();
+
         if (end > start)
             len = kvmft_transfer_list(kvm, sock, dlist,
                 start, end, desc->trans_index, info->run_serial);
 
+    //    ktime_t diff = ktime_sub(ktime_get(), compress_start_time);
+  //      global_compress_dirty_page_time = (int)ktime_to_us(diff);
+   //     printk("cocotion test trans time diff = %d\n", global_compress_dirty_page_time);
         //printk("%s trans_index %d conn %d (%d=>%d)\n", __func__, desc->trans_index, desc->conn_index, start, end);
         //printk("%s (%d/%d) %d %lx\n", __func__, desc->trans_index, desc->conn_index, i, gfn);
 
@@ -4575,8 +4615,15 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
     int total_zero_len = 0;
     int invalid_count = 0;
 
-    for (i = 0; i < count/2; ++i) {
+//    for (i = 0; i < count/2; ++i) {
 //    for (i = 0; i < count; ++i) {
+    int n = 16; int k =0; int p=2;
+    for (i = 0; i < count; i+=n) {
+        for(k = 0; k < p; i=i++, k++){
+//    for (i = count/3; i < count-count/3; ++i) {
+ //   for (i = count-count/4; i < count; ++i) {
+ //
+     //   if(i%2 == 0) {
         gfn_t gfn = dlist->pages[i];
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
@@ -4622,11 +4669,12 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
         }
 
         total_dirty_bytes += len;
-
+        }
     }
     total_dirty_bytes += 28*count;
 
-	total_dirty_bytes = total_dirty_bytes * 2;
+	total_dirty_bytes = total_dirty_bytes * (n/p);
+//	total_dirty_bytes = total_dirty_bytes * ((n+p)/p);
 
     #ifdef ft_debug_bd
 
@@ -4813,7 +4861,10 @@ int kvmft_ioctl_bd_predic_stop(struct kvm *kvm, struct kvmft_update_latency *upd
     ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
-    return bd_predic_stop(kvm, dlist, dlist->put_off, update);
+    update->compress_dirty_page_time = global_compress_dirty_page_time;
+
+    return 1;
+    //return bd_predic_stop(kvm, dlist, dlist->put_off, update);
 
 }
 

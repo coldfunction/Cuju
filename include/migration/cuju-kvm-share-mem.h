@@ -1,4 +1,4 @@
-/* 
+/*
  * Cuju
  * (a.k.a. Fault Tolerance, Continuous Replication, or Checkpointing)
  *
@@ -70,6 +70,8 @@ void* kvm_shmem_map_pfn(unsigned long pfn, unsigned long size);
 void kvm_shmem_unmap_pfn(void *ptr, unsigned long size);
 
 int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us);
+int kvmft_bd_predic_stop(void);
+
 void bd_update_stat(int dirty_num, double tran_time_s, double delay_time_s, double run_time_s, double invoke_commit1_s, double recv_ack1_s, int ram_len, int average_predict);
 void bd_reset_epoch_timer(void);
 bool bd_timer_func(void);

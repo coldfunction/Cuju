@@ -2281,9 +2281,13 @@ static void kvmft_flush_output(MigrationState *s)
     int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
 
+//extern int kvmft_bd_predic_stop(void);
+    kvmft_bd_predic_stop(); //to update mybdupdate from kernel
+//    int compress_time = mybdupdate.compress_dirty_page_time;
+
 //fucking
-  // FILE *pFile;
-   //char pbuf[200];
+   FILE *pFile;
+   char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2299,14 +2303,91 @@ static void kvmft_flush_output(MigrationState *s)
 */
 
     int trans_rate = s->ram_len/trans_us;
+//    int new_trans_rate = s->ram_len/(trans_us-compress_time);
+//    printf("cocotion test trans_us = %d\n", trans_us);
+//    printf("cocotion test not real trans_us = %f\n", s->transfer_finish_time-s->transfer_start_time);
+//    int new_trans_rate = s->ram_len/(trans_us-(int)((s->transfer_finish_time-s->transfer_start_time)*1000000));
+//    int new_trans_rate = s->ram_len/((s->transfer_finish_time-s->transfer_start_time)*1000000);
+    int new_trans_rate = mybdupdate.last_trans_rate;
+
+  //  if(compress_time ==0 ) compress_time = 1;
+    //int new_trans_rate = s->ram_len/compress_time;
+    //int new_trans_rate = s->ram_len/(trans_us-compress_time);
+
+
+//    if(latency_us >= target_latency-1000 && latency_us <= target_latency+1000) {
+
+    static unsigned long total_ram_trans = 0;
+    static unsigned long total_trans_t = 0;
+
+    total_ram_trans += s->ram_len;
+    total_trans_t += trans_us;
+    if(total_ram_trans > 1024*1024*512) {
+        total_ram_trans = s->ram_len;
+        total_trans_t = trans_us;
+    }
+//    if(total_ram_trans <= s->ram_len) {
+ //       total_ram_trans = s->ram_len;
+  //      total_trans_t = trans_us;
+   // }
+    unsigned int now_trans_r = total_ram_trans/total_trans_t;
+    if(now_trans_r < 400) now_trans_r = 400;
+    //new_trans_rate = now_trans_r;
+    new_trans_rate = (now_trans_r+trans_rate)/2;
+ //   }
+
+    //mybdupdate.last_trans_rate = (now_trans_r+trans_rate)/2;
+    //mybdupdate.last_trans_rate = now_trans_r;
+    //mybdupdate.last_trans_rate = new_trans_rate;
+
+//    printf("cocotion fuck total_ram_trans = %ld\n", total_ram_trans);
+ //   printf("cocotion fuck total_trans_t = %ld\n", total_trans_t);
+  //  printf("cocotion fuck rate = %d\n", new_trans_rate);
+
+    pFile = fopen("transus.txt", "a");
+    //char pbuf[200];
+    if(pFile != NULL){
+        sprintf(pbuf, "%d\n", trans_rate);
+        //sprintf(pbuf, "%d\n", s->ram_len);
+        fputs(pbuf, pFile);
+        //sprintf(pbuf, "%d\n", new_trans_rate);
+        sprintf(pbuf, "%d\n", mybdupdate.last_trans_rate);
+        fputs(pbuf, pFile);
+    }
+    fclose(pFile);
+
+    mybdupdate.last_trans_rate = new_trans_rate;
+
+
+
+
     //printf("cocotion test trans_rate = %d\n", trans_rate);
 
 //    if(trans_rate < 100) trans_rate = 100;
-    if(trans_rate < 400) trans_rate = 400;
+//    if(trans_rate < 400) trans_rate = 400;
+    if(trans_rate < 10) trans_rate = 10;
 
     //mybdupdate.ram_len = s->ram_len;
     mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
+
+
+/*
+    static int trans_rate_h[10];
+    static int trans_rate_c = 0;
+
+    trans_rate_h[trans_rate_c++] = trans_rate;
+    int i = 0;
+    int all = 0;
+    for(i = 0; i < trans_rate_c; i++) {
+        all += trans_rate_h[i];
+    }
+
+    //int last_predic_trans = mybdupdate.last_trans_rate;
+    mybdupdate.last_trans_rate = all/trans_rate_c;
+    if(trans_rate_c == 10) trans_rate_c = 0;
+*/
+
 
 //    mybdupdate.last_trans_rate = trans_rate;
 
@@ -2365,7 +2446,7 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long int ok = 0;
     static unsigned long int mcount = 0;
 
-    static int ok_trans_rate = 400;
+   // static int ok_trans_rate = 400;
 
     //if(latency_us > target_latency) {
     if(latency_us > target_latency + 1000) {
@@ -2397,7 +2478,7 @@ static void kvmft_flush_output(MigrationState *s)
         //mybdupdate.last_trans_rate = trans_rate;
         mybdupdate.ram_len = s->ram_len;
         //mybdupdate.last_trans_rate = trans_rate;
-        ok_trans_rate = trans_rate;
+        //ok_trans_rate = trans_rate;
         ok++;
     }
 
@@ -2411,11 +2492,29 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 //    static float oldptg = 0;
+    static double last_ok_percen = 0;
+    static int down_count = 0;
 
     if(mcount == 0) mcount = ok = 1;
+
+    if(mcount%800 == 0) {
+        double ok_percentage = (double)ok/mcount;
+        if(ok_percentage < last_ok_percen) {
+            down_count++;
+        }
+        //else down_count=0;
+        else {
+            down_count--;
+            if(down_count < 0) down_count = 0;
+        }
+        last_ok_percen =  ok_percentage;
+    }
+
+
     if(mcount%500 == 0) {
         double ok_percentage = (double)ok/mcount;
         printf("cocotion test ok percentage is %lf\n", ok_percentage);
+        //printf("cocotion test mcount is %ld\n", mcount);
         latency_sum /= 500;
 /*
         if((double)ok/mcount < oldptg){
@@ -2493,8 +2592,8 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
-//    static int roundtimes = 50;
-    static int roundtimes = 500;
+    static int roundtimes = 50;
+//    static int roundtimes = 500;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000) {
@@ -2519,6 +2618,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    if(latency_us < target_latency*94/100)
  //       bd_alpha--;
+ //
 
     if(count%roundtimes == 0) {
         float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
@@ -2561,27 +2661,31 @@ static void kvmft_flush_output(MigrationState *s)
         //else if(current_exceed_ratio > 0.01)
             //bd_alpha += (current_exceed_ratio-0.01)*100;
 
-        if(range_ratio < 95) {
+
+
+        if(range_ratio < 95 && down_count > 5) {
         if(current_exceed_ratio > 0.01) {
  //           bd_alpha -= (current_exceed_ratio-0.01)*100;
             bd_alpha += (current_exceed_ratio-0.01)*100;
             //bd_alpha -= 10;
 
-            mybdupdate.last_trans_rate -= (current_exceed_ratio-0.01)*100;
+         //   if(down_count%2 == 0)
+          //      mybdupdate.last_trans_rate -= (current_exceed_ratio-0.01)*6000;
 
         }
         //else if(range_ratio < 60) bd_alpha+=10;
-        else if(current_less_ratio > 0.01) {
+        if(current_less_ratio > 0.01) {
             //bd_alpha += (current_less_ratio-0.01)*100;
             //bd_alpha -= (current_less_ratio-0.01)*130;
             bd_alpha -= (current_less_ratio-0.01)*100;
            // bd_alpha += 10;
 
-            mybdupdate.last_trans_rate += (current_less_ratio-0.01)*100;
+           // if(down_count%2 == 1)
+            //    mybdupdate.last_trans_rate += (current_less_ratio-0.01)*6000;
         }
         //mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate+trans_rate)/2;
-        mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate+ok_trans_rate)/2;
-//        printf("cocotion test fucking last trans rate = %d\n", mybdupdate.last_trans_rate);
+  //      mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate+ok_trans_rate)/2;
+        //printf("cocotion test fucking last trans rate = %d\n", mybdupdate.last_trans_rate);
 
         //roundtimes = 10;
 
@@ -2594,6 +2698,10 @@ static void kvmft_flush_output(MigrationState *s)
         //srand(time(NULL));
 
         //bd_alpha = -200-rand()%120;
+     //   mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+//        if(mybdupdate.last_trans_rate < 400) mybdupdate.last_trans_rate = 400;
+      //  printf("down_count > 5\n");
+       // printf("predict next trans_rate = %d\n", mybdupdate.last_trans_rate);
 }
 
         //else
@@ -2625,7 +2733,7 @@ static void kvmft_flush_output(MigrationState *s)
     //printf("cocotion test approach_less_rate = %f\n", approach_less_rate);
     //printf("cocotion test approach_exceed_rate = %f\n", approach_exceed_rate);
 
-
+//    mybdupdate.last_trans_rate = now_trans_r;
 
 //ignore_count:
 //   FILE *pFile;

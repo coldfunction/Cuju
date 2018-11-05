@@ -51,6 +51,8 @@ int global_predic_t_bytes = 0;
 
 int global_compress_dirty_page_time = 0;
 
+int global_nextT = 500;
+
 
 enum hrtimer_restart enHRTimer=HRTIMER_RESTART;
 
@@ -289,6 +291,8 @@ static int bd_predic_stop2(unsigned long data)
     int beta;
 
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
+
+
     //
     diff = ktime_sub(ktime_get(), global_mark_start_time);
     epoch_run_time = ktime_to_us(diff);
@@ -353,14 +357,17 @@ static int bd_predic_stop2(unsigned long data)
     int t = ((y-E)*R-x)/(D+R);
     //if(t < 300)  t = 300;
     if(t < 10)  t = 10;
+*/
 
+
+    int t = global_nextT;
     if(hrtimer_cancel(&global_hrtimer)) {
-        enHRTimer = HRTIMER_NORESTART;
+        //enHRTimer = HRTIMER_NORESTART;
+        enHRTimer = HRTIMER_RESTART;
         update_flag = 2;
         ktime_t ktime = ktime_set(0, t * 1000);
         hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
     }
-*/
 
     int r = 1000;
 
@@ -381,6 +388,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //cocotion test now start
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
+    printk("cocotion fucking runtim diff = %d, global_nextT = %d\n", runtime_difftime, global_nextT);
 /*
     int internal_diff = runtime_difftime - epoch_time_old_global;
     int predict_current_dirty_byte = internal_diff * global_predict_dirty_rate + global_current_dirty_byte;
@@ -402,9 +410,12 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     if(update_flag == 2) return HRTIMER_RESTART;
 */
+//    struct kvmft_context *ctx;
+//    ctx = &global_kvm->ft_context;
 
-	//epoch_time_in_us = 1700; //ok
-	epoch_time_in_us = 500; //ok
+//	epoch_time_in_us = 1700; //ok
+	//epoch_time_in_us = ctx->bd_alpha; //ok
+	epoch_time_in_us = global_nextT; //ok
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
@@ -4406,6 +4417,15 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     count = dlist->put_off;
+
+    if(count < 400) global_nextT = 1000;
+    if(count >= 400 && count <= 700)
+        global_nextT = 500;
+    if(count > 700)
+        global_nextT = 200;
+
+
+    printk("cocotion fucking dirty num = %d\n", count);
 
 //    printk("cocotion test dirty page count = %d\n", count);
 

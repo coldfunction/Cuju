@@ -4617,13 +4617,26 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
 //    for (i = 0; i < count/2; ++i) {
 //    for (i = 0; i < count; ++i) {
-    int n = 16; int k =0; int p=2;
-    for (i = 0; i < count; i+=n) {
-        for(k = 0; k < p; i=i++, k++){
+  //  int n = 16; int k =0; int p=2; //ok
+  //
+    //(12,2)
+    unsigned int n = 16;
+    int p = 2;
+    int k = 0;
+    int real_count = 0;
+//    get_random_bytes(&n, sizeof(n));
+//    printk("cocotion test n = %d\n", n);
+ //   n = n%count;
+  //  printk("cocotion test n = %d, count = %d\n", n, count);
+   // n = 16;
+    for (i = n; i < count; i+=(n+p)) {
+        for(k = 0; k < p; k++){ //ok
 //    for (i = count/3; i < count-count/3; ++i) {
  //   for (i = count-count/4; i < count; ++i) {
  //
      //   if(i%2 == 0) {
+        real_count++;
+
         gfn_t gfn = dlist->pages[i];
 
         page1 = ctx->shared_pages_snapshot_pages[ctx->cur_index][i];
@@ -4670,10 +4683,13 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
         total_dirty_bytes += len;
         }
-    }
+    } //ok
     total_dirty_bytes += 28*count;
 
-	total_dirty_bytes = total_dirty_bytes * (n/p);
+	//total_dirty_bytes = total_dirty_bytes * (n+1);
+    if(real_count != 0)
+	    total_dirty_bytes = (total_dirty_bytes/real_count)*count;
+//	total_dirty_bytes = total_dirty_bytes * (n/p);
 //	total_dirty_bytes = total_dirty_bytes * ((n+p)/p);
 
     #ifdef ft_debug_bd

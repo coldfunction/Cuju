@@ -2308,7 +2308,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    printf("cocotion test not real trans_us = %f\n", s->transfer_finish_time-s->transfer_start_time);
 //    int new_trans_rate = s->ram_len/(trans_us-(int)((s->transfer_finish_time-s->transfer_start_time)*1000000));
 //    int new_trans_rate = s->ram_len/((s->transfer_finish_time-s->transfer_start_time)*1000000);
-    int new_trans_rate = mybdupdate.last_trans_rate;
+//    int new_trans_rate = mybdupdate.last_trans_rate;
 
   //  if(compress_time ==0 ) compress_time = 1;
     //int new_trans_rate = s->ram_len/compress_time;
@@ -2333,7 +2333,7 @@ static void kvmft_flush_output(MigrationState *s)
     unsigned int now_trans_r = total_ram_trans/total_trans_t;
     if(now_trans_r < 400) now_trans_r = 400;
     //new_trans_rate = now_trans_r;
-    new_trans_rate = (now_trans_r+trans_rate)/2;
+ //   new_trans_rate = (now_trans_r+trans_rate)/2;
  //   }
 
     //mybdupdate.last_trans_rate = (now_trans_r+trans_rate)/2;
@@ -2356,7 +2356,7 @@ static void kvmft_flush_output(MigrationState *s)
     }
     fclose(pFile);
 
-    mybdupdate.last_trans_rate = new_trans_rate;
+  //  mybdupdate.last_trans_rate = new_trans_rate;
 
 
 
@@ -2372,8 +2372,8 @@ static void kvmft_flush_output(MigrationState *s)
     if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
 
-/*
-    static int trans_rate_h[10];
+
+    static int trans_rate_h[5];
     static int trans_rate_c = 0;
 
     trans_rate_h[trans_rate_c++] = trans_rate;
@@ -2384,9 +2384,9 @@ static void kvmft_flush_output(MigrationState *s)
     }
 
     //int last_predic_trans = mybdupdate.last_trans_rate;
-    mybdupdate.last_trans_rate = all/trans_rate_c;
-    if(trans_rate_c == 10) trans_rate_c = 0;
-*/
+    mybdupdate.last_trans_rate = (all/trans_rate_c+now_trans_r)/2;
+    if(trans_rate_c == 5) trans_rate_c = 0;
+
 
 
 //    mybdupdate.last_trans_rate = trans_rate;

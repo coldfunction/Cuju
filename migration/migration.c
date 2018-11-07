@@ -2284,6 +2284,9 @@ static void kvmft_flush_output(MigrationState *s)
 //extern int kvmft_bd_predic_stop(void);
     kvmft_bd_predic_stop(); //to update mybdupdate from kernel
 //    int compress_time = mybdupdate.compress_dirty_page_time;
+    int last_dirty_page_counts = mybdupdate.compress_dirty_page_time;
+    //mybdupdate.predic_trans_rate = trans_us/last_dirty_page_counts;
+    //printf("cocotion fucking test K = %d\n", mybdupdate.predic_trans_rate);
 
 //fucking
    FILE *pFile;
@@ -2368,8 +2371,8 @@ static void kvmft_flush_output(MigrationState *s)
     if(trans_rate < 10) trans_rate = 10;
 
     //mybdupdate.ram_len = s->ram_len;
-    mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
-    if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
+    //mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
+    //if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
 
 
 
@@ -2865,7 +2868,8 @@ static void kvmft_flush_output(MigrationState *s)
         printf("no profile\n");
     fclose(pFile3);
 */
-    assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
+    //assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
+    assert(!kvmft_bd_update_latency(last_dirty_page_counts, runtime_us, trans_us, latency_us));
 
     bd_update_stat(s->dirty_pfns_len, s->flush_start_time-s->transfer_start_time,
         s->flush_start_time - s->run_real_start_time,
@@ -3168,7 +3172,7 @@ static void *migration_thread(void *opaque)
 
     if(enable_cuju) {
         mybdupdate.last_trans_rate = 400;
-        mybdupdate.predic_trans_rate = 100;
+        mybdupdate.predic_trans_rate = 1;
 		printf("start cuju process\n");
 		ft_setup_migrate_state(s, 0);
         ft_setup_migrate_state(s2, 1);

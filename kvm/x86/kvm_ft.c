@@ -50,8 +50,11 @@ int global_predic_t_bytes = 0;
 //int current_beta = 0;
 
 int global_compress_dirty_page_time = 0;
+int global_dirty_page_counts = 1;
 
-int global_nextT = 500;
+int global_nextT = 5000;
+int global_predict_time_per_page_K = 1;
+
 
 
 enum hrtimer_restart enHRTimer=HRTIMER_RESTART;
@@ -288,6 +291,58 @@ static int bd_predic_stop2(unsigned long data)
     ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
 
+
+
+    int K = global_predict_time_per_page_K;
+    static int E1;
+    static int D1;
+
+//    printk("cocotion fucking test E = %d\n", epoch_run_time);
+ //   printk("cocotion fucking test D = %d\n", dlist->put_off;
+
+
+  //  return 1;
+
+    if(update_flag == 0) {
+        E1 = epoch_run_time;
+        D1 = dlist->put_off;
+        update_flag = 1;
+        return 1;
+    }
+
+    if(dlist->put_off-D1 == 0) return 1;
+
+    int TPP_R = (epoch_run_time - E1)/(dlist->put_off - D1);
+
+    printk("cocotion fucking test E1 = %d\n", E1);
+    printk("cocotion fucking test D1 = %d\n", D1);
+    printk("cocotion fucking test E2 = %d\n", epoch_run_time);
+    printk("cocotion fucking test D2 = %d\n", dlist->put_off);
+
+
+
+    printk("cocotion fucking test R = %d\n", TPP_R);
+    printk("cocotion fucking test K = %d\n", K);
+
+    global_nextT = (target_latency_us-epoch_run_time-K*dlist->put_off)/(K*TPP_R+1);
+
+    if(global_nextT < 10) global_nextT = 10;
+
+    if(hrtimer_cancel(&global_hrtimer)) {
+        //enHRTimer = HRTIMER_NORESTART;
+        enHRTimer = HRTIMER_RESTART;
+        update_flag = 2;
+        ktime_t ktime = ktime_set(0, global_nextT * 1000);
+        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+    }
+
+    printk("cocotion fucking test global_nextT = %d\n", global_nextT);
+
+    return 1;
+
+
+/////////////////////////////////
+
     int beta;
 
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
@@ -388,7 +443,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //cocotion test now start
     ktime_t diff = ktime_sub(global_mark_time, global_mark_start_time);
     runtime_difftime = ktime_to_us(diff);
-    printk("cocotion fucking runtim diff = %d, global_nextT = %d\n", runtime_difftime, global_nextT);
+//    printk("cocotion fucking runtim diff = %d, global_nextT = %d\n", runtime_difftime, global_nextT);
 /*
     int internal_diff = runtime_difftime - epoch_time_old_global;
     int predict_current_dirty_byte = internal_diff * global_predict_dirty_rate + global_current_dirty_byte;
@@ -408,14 +463,29 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     }
 
+
+
+
     if(update_flag == 2) return HRTIMER_RESTART;
 */
+
+    printk("cocotion fucking test runtime_difftime = %d\n", runtime_difftime);
+    if(update_flag == 2 || runtime_difftime >= 9000) {
+//    if(runtime_difftime > target_latency_us) {
+        global_vcpu->hrtimer_pending = true;
+        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(global_vcpu);
+        update_flag = 0;
+        return HRTIMER_NORESTART;
+    }
+
+
 //    struct kvmft_context *ctx;
 //    ctx = &global_kvm->ft_context;
 
-//	epoch_time_in_us = 1700; //ok
+	epoch_time_in_us = 1000; //ok
 	//epoch_time_in_us = ctx->bd_alpha; //ok
-	epoch_time_in_us = global_nextT; //ok
+//	epoch_time_in_us = global_nextT; //ok
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
@@ -1544,6 +1614,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
     global_last_trans_rate = update->last_trans_rate;
     global_total_last_transfer_bytes = update->ram_len;
+
+    printk("cocotion fucking test in update_latency trans_us=%d, dirty page counts=%d\n", update->trans_us, update->dirty_page);
+
+    if(update->dirty_page == 0)
+        global_predict_time_per_page_K = 0;
+    else
+        global_predict_time_per_page_K = update->trans_us/update->dirty_page;
 
     if (update->trans_us > 0) {
         ctx->bd_average_rates[put_off] = update->dirty_page * 1000 / update->trans_us;
@@ -3486,6 +3563,8 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 
     count = dlist->put_off / max_conn;
 
+    global_dirty_page_counts = dlist->put_off;
+
 #ifdef ENABLE_PRE_DIFF
     ctx->diff_req_list[trans_index]->diff_off = 0;
     ctx->diff_req_list[trans_index]->off = 0;
@@ -4417,7 +4496,7 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
     count = dlist->put_off;
-
+/*
     if(count < 400) global_nextT = 1000;
     if(count >= 400 && count <= 700)
         global_nextT = 500;
@@ -4435,6 +4514,7 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 
 
     printk("cocotion fucking dirty num = %d\n", count);
+    */
 
 //    printk("cocotion test dirty page count = %d\n", count);
 
@@ -4703,7 +4783,8 @@ int kvmft_ioctl_bd_predic_stop(struct kvm *kvm, struct kvmft_update_latency *upd
     ctx = &kvm->ft_context;
     dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
-    update->compress_dirty_page_time = global_compress_dirty_page_time;
+    //update->compress_dirty_page_time = global_compress_dirty_page_time;
+    update->compress_dirty_page_time = global_dirty_page_counts;
 
     return 1;
     //return bd_predic_stop(kvm, dlist, dlist->put_off, update);

@@ -412,7 +412,7 @@ static int bd_predic_stop2(unsigned long data)
  //       printk("cocotion test: start new timer\n");
  //   }
 
-
+    return 1;
 
     if(update_flag == 1) {
         int diff_time = epoch_run_time - epoch_time_old_us;
@@ -534,6 +534,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         //cocotion test
     extern ktime_t global_mark_time, global_mark_start_time;
     extern u64 runtime_difftime;
+
 /*
     static long interrupt_count = 0;
     if(global_last_trans_rate < 0) {
@@ -551,7 +552,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     ktime_t diff = ktime_sub(global_mark_time, global_timer_start_time);
     runtime_difftime = ktime_to_us(diff);
     interrupt_count++;
-    //printk("runtime = %d microseconds, interrupt counts = %d\n", runtime_difftime, interrupt_count);
+    printk("runtime = %d microseconds, interrupt counts = %d\n", runtime_difftime, interrupt_count);
 
 
 
@@ -596,6 +597,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 //    if(current_beta + 500 >= target_latency_us - 500) {
 //    if(global_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us - 500) {
+
+   /*
     if(predict_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us) {
        // hrtimer_cancel(&global_hrtimer);
         global_vcpu->hrtimer_pending = true;
@@ -612,6 +615,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     }
 
     if(update_flag == 2) return HRTIMER_RESTART;
+    */
 
 //    if(update_flag == 2 && runtime_difftime > 5000) {
 //
@@ -642,10 +646,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     //printk("cocotion test call print and schedular time@@@@ = %d\n", runtime_difftime);
     //epoch_time_in_us = 1000;
-    //epoch_time_in_us = 500;
+    epoch_time_in_us = 500;
 
 
-	epoch_time_in_us = 1700; //ok
+	//epoch_time_in_us = 1700; //ok
 	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
     hrtimer_forward_now(timer, ktime);
@@ -3412,6 +3416,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 #endif
 
     buf = kmalloc(32 * 1024 + 8192, GFP_KERNEL);
+    //buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
 //    buf = kmalloc(4*1024 * 1024, GFP_KERNEL);
 //    buf = kmalloc(256 * 1024 + 8192, GFP_KERNEL);
 //    buf = kmalloc(2048 * 1024 + 8192, GFP_KERNEL);
@@ -3457,6 +3462,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         total_bytes+=len;
 //        if (len >= 4 * 1024 * 1024) {
         if (len >= 32 * 1024) {
+        //if (len >= 64 * 1024) {
         //if (len >= 128 * 1024) {
 //        if (len >= 256 * 1024) {
 //        if (len >= 2048 * 1024) {

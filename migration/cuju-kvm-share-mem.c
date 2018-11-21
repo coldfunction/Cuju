@@ -1197,7 +1197,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
     MigrationState *s;
     int ret;
 
-    assert(!cpuset_attach_thread(0, 7));
+    //assert(!cpuset_attach_thread(0, 7));
     thread_set_realtime();
 
     while (1) {

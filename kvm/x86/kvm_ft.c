@@ -248,7 +248,7 @@ void kvm_shm_start_timer2(void)
     ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
-    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
 
 }
 
@@ -257,7 +257,7 @@ void kvm_shm_start_timer(struct kvm_vcpu *vcpu)
     ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
 }
 
 static void spcl_kthread_notify_abandon(struct kvm *kvm);
@@ -497,7 +497,7 @@ static int bd_predic_stop2(unsigned long data)
         enHRTimer = HRTIMER_NORESTART;
         update_flag = 2;
         ktime_t ktime = ktime_set(0, t * 1000);
-        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
     }
 
 
@@ -623,13 +623,16 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 // timer for triggerring ram transfer
 // called in vcpu_create..
-void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
+//void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
+void kvm_shm_setup_vcpu_hrtimer(void *info)
 {
+    struct kvm_vcpu *vcpu = info;
+
     //struct hrtimer *hrtimer = &vcpu->hrtimer;
     struct hrtimer *hrtimer = &global_hrtimer;
 
     //hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
     hrtimer->function = &kvm_shm_vcpu_timer_callback;
     vcpu->hrtimer_pending = false;
 

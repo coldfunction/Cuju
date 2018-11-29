@@ -2414,7 +2414,11 @@ static void kvmft_flush_output(MigrationState *s)
         mybdupdate.last_trans_rate = all/trans_rate_c;
     if(trans_rate_c == 5) trans_rate_c = 0;
 
-    mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+    mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + 3*trans_rate)/4;
+    //mybdupdate.last_trans_rate = mybdupdate.last_trans_rate;
+    //mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+    //mybdupdate.last_trans_rate = now_trans_r;
+    //mybdupdate.last_trans_rate = (now_trans_r + trans_rate)/2;
 
 //    mybdupdate.last_trans_rate = trans_rate;
 

@@ -2635,7 +2635,8 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 {
 	int r;
 	struct kvm_vcpu *vcpu, *v;
-	extern void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *);
+//	extern void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *);
+	extern void kvm_shm_setup_vcpu_hrtimer(void *info);
 
 	if (id >= KVM_MAX_VCPUS)
 		return -EINVAL;
@@ -2689,7 +2690,8 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	kvm_arch_vcpu_postcreate(vcpu);
 
     if(id == 0)
-	    kvm_shm_setup_vcpu_hrtimer(vcpu);
+	    //kvm_shm_setup_vcpu_hrtimer(vcpu);
+        smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
 
 	return r;
 
@@ -3292,7 +3294,8 @@ static long kvm_vm_ioctl(struct file *filp,
 
       r = 0;
       //kvm_shm_start_timer(kvm->vcpus[0]);
-      kvm_shm_start_timer2();
+      //kvm_shm_start_timer2();
+      smp_call_function_single(7, kvm_shm_start_timer2, NULL, true);
       break;
     }
     case KVM_SHM_SET_CHILD_PID: {

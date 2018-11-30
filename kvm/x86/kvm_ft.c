@@ -73,15 +73,15 @@ int update_flag = 0;
 int global_diff_gfn_count = 0;
 int global_diff_pfn_count = 0;
 
-static int bd_predic_stop2(unsigned long data);
+//static int bd_predic_stop2(unsigned long data);
+static int bd_predic_stop2(void);
 
 int vcpu_kick(unsigned long data);
 
 //struct kvmft_context *global_ft_ctx;
 struct hrtimer global_hrtimer;
 struct kvm *global_kvm;
-DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
-//DECLARE_TASKLET(vcpu_kick_tasklet, vcpu_kick, 0);
+//DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 
 ktime_t global_timer_start_time;
 
@@ -279,7 +279,8 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 }
 
 //static int bd_predic_stop2(void)
-static int bd_predic_stop2(unsigned long data)
+//static int bd_predic_stop2(unsigned long data)
+static int bd_predic_stop2(void)
 {
 
     struct kvmft_context *ctx;
@@ -652,7 +653,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
     //current_beta = 0;
     if(enHRTimer == HRTIMER_RESTART)
-        tasklet_schedule(&calc_dirty_tasklet);
+        //tasklet_schedule(&calc_dirty_tasklet);
+       	smp_call_function_single(7, bd_predic_stop2, NULL, false);
 
     return enHRTimer;
 }

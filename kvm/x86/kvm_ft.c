@@ -257,7 +257,7 @@ void kvm_shm_start_timer2(void)
     ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
-    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
 
 }
 
@@ -299,8 +299,6 @@ static int bd_predic_stop2(unsigned long data)
 //    int epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //int epoch_run_time = time_in_us() - global_mark_start_time;
 
-    ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
-    int epoch_run_time = ktime_to_us(diff);
 
     int beta;
 //    static int current_beta = 0;
@@ -360,8 +358,8 @@ static int bd_predic_stop2(unsigned long data)
     //epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //epoch_run_time = time_in_us() - global_mark_start_time;
     //
-    diff = ktime_sub(ktime_get(), global_mark_start_time);
-    epoch_run_time = ktime_to_us(diff);
+    ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
+    int epoch_run_time = ktime_to_us(diff);
     //
     //
 //    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
@@ -509,7 +507,7 @@ static int bd_predic_stop2(unsigned long data)
         enHRTimer = HRTIMER_NORESTART;
         update_flag = 2;
         ktime_t ktime = ktime_set(0, t * 1000);
-        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL);
+        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
     }
 
 
@@ -661,15 +659,17 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 // timer for triggerring ram transfer
 // called in vcpu_create..
-void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
+//void kvm_shm_setup_vcpu_hrtimer(struct kvm_vcpu *vcpu)
+void kvm_shm_setup_vcpu_hrtimer(void *info)
 {
+    struct kvm_vcpu *vcpu = info;
+
     //struct hrtimer *hrtimer = &vcpu->hrtimer;
     struct hrtimer *hrtimer = &global_hrtimer;
 
     global_timer_start_time = ktime_get();
 
-    //hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
     hrtimer->function = &kvm_shm_vcpu_timer_callback;
     vcpu->hrtimer_pending = false;
 

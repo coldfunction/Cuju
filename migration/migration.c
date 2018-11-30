@@ -2286,8 +2286,8 @@ static void kvmft_flush_output(MigrationState *s)
 //    int compress_time = mybdupdate.compress_dirty_page_time;
 
 //fucking
-   FILE *pFile;
-   char pbuf[200];
+   //FILE *pFile;
+   //char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2328,10 +2328,10 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long total_ram_trans = 0;
     static unsigned long total_trans_t = 0;
 
-//    static unsigned long total_epochs_count = 0;
-//    static unsigned long total_run_stage_count = 0;
-//    total_run_stage_count += runtime_us;
- //   total_epochs_count++;
+    static unsigned long total_epochs_count = 0;
+    static unsigned long total_run_stage_count = 0;
+    total_run_stage_count += runtime_us;
+    total_epochs_count++;
 //    printf("cocotion test fucking average run stage time = %ld\n", total_run_stage_count/total_epochs_count);
 
 
@@ -2359,7 +2359,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    printf("cocotion fuck total_ram_trans = %ld\n", total_ram_trans);
  //   printf("cocotion fuck total_trans_t = %ld\n", total_trans_t);
   //  printf("cocotion fuck rate = %d\n", new_trans_rate);
-
+/*
     pFile = fopen("transus.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
@@ -2379,7 +2379,7 @@ static void kvmft_flush_output(MigrationState *s)
         fputs(pbuf, pFile);
     }
     fclose(pFile);
-
+*/
   //  mybdupdate.last_trans_rate = new_trans_rate;
 
 
@@ -2553,7 +2553,7 @@ static void kvmft_flush_output(MigrationState *s)
         //average_run_time_tmp = total_run_stage_count/total_epochs_count;
 
 
-        //printf("cocotion test fucking average run stage time = %ld\n", total_run_stage_count/total_epochs_count);
+        printf("cocotion test fucking average run stage time = %ld\n", total_run_stage_count/total_epochs_count);
         //printf("cocotion test fucking average run stage time = %d\n", average_run_time_tmp);
         //printf("cocotion test fucking total epochs run time= %ld\n", total_run_stage_count);
         //printf("cocotion test fucking total epochs= %ld\n", total_epochs_count);

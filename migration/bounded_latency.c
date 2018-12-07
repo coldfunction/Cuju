@@ -214,6 +214,7 @@ void bd_reset_epoch_timer(void)
 
  //   bd_time_slot_us = bd_alpha; //ok
     bd_time_slot_us = 5000; //ok
+//    bd_time_slot_us = 6950; //ok
 
     //    bd_time_slot_us = 20000; //ok
 

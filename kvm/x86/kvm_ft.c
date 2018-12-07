@@ -285,8 +285,9 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 
 static int bd_predic_stop3(void)
 {
-
+    //cocotion fucking here
     smp_call_function_single(7, bd_predic_stop2, NULL, true);
+    //bd_predic_stop2();
 
     return 0;
 }
@@ -405,9 +406,14 @@ static int bd_predic_stop2(void)
    // if(beta >= target_latency_us - 500 ) {
    //
    //
+//   printk("cocotion test fucking beta = %d\n", beta);
+//	printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
+//	printk("cocotiion test fucking current dirty byte. = %d\n", current_dirty_byte);
+//	printk("cocotiion test fucking lobal_last_trans_rate. = %d\n", global_last_trans_rate);
     if(beta >= target_latency_us ) {
 
-        if(hrtimer_cancel(&global_hrtimer)) {
+        //if(hrtimer_cancel(&global_hrtimer)) {
+        	hrtimer_cancel(&global_hrtimer);
             enHRTimer = HRTIMER_NORESTART;
 
             update_flag = 2;
@@ -418,10 +424,10 @@ static int bd_predic_stop2(void)
             kvm_vcpu_kick(global_vcpu);
             //printk("cocotion fucking test in bd_predic_stop2 to takesnapshot\n");
             return 1;
-        }
+        //}
     }
 
-
+//	return 1;
 
 //    else {
  //       kvm_shm_start_timer2();
@@ -448,21 +454,26 @@ static int bd_predic_stop2(void)
     } else if(update_flag == 0){
         //old_dirty_bytes   = current_dirty_byte;
         epoch_time_old_us = epoch_run_time;
-        update_flag = 1;
+        //update_flag = 1;
+        update_flag = 0;
 		global_predict_dirty_rate = 0;
 		global_current_dirty_byte = 0;
 
         ktime_t diff = ktime_sub(ktime_get(), start);
         int difftime = ktime_to_us(diff);
         int t = global_internal_time - difftime;
+		//printk("cocotion test fucking ok t = %d\n", t);
         if(t < 20) {
-       	    //smp_call_function_single(7, kvm_shm_vcpu_timer_callcallback, NULL, false);
-            kvm_shm_vcpu_timer_callcallback(NULL);
+       	    smp_call_function_single(7, kvm_shm_vcpu_timer_callcallback, NULL, false);
+            //kvm_shm_vcpu_timer_callcallback(NULL);
             return 1;
         }
 
-        ktime_t ktime = ktime_set(0, t * 1000);
-        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+        //if(hrtimer_cancel(&global_hrtimer)) {
+            hrtimer_cancel(&global_hrtimer);
+            ktime_t ktime = ktime_set(0, t * 1000);
+            hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+        //}
         //printk("cocotion test fucking t = %d in update 0\n", t);
         return 1;
     }
@@ -566,7 +577,7 @@ int vcpu_kick(unsigned long data)
 static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         struct hrtimer *timer)
 {
-    //printk("cocotion fucking test in kvm_shm_vcpu_timer_callback cpu id is %d\n", smp_processor_id());
+   // printk("cocotion fucking test in kvm_shm_vcpu_timer_callback cpu id is %d\n", smp_processor_id());
         //cocotion test
     extern ktime_t global_mark_time, global_mark_start_time;
     extern u64 runtime_difftime;
@@ -627,6 +638,9 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         }
     }
 */
+
+//    update_flag = 2;
+
     int internal_diff = runtime_difftime - epoch_time_old_global;
     int predict_current_dirty_byte = internal_diff * global_predict_dirty_rate + global_current_dirty_byte;
 
@@ -683,7 +697,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //epoch_time_in_us = 1000;
     //epoch_time_in_us = 500;
 
-    global_internal_time = 1700;
+    //global_internal_time = 1700;
+    global_internal_time = 500;
 //	epoch_time_in_us = 1700; //ok
 //	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
@@ -694,18 +709,32 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //current_beta = 0;
  //   if(enHRTimer == HRTIMER_RESTART)
         //tasklet_schedule(&calc_dirty_tasklet);
-        tasklet_schedule(&calc_dirty_tasklet2);
+        //tasklet_schedule(&calc_dirty_tasklet2);
        //	smp_call_function_single(7, bd_predic_stop2, NULL, false);
+       //
+       //
+
+ //   ktime_t ktime = ktime_set(0, global_internal_time * 1000);
+//	hrtimer_forward_now(timer, ktime);
+
+	tasklet_schedule(&calc_dirty_tasklet2);
+   //	smp_call_function_single(7, bd_predic_stop2, NULL, false);
+
+//	printk("cocotion test fucking ok forward!!!\n");
 
     return HRTIMER_NORESTART;
+    //return HRTIMER_RESTART;
 //    return enHRTimer;
 }
 
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer)
 {
+    //cocotion fucking here
     //kvm_shm_vcpu_timer_callback(timer);
     smp_call_function_single(7, kvm_shm_vcpu_timer_callback, timer, true);
+
     return HRTIMER_NORESTART;
+ //   return HRTIMER_RESTART;
 }
 
 

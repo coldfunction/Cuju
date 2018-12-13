@@ -2286,8 +2286,8 @@ static void kvmft_flush_output(MigrationState *s)
 //    int compress_time = mybdupdate.compress_dirty_page_time;
 
 //fucking
-   //FILE *pFile;
-   //char pbuf[200];
+   FILE *pFile;
+   char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2359,7 +2359,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    printf("cocotion fuck total_ram_trans = %ld\n", total_ram_trans);
  //   printf("cocotion fuck total_trans_t = %ld\n", total_trans_t);
   //  printf("cocotion fuck rate = %d\n", new_trans_rate);
-/*
+
     pFile = fopen("transus.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
@@ -2368,18 +2368,23 @@ static void kvmft_flush_output(MigrationState *s)
 
         sprintf(pbuf, "%d\n", trans_rate);
         fputs(pbuf, pFile);
+
+        sprintf(pbuf, "%d\n", s->ram_len);
+        fputs(pbuf, pFile);
+
         sprintf(pbuf, "%d\n", mybdupdate.last_trans_rate);
         fputs(pbuf, pFile);
         //sprintf(pbuf, "%d\n", new_trans_rate);
         //sprintf(pbuf, "%d\n", mybdupdate.last_trans_rate);
-        sprintf(pbuf, "%d\n", s->ram_len);
-        fputs(pbuf, pFile);
+        //sprintf(pbuf, "%d\n", s->ram_len);
+        //fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", mybdupdate.predic_trans_rate);
        // sprintf(pbuf, "%d\n", trans_us);
         fputs(pbuf, pFile);
     }
     fclose(pFile);
-*/
+
+
   //  mybdupdate.last_trans_rate = new_trans_rate;
 
 
@@ -2472,6 +2477,9 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long int ok = 0;
     static unsigned long int mcount = 0;
 
+    static long ok_runtime = 0;
+    static int ok_average_runtime = 0;
+
    // static int ok_trans_rate = 400;
 
     //if(latency_us > target_latency) {
@@ -2505,7 +2513,7 @@ static void kvmft_flush_output(MigrationState *s)
         //total_run_stage_count += runtime_us;
         //total_epochs_count++;
 
-
+        ok_runtime+=runtime_us;
         //mybdupdate.last_trans_rate = trans_rate;
         mybdupdate.ram_len = s->ram_len;
         //mybdupdate.last_trans_rate = trans_rate;
@@ -2541,6 +2549,10 @@ static void kvmft_flush_output(MigrationState *s)
         last_ok_percen =  ok_percentage;
     }
 
+    static int good_average = 0;
+    int average_run = 0;
+//    int tmp_average = 0;
+
     //static int average_run_time = 5000;
     //static int average_run_time_tmp = 500;
     if(mcount%500 == 0) {
@@ -2551,9 +2563,28 @@ static void kvmft_flush_output(MigrationState *s)
 
         //average_run_time = total_run_stage_count/total_epochs_count;
         //average_run_time_tmp = total_run_stage_count/total_epochs_count;
+        ok_average_runtime = ok_runtime/500;
+        printf("cocotion test fucking ok average runtime = %d\n", ok_average_runtime);
+        ok_runtime = 0;
+
+        average_run = total_run_stage_count/total_epochs_count;
+
+        printf("cocotion test fucking average run stage time = %d\n", average_run);
 
 
-        printf("cocotion test fucking average run stage time = %ld\n", total_run_stage_count/total_epochs_count);
+
+//        if(average_run < ok_average_runtime) bd_alpha = average_run-ok_average_runtime;
+ //       if(average_run < ok_average_runtime) bd_alpha--;
+
+        //else if (average_run > ok_average_runtime) bd_alpha = ok_average_runtime-average_run;
+  //      else if (average_run > ok_average_runtime) bd_alpha++;
+
+        if(average_run < good_average) bd_alpha-=50;
+        else if(average_run > good_average) bd_alpha+=50;
+
+
+
+
         //printf("cocotion test fucking average run stage time = %d\n", average_run_time_tmp);
         //printf("cocotion test fucking total epochs run time= %ld\n", total_run_stage_count);
         //printf("cocotion test fucking total epochs= %ld\n", total_epochs_count);
@@ -2668,8 +2699,10 @@ static void kvmft_flush_output(MigrationState *s)
 
     //static int e = 0;
     //static float w = 0.7;
-    static int decend = 0;
+//    static int decend = 0;
     //static float lr = 0.1;
+
+    static int range_ratio_backup = 0;
 
     if(count%roundtimes == 0) {
         float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
@@ -2701,6 +2734,11 @@ static void kvmft_flush_output(MigrationState *s)
             mybdupdate.last_trans_rate = trans_rate;
         }
 */
+        if(range_ratio > range_ratio_backup) {
+            range_ratio_backup = range_ratio;
+            good_average       = average_run;
+        }
+/*
 
         if(range_ratio >= 90 && range_ratio < 93) {
             //e = 0;
@@ -2716,8 +2754,8 @@ static void kvmft_flush_output(MigrationState *s)
             //e = 1;
             //decend_count++;
             decend++;
-        }
-
+        } */
+/*
         if(range_ratio > 93) bd_alpha++;
         if(range_ratio < 90) {
             if(decend > 0 && decend <= 20) {
@@ -2733,6 +2771,9 @@ static void kvmft_flush_output(MigrationState *s)
                 bd_alpha++;
             }
         }
+
+*/
+
 //        printf("cocotion test bd_alpha = %d\n", bd_alpha);
 
 /*
@@ -2786,13 +2827,18 @@ static void kvmft_flush_output(MigrationState *s)
         //else if(current_exceed_ratio > 0.01)
             //bd_alpha += (current_exceed_ratio-0.01)*100;
 
-
-
-        if(range_ratio < 95 && down_count > 5) {
+        srand(time(NULL));
+        int m = 0;
+        m = rand()%2;
+        if(range_ratio < 95 /*&& down_count > 5*/) {
             //bd_alpha-=10;
-        if(current_exceed_ratio > 0.01) {
- //           bd_alpha -= (current_exceed_ratio-0.01)*100;
+        if(current_exceed_ratio > 0.01 && m == 0) {
+            //bd_alpha -= (current_exceed_ratio-0.01)*100;
+            //bd_alpha += (current_exceed_ratio-0.01)*1000*(rand()%3+1);
+
             //bd_alpha += (current_exceed_ratio-0.01)*100;
+
+
             //bd_alpha -= 10;
 
          //   if(down_count%2 == 0)
@@ -2800,9 +2846,12 @@ static void kvmft_flush_output(MigrationState *s)
 
         }
         //else if(range_ratio < 60) bd_alpha+=10;
-        if(current_less_ratio > 0.01) {
+        if(current_less_ratio > 0.01 && m == 1) {
             //bd_alpha += (current_less_ratio-0.01)*100;
-            //bd_alpha -= (current_less_ratio-0.01)*130;
+            //bd_alpha -= (current_less_ratio-0.01)*1000*(rand()%3+1);
+
+            //bd_alpha -= (current_less_ratio-0.01)*100;
+
             //bd_alpha -= (current_less_ratio-0.01)*100;
            // bd_alpha += 10;
 

@@ -384,6 +384,15 @@ static int bd_predic_stop2(void)
     //epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //epoch_run_time = time_in_us() - global_mark_start_time;
     //
+	//
+	//
+    ktime_t diff2 = ktime_sub(ktime_get(), start);
+   	int difftime2 = ktime_to_us(diff2);
+	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
+
+
+
+
     ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
     //
@@ -404,7 +413,7 @@ static int bd_predic_stop2(void)
 
     global_current_dirty_byte = current_dirty_byte;
     //beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
-    beta = (current_dirty_byte/*-global_dirty_bytes_diff*/)/global_last_trans_rate + epoch_run_time;
+    beta = (current_dirty_byte/*+global_dirty_bytes_diff*/)/global_last_trans_rate + epoch_run_time;
 	printk("cocotion test %ld\n", global_dirty_bytes_diff);
 
     //current_beta = beta;
@@ -420,7 +429,7 @@ static int bd_predic_stop2(void)
 //	printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
 //	printk("cocotiion test fucking current dirty byte. = %d\n", current_dirty_byte);
 //	printk("cocotiion test fucking lobal_last_trans_rate. = %d\n", global_last_trans_rate);
-    if(beta+ctx->bd_alpha >= target_latency_us) {
+    if(beta/*+ctx->bd_alpha*/ >= target_latency_us) {
 
 			global_predict_bytes = current_dirty_byte;
 
@@ -1875,16 +1884,16 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     global_total_last_transfer_bytes = update->ram_len;
 
 ///////cocotion test average diff dirty bytes start
-	if(global_current_100_count < 5000)
+	if(global_current_100_count < 500)
 		global_current_diff[global_current_100_count++] = global_predict_bytes - update->ram_len;
 	else {
-		if(global_victim >= 5000) global_victim = 0;
+		if(global_victim >= 500) global_victim = 0;
 		global_current_diff[global_victim++] = global_predict_bytes - update->ram_len;
 		int i;
 		long tmp=0;
-		for(i = 0; i < 5000; i++)
+		for(i = 0; i < 500; i++)
 			tmp += global_current_diff[i];
-		global_dirty_bytes_diff = tmp/5000;
+		global_dirty_bytes_diff = tmp/500;
 	}
 ///////cocotion test average diff dirty bytes end
 
@@ -4780,20 +4789,40 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
 //    for (i = 0; i < count; ++i) {
   //  int n = 16; int k =0; int p=2; //ok
   //
-    //(12,2)
-    unsigned int n = 12; //cocotion fucking
-    int p = 2; //cocotion fucking
+    //(12,2) (n,p)
+    int n = 4; //cocotion fucking
+    int p = 6; //cocotion fucking
     int k = 0; //cocotion fucking
     int real_count = 0; //cocotion fucking
+
+/*
+	if(count == 0) return 0;
+
+	unsigned int ii;
+	get_random_bytes(&ii, sizeof(ii));
+	int c = count/2 + 1;
+	int nn = ii%c +1;
+	c = c/2+1;
+	get_random_bytes(&ii, sizeof(ii));
+	int pp = ii % c + 1;
+*/
+
+
+
+//	printk("nn = %d\n", nn);
+//	printk("pp = %d\n", pp);
+//	printk("count = %d\n", count);
+//	n = nn;
+//	p = pp;
 
 //    get_random_bytes(&n, sizeof(n));
 //    printk("cocotion test n = %d\n", n);
  //   n = n%count;
   //  printk("cocotion test n = %d, count = %d\n", n, count);
    // n = 16;
-   //	for(i = 0; i < count; ++i){ //cocotion fucking fucking
+   	//for(i = 0; i < count; ++i){ //cocotion fucking fucking
     for (i = n; i < count; i+=(n+p)) { //cocotion fucking
-        for(k = 0; k < p; k++){ //ok //cocotion fucking
+        for(k = 0; (k < p) && (i+k < count); k++){ //ok //cocotion fucking
 //    for (i = count/3; i < count-count/3; ++i) {
  //   for (i = count-count/4; i < count; ++i) {
  //

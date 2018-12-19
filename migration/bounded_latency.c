@@ -10,7 +10,7 @@ int first_enter = 1;
 static int bd_target = EPOCH_TIME_IN_MS * 1000;
 //int bd_alpha = 1787; // initial alpha is 1 ms
 //int bd_alpha = 5000; // initial alpha is 1 ms
-int bd_alpha = 250; // initial alpha is 1 ms
+int bd_alpha = 0; // initial alpha is 1 ms
 float bd_time_slot_us;
 //int bd_time_slot_us_pattern[] = {4000, 5000}
 float p_bd_time_slot_us = EPOCH_TIME_IN_MS*1000/20;

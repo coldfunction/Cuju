@@ -2381,6 +2381,11 @@ static void kvmft_flush_output(MigrationState *s)
         sprintf(pbuf, "%d\n", mybdupdate.predic_trans_rate);
        // sprintf(pbuf, "%d\n", trans_us);
         fputs(pbuf, pFile);
+
+
+
+        sprintf(pbuf, "%d\n", latency_us - runtime_us - trans_us);
+        fputs(pbuf, pFile);
     }
     fclose(pFile);
 
@@ -2549,7 +2554,10 @@ static void kvmft_flush_output(MigrationState *s)
         last_ok_percen =  ok_percentage;
     }
 
-    static int good_average = 0;
+//    static int good_average = 0;
+    static int ratio_down = 0;
+    static int cfactor = 1;
+    static int inorde = 1;
     int average_run = 0;
 //    int tmp_average = 0;
 
@@ -2579,8 +2587,8 @@ static void kvmft_flush_output(MigrationState *s)
         //else if (average_run > ok_average_runtime) bd_alpha = ok_average_runtime-average_run;
   //      else if (average_run > ok_average_runtime) bd_alpha++;
 
-        if(average_run < good_average) bd_alpha-=50;
-        else if(average_run > good_average) bd_alpha+=50;
+        //if(average_run < good_average) bd_alpha-=50;
+        //else if(average_run > good_average) bd_alpha+=50;
 
 
 
@@ -2670,7 +2678,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
 //    static int roundtimes = 600;
-    static int roundtimes = 500;
+    static int roundtimes = 50;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000) {
@@ -2702,7 +2710,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    static int decend = 0;
     //static float lr = 0.1;
 
-    static int range_ratio_backup = 0;
+//    static int range_ratio_backup = 0;
 
     if(count%roundtimes == 0) {
         float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
@@ -2734,10 +2742,27 @@ static void kvmft_flush_output(MigrationState *s)
             mybdupdate.last_trans_rate = trans_rate;
         }
 */
-        if(range_ratio > range_ratio_backup) {
-            range_ratio_backup = range_ratio;
-            good_average       = average_run;
+
+        if(range_ratio < 91) {
+            ratio_down++;
+            if(ratio_down > 10*cfactor) {
+                inorde = inorde * (-1);
+                ratio_down = 0;
+                cfactor++;
+            }
+            //bd_alpha += 50*inorde;
+            bd_alpha += inorde;
         }
+        else {
+            ratio_down = 0;
+            cfactor = 1;
+        }
+
+
+        //if(range_ratio > range_ratio_backup) {
+         //   range_ratio_backup = range_ratio;
+          //  good_average       = average_run;
+        //}
 /*
 
         if(range_ratio >= 90 && range_ratio < 93) {

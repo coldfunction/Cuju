@@ -51,6 +51,13 @@ int global_predic_t_bytes = 0;
 int global_predict_bytes=0;
 
 int global_internal_time;
+int global_old_dirty_count = 0;
+
+int global_old_runtime = 0;
+
+
+unsigned long long global_interrupt_count = 0;
+unsigned long global_epoch_count = 0;
 
 int global_compress_dirty_page_time = 0;
 
@@ -386,15 +393,30 @@ static int bd_predic_stop2(void)
     //
 	//
 	//
-    ktime_t diff2 = ktime_sub(ktime_get(), start);
-   	int difftime2 = ktime_to_us(diff2);
-	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
-
-
-
-
     ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
+	//
+
+	int dirty_diff = current_dirty_byte - global_old_dirty_count;
+	global_old_dirty_count = current_dirty_byte;
+	int diffruntime = epoch_run_time-global_old_runtime;
+	//if (diffruntime <= 0) diffruntime = 1;
+	int dirty_diff_rate = dirty_diff/(diffruntime+1);
+
+	global_old_runtime = epoch_run_time;
+
+
+    ktime_t diff2 = ktime_sub(ktime_get(), start);
+   	int difftime2 = ktime_to_us(diff2);
+
+	int extra_dirty = (dirty_diff_rate * difftime2);
+	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
+	printk("cocotion test fucking difftime shit dirty rate = %d\n", dirty_diff_rate);
+	printk("cocotion test fucking difftime shit new dirty = %d\n", extra_dirty);
+
+
+
+
     //
     //
 //    printk("cocotion my test dirty_byte = %d\n", current_dirty_byte);
@@ -413,7 +435,7 @@ static int bd_predic_stop2(void)
 
     global_current_dirty_byte = current_dirty_byte;
     //beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
-    beta = (current_dirty_byte/*+global_dirty_bytes_diff*/)/global_last_trans_rate + epoch_run_time;
+    beta = (current_dirty_byte/*+global_dirty_bytes_diff*/ + extra_dirty)/global_last_trans_rate + epoch_run_time;
 	printk("cocotion test %ld\n", global_dirty_bytes_diff);
 
     //current_beta = beta;
@@ -602,6 +624,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
         //cocotion test
     extern ktime_t global_mark_time, global_mark_start_time;
     extern u64 runtime_difftime;
+
 /*
     static long interrupt_count = 0;
     if(global_last_trans_rate < 0) {
@@ -615,12 +638,12 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     global_mark_time = ktime_get();
     //global_mark_time = ktime_to_ns(val) / 1000;
 
-    static long interrupt_count = 0;
+//    static long interrupt_count = 0;
     ktime_t diff = ktime_sub(global_mark_time, global_timer_start_time);
     runtime_difftime = ktime_to_us(diff);
-    interrupt_count++;
+ //   interrupt_count++;
     //printk("runtime = %d microseconds, interrupt counts = %d\n", runtime_difftime, interrupt_count);
-
+	global_interrupt_count++;
 
 
 //    global_time_record_in_timer_callback = ktime_to_ns(val) / 1000;
@@ -719,7 +742,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     //epoch_time_in_us = 500;
 
     //global_internal_time = 1700;
-    global_internal_time = 100;
+    global_internal_time = 200;
 //	epoch_time_in_us = 1700; //ok
 //	ktime_t ktime = ktime_set(0, epoch_time_in_us * 1000);
 
@@ -1335,6 +1358,12 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
     enHRTimer=HRTIMER_RESTART;
 
     spcl_kthread_notify_new(kvm, run_serial);
+
+
+	global_epoch_count++;
+	printk("cocotion test fucking epoch count = %ld\n", global_epoch_count);
+	printk("cocotion test fucking average interrupt in epoch = %ld\n", global_interrupt_count/global_epoch_count);
+
 
     return 0;
 }
@@ -4790,8 +4819,8 @@ int bd_calc_dirty_bytes(struct kvmft_context *ctx, struct kvmft_dirty_list *dlis
   //  int n = 16; int k =0; int p=2; //ok
   //
     //(12,2) (n,p)
-    int n = 4; //cocotion fucking
-    int p = 6; //cocotion fucking
+    int n = 7; //cocotion fucking
+    int p = 2; //cocotion fucking
     int k = 0; //cocotion fucking
     int real_count = 0; //cocotion fucking
 

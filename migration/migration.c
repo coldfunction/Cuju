@@ -2486,6 +2486,8 @@ static void kvmft_flush_output(MigrationState *s)
     static int ok_average_runtime = 0;
 
    // static int ok_trans_rate = 400;
+//    static unsigned long int ok_less = 0;
+ //   static unsigned long int ok_more = 0;
 
     //if(latency_us > target_latency) {
     if(latency_us > target_latency + 1000) {
@@ -2501,6 +2503,7 @@ static void kvmft_flush_output(MigrationState *s)
         //mybdupdate.last_trans_rate -= 100;
         //if(mybdupdate.last_trans_rate < 100)
             //mybdupdate.last_trans_rate = 100;
+        //ok_more++;
     }
 //    else if(latency_us < (target_latency*94/100)) {
     else if(latency_us < target_latency-1000) {
@@ -2512,6 +2515,7 @@ static void kvmft_flush_output(MigrationState *s)
         //mybdupdate.last_trans_rate += 100;
         //if(mybdupdate.last_trans_rate < 100)
             //mybdupdate.last_trans_rate = 100;
+        //ok_less++;
     }
     else {
 
@@ -2535,11 +2539,28 @@ static void kvmft_flush_output(MigrationState *s)
     count++;
 
 
+
+
 //    static float oldptg = 0;
     static double last_ok_percen = 0;
     static int down_count = 0;
 
-    if(mcount == 0) mcount = ok = 1;
+
+    if(mcount == 0) //mcount = ok = ok_less = ok_more = 1;
+        mcount = ok = 1;
+
+//    double ok_less_percentage = (double)ok_less/mcount;
+ //   double ok_more_percentage = (double)ok_more/mcount;
+/*
+    if((double)ok/mcount < 0.95) {
+        if(mcount % 2 == 0) {
+            if(ok_less_percentage > 0.03)
+                bd_alpha -= 10;
+        }
+        else if (ok_more_percentage > 0.03)
+            bd_alpha += 10;
+    }
+*/
 
     if(mcount%800 == 0) {
         double ok_percentage = (double)ok/mcount;
@@ -2555,11 +2576,30 @@ static void kvmft_flush_output(MigrationState *s)
     }
 
 //    static int good_average = 0;
-    static int ratio_down = 0;
-    static int cfactor = 1;
-    static int inorde = 1;
+    //static int ratio_down = 0;
+    //static int cfactor = 1;
+    //static int inorde = 1;
     int average_run = 0;
 //    int tmp_average = 0;
+
+    //static int mflip = 0;
+/*
+    double ok_less_percentage = (double)ok_less/mcount;
+    double ok_more_percentage = (double)ok_more/mcount;
+
+    if(mcount%100 == 0) {
+
+
+        if((double)ok/mcount < 0.95) {
+            if(mflip == 0) {
+                if(ok_less_percentage > 0.03)
+                    bd_alpha -= (ok_less_percentage-0.03)*1000;
+            }
+            else if (ok_more_percentage > 0.03)
+                bd_alpha += (ok_more_percentage-0.03)*1000;
+        }
+        mflip = ~mflip;
+    }*/
 
     //static int average_run_time = 5000;
     //static int average_run_time_tmp = 500;
@@ -2567,6 +2607,12 @@ static void kvmft_flush_output(MigrationState *s)
         double ok_percentage = (double)ok/mcount;
         printf("cocotion test ok percentage is %lf\n", ok_percentage);
         printf("cocotion test bd_alpha = %d\n", bd_alpha);
+
+
+
+        //printf("cocotion test less percentage is %lf\n", ok_less_percentage);
+        //printf("cocotion test more percentage is %lf\n", ok_more_percentage);
+
 
 
         //average_run_time = total_run_stage_count/total_epochs_count;
@@ -2719,11 +2765,27 @@ static void kvmft_flush_output(MigrationState *s)
         float current_less_ratio = (float)latency_less_count/roundtimes;
         latency_less_count = 0;
 
+
+        int range_ratio = (1.0*range_count/roundtimes)*100;
+/*
+        if(range_ratio < 95) {
+            if(mflip == 0) {
+                if(current_less_ratio > 0.03)
+                    bd_alpha -= (current_less_ratio-0.03)*3000;
+            }
+            else if (current_exceed_ratio > 0.03)
+                bd_alpha += (current_exceed_ratio-0.03)*3000;
+            mflip = ~mflip;
+        }*/
+        //mflip = ~mflip;
+
+
+
+
 //        average_latency_us = current_latency_sum_us / roundtimes;
 
 //        printf("cocotion test average_latency_us = %d\n", average_latency_us);
 
-        int range_ratio = (1.0*range_count/roundtimes)*100;
 //        printf("cocotion test rang_count = %d\n", range_count);
 //        printf("cocotion test rang_ratio = %d\n", range_ratio);
  //       printf("cocotion test bd_alpha = %d\n", bd_alpha);
@@ -2743,7 +2805,21 @@ static void kvmft_flush_output(MigrationState *s)
         }
 */
 
+/*
+
         if(range_ratio < 91) {
+            bd_alpha--;
+        }
+        else {
+            bd_alpha++;
+        }
+*/
+
+   //     static int inc_ratio = 0;
+   //
+   //
+/* //cocotion here fucking bullshit testing
+        if(range_ratio < 96) {
             ratio_down++;
             if(ratio_down > 10*cfactor) {
                 inorde = inorde * (-1);
@@ -2752,12 +2828,20 @@ static void kvmft_flush_output(MigrationState *s)
             }
             //bd_alpha += 50*inorde;
             bd_alpha += inorde;
+  //          inc_ratio = 0;
         }
         else {
             ratio_down = 0;
             cfactor = 1;
+ //           inc_ratio++;
         }
-
+*/
+    //    if(inc_ratio < 6) {
+     //       if(inorde == 1){
+      //          bd_alpha--;
+       //     }
+        //}
+//        if(bd_alpha < 0 && range_ratio < 96) bd_alpha = 0;
 
         //if(range_ratio > range_ratio_backup) {
          //   range_ratio_backup = range_ratio;

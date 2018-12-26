@@ -2582,7 +2582,7 @@ static void kvmft_flush_output(MigrationState *s)
     int average_run = 0;
 //    int tmp_average = 0;
 
-    //static int mflip = 0;
+   // static int mflip = 0;
 /*
     double ok_less_percentage = (double)ok_less/mcount;
     double ok_more_percentage = (double)ok_more/mcount;
@@ -2601,13 +2601,23 @@ static void kvmft_flush_output(MigrationState *s)
         mflip = ~mflip;
     }*/
 
+    static int old_ok_percentage = 0;
+    int ok_percentage_is_increase = 0;
+    double ok_percentage = 0;
+
     //static int average_run_time = 5000;
     //static int average_run_time_tmp = 500;
     if(mcount%500 == 0) {
-        double ok_percentage = (double)ok/mcount;
+        ok_percentage = (double)ok/mcount;
         printf("cocotion test ok percentage is %lf\n", ok_percentage);
         printf("cocotion test bd_alpha = %d\n", bd_alpha);
 
+        if( ok_percentage >= old_ok_percentage )
+            ok_percentage_is_increase = 1;
+        else
+            ok_percentage_is_increase = 0;
+
+        old_ok_percentage = ok_percentage;
 
 
         //printf("cocotion test less percentage is %lf\n", ok_less_percentage);
@@ -2767,7 +2777,25 @@ static void kvmft_flush_output(MigrationState *s)
 
 
         int range_ratio = (1.0*range_count/roundtimes)*100;
+
+        if(ok_percentage >= 0.95)
+            bd_alpha+=150;
+        else if(range_ratio >= 90 && ok_percentage_is_increase)
+            bd_alpha+=20;
+        else if(range_ratio < 90){
+            bd_alpha-=10;
+            if(bd_alpha < 0) bd_alpha = 0;
+        }
+
+
+
+
+
+
+
 /*
+
+
         if(range_ratio < 95) {
             if(mflip == 0) {
                 if(current_less_ratio > 0.03)
@@ -2776,10 +2804,10 @@ static void kvmft_flush_output(MigrationState *s)
             else if (current_exceed_ratio > 0.03)
                 bd_alpha += (current_exceed_ratio-0.03)*3000;
             mflip = ~mflip;
-        }*/
+        }
         //mflip = ~mflip;
 
-
+*/
 
 
 //        average_latency_us = current_latency_sum_us / roundtimes;
@@ -3010,6 +3038,15 @@ static void kvmft_flush_output(MigrationState *s)
     //printf("cocotion test current_exceed_ratio = %f\n", current_exceed_ratio);
 
     //printf("cocotion test average_latency_us = %d\n", average_latency_us);
+    //
+    //
+if(count % 1000 == 0) {
+    if(ok_average_runtime < bd_alpha+1000) {
+        bd_alpha = ok_average_runtime - 1800;
+    }
+
+}
+
 ////////////////////////////////////////////////////////////////////
     //bd_alpha = 2800;
     //bd_alpha = 2000;

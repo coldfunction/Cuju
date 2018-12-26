@@ -386,8 +386,13 @@ static int bd_predic_stop2(void)
     }
 */
 
-
+//	int oldcount = dlist->put_off;
     int current_dirty_byte = bd_calc_dirty_bytes(ctx, dlist);
+//	int newcount = dlist->put_off;
+
+//	printk("oldcount = %d newcount = %d\n", oldcount, newcount);
+
+
     //epoch_run_time = time_in_us() - dlist->epoch_start_time;
     //epoch_run_time = time_in_us() - global_mark_start_time;
     //
@@ -399,9 +404,11 @@ static int bd_predic_stop2(void)
 
 	int dirty_diff = current_dirty_byte - global_old_dirty_count;
 	global_old_dirty_count = current_dirty_byte;
-	int diffruntime = epoch_run_time-global_old_runtime;
-	//if (diffruntime <= 0) diffruntime = 1;
-	int dirty_diff_rate = dirty_diff/(diffruntime+1);
+	//int diffruntime = epoch_run_time-global_old_runtime;
+	int dirty_diff_rate = dirty_diff/(epoch_run_time-global_old_runtime);
+
+
+	//int dirty_diff_rate = dirty_diff/(epoch_run_time-global_old_runtime+1);
 
 	global_old_runtime = epoch_run_time;
 
@@ -409,7 +416,8 @@ static int bd_predic_stop2(void)
     ktime_t diff2 = ktime_sub(ktime_get(), start);
    	int difftime2 = ktime_to_us(diff2);
 
-	int extra_dirty = (dirty_diff_rate * difftime2);
+	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
+	//int extra_dirty = (newcount-oldcount)*4096;
 	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
 	printk("cocotion test fucking difftime shit dirty rate = %d\n", dirty_diff_rate);
 	printk("cocotion test fucking difftime shit new dirty = %d\n", extra_dirty);
@@ -451,7 +459,7 @@ static int bd_predic_stop2(void)
 //	printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
 //	printk("cocotiion test fucking current dirty byte. = %d\n", current_dirty_byte);
 //	printk("cocotiion test fucking lobal_last_trans_rate. = %d\n", global_last_trans_rate);
-    if(beta/*+ctx->bd_alpha*/ >= target_latency_us) {
+    if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 
 			global_predict_bytes = current_dirty_byte;
 
@@ -1363,6 +1371,8 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 	global_epoch_count++;
 	printk("cocotion test fucking epoch count = %ld\n", global_epoch_count);
 	printk("cocotion test fucking average interrupt in epoch = %ld\n", global_interrupt_count/global_epoch_count);
+
+	global_old_runtime =  global_old_dirty_count = 0;
 
 
     return 0;

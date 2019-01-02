@@ -2906,12 +2906,12 @@ out_free1:
 		r = kvm_arch_vcpu_ioctl_set_fpu(vcpu, fpu);
 		break;
 	}
-	case KVM_SHM_START_TIMER: {
-        	r = 0;
+	//case KVM_SHM_START_TIMER: {
+        	//r = 0;
         	//kvm_shm_start_timer(vcpu);
-       		smp_call_function_single(7, kvm_shm_start_timer2, NULL, true);
-            break;
-    	}
+       		//smp_call_function_single(7, kvm_shm_start_timer2, NULL, true);
+            //break;
+    	//}
 	default:
 		r = kvm_arch_vcpu_ioctl(filp, ioctl, arg);
 	}
@@ -3294,7 +3294,8 @@ static long kvm_vm_ioctl(struct file *filp,
 
       r = 0;
       //kvm_shm_start_timer(kvm->vcpus[0]);
-      kvm_shm_start_timer2();
+      //kvm_shm_start_timer2();
+      smp_call_function_single(7, kvm_shm_start_timer2, &kvm->vcpus[0], false);
       break;
     }
     case KVM_SHM_SET_CHILD_PID: {

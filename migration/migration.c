@@ -2603,12 +2603,14 @@ static void kvmft_flush_output(MigrationState *s)
 
     static int old_ok_percentage = 0;
     int ok_percentage_is_increase = 0;
-    double ok_percentage = 0;
+    static double ok_percentage = 0;
+
+    ok_percentage = (double)ok/mcount;
 
     //static int average_run_time = 5000;
     //static int average_run_time_tmp = 500;
     if(mcount%500 == 0) {
-        ok_percentage = (double)ok/mcount;
+        //ok_percentage = (double)ok/mcount;
         printf("cocotion test ok percentage is %lf\n", ok_percentage);
         printf("cocotion test bd_alpha = %d\n", bd_alpha);
 
@@ -2734,7 +2736,7 @@ static void kvmft_flush_output(MigrationState *s)
 //    static int average_latency_us = 0;
     static int current_latency_sum_us = 0;
 //    static int roundtimes = 600;
-    static int roundtimes = 50;
+    static int roundtimes = 600;
     static int range_count = 0;
 
     if(latency_us>=9000 && latency_us<=11000) {
@@ -2768,6 +2770,9 @@ static void kvmft_flush_output(MigrationState *s)
 
 //    static int range_ratio_backup = 0;
 
+    static int is_more_95_count = 0;
+    static int is_ignore_alpha_calc = 0;
+
     if(count%roundtimes == 0) {
         float current_exceed_ratio = (float)latency_exceed_current_count/roundtimes;
         latency_exceed_current_count = 0;
@@ -2778,16 +2783,36 @@ static void kvmft_flush_output(MigrationState *s)
 
         int range_ratio = (1.0*range_count/roundtimes)*100;
 
-        if(ok_percentage >= 0.95)
-            bd_alpha+=150;
-        else if(range_ratio >= 90 && ok_percentage_is_increase)
-            bd_alpha+=20;
-        else if(range_ratio < 90){
-            bd_alpha-=10;
-            if(bd_alpha < 0) bd_alpha = 0;
+        if(is_more_95_count > 15) {
+            is_ignore_alpha_calc = 1;
+            is_more_95_count = 0;
+        }
+
+        if(!is_ignore_alpha_calc) {
+        if(ok_percentage > 0.95) {
+            is_more_95_count++;
+        } else{
+            is_more_95_count--;
+            if(is_more_95_count < 0)
+                is_more_95_count = 0;
         }
 
 
+        if(ok_percentage > 0.95 && ok_percentage_is_increase)
+            bd_alpha+=300;
+        else if(ok_percentage > 0.95)
+            bd_alpha+=100;
+        else if(ok_percentage < 0.95){
+            bd_alpha-=10;
+            if(bd_alpha < 0) bd_alpha = 0;
+        }
+        else if(range_ratio >= 90 && ok_percentage_is_increase)
+            bd_alpha+=20;
+        else if(range_ratio < 90){
+            bd_alpha-=5;
+            if(bd_alpha < 0) bd_alpha = 0;
+        }
+        }
 
 
 
@@ -3040,9 +3065,10 @@ static void kvmft_flush_output(MigrationState *s)
     //printf("cocotion test average_latency_us = %d\n", average_latency_us);
     //
     //
-if(count % 1000 == 0) {
+if(!is_ignore_alpha_calc && (count % 200 == 0)) {
     if(ok_average_runtime < bd_alpha+1000) {
-        bd_alpha = ok_average_runtime - 1800;
+        bd_alpha = ok_average_runtime - 3000;
+        if(bd_alpha < 0) bd_alpha = 0;
     }
 
 }

@@ -39,16 +39,16 @@ struct kvmft_dirty_list {
     __u32 gva_spcl_pages_off;
     __u32 *gva_spcl_pages;
 
-    __u64 epoch_start_time; 
+    __u64 epoch_start_time;
 
     __u32 *spcl_bitmap;         // if set, the speculated page corresponding in pages is dirty
     __u32 pages[];
 };
 
-struct kvm_collect_log {    
+struct kvm_collect_log {
     __u32 cur_index;
     __u32 is_last;
-};  
+};
 
 struct zerocopy_callback_arg {
 	struct kvm *kvm;
@@ -79,7 +79,7 @@ struct kvmft_master_slave_conn_info {
 
 struct gfn_pfn_sync {
     u8 flag;
-    u64 pfn; 
+    u64 pfn;
 };
 
 struct kvmft_context {
@@ -91,7 +91,7 @@ struct kvmft_context {
     bool log_full;
 
     // array of (struct kvmft_dirty_list *)
-    struct kvmft_dirty_list **page_nums_snapshot_k;  
+    struct kvmft_dirty_list **page_nums_snapshot_k;
     // array of (struct page*)
     struct page **page_nums_snapshot_page;
 
@@ -99,14 +99,14 @@ struct kvmft_context {
 
     // array of
     //  [k1,k2,...,kn], kx points to a kernel page, size is shared_log_size
-    void ***shared_pages_snapshot_k;  
+    void ***shared_pages_snapshot_k;
     // array of
     //  [struct page*, struct page*, ...]
     struct page ***shared_pages_snapshot_pages;
 
     struct gfn_pfn_sync *gfn_pfn_sync_list;
 
-    //struct page **dirty_pages_via_gfn; 
+    //struct page **dirty_pages_via_gfn;
 
     struct kvmft_master_slave_conn_info master_slave_info[KVM_MAX_MIGRATION_DESC];
 
@@ -118,7 +118,7 @@ struct kvmft_context {
 
     int pending_tran_num;
     wait_queue_head_t tran_event;
-    
+
 #define BD_HISTORY_MAX  4
     int bd_average_consts[BD_HISTORY_MAX];
     int bd_average_latencies[BD_HISTORY_MAX];   // in us
@@ -147,7 +147,8 @@ int kvm_shm_enable(struct kvm *kvm);
 int kvm_shm_start_log_share_dirty_pages(struct kvm *kvm, struct kvm_collect_log *log);
 int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_off, __u32 run_serial);
 void kvm_shm_start_timer(struct kvm_vcpu *vcpu);
-void kvm_shm_start_timer2(void);
+void kvm_shm_start_timer2(void *info);
+//void kvm_shm_start_timer2(void);
 
 //int kvm_shm_log_full(struct kvm *kvm);
 int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,

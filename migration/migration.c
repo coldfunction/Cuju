@@ -2286,8 +2286,8 @@ static void kvmft_flush_output(MigrationState *s)
 //    int compress_time = mybdupdate.compress_dirty_page_time;
 
 //fucking
-   FILE *pFile;
-   char pbuf[200];
+//   FILE *pFile;
+ //  char pbuf[200];
 /*
     pFile = fopen("ram_len_and_transus.txt", "a");
     char pbuf[200];
@@ -2360,7 +2360,7 @@ static void kvmft_flush_output(MigrationState *s)
  //   printf("cocotion fuck total_trans_t = %ld\n", total_trans_t);
   //  printf("cocotion fuck rate = %d\n", new_trans_rate);
 
-    pFile = fopen("transus.txt", "a");
+/*    pFile = fopen("transus.txt", "a");
     //char pbuf[200];
     if(pFile != NULL){
 
@@ -2388,7 +2388,7 @@ static void kvmft_flush_output(MigrationState *s)
         fputs(pbuf, pFile);
     }
     fclose(pFile);
-
+*/
 
   //  mybdupdate.last_trans_rate = new_trans_rate;
 

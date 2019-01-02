@@ -62,10 +62,11 @@ unsigned long global_epoch_count = 0;
 int global_compress_dirty_page_time = 0;
 
 ///////cocotion test average diff dirty bytes start
+/*
 long global_dirty_bytes_diff = 0;
 long global_current_diff[1000];
 int global_current_100_count = 0;
-int global_victim = 0;
+int global_victim = 0; */
 ///////cocotion test average diff dirty bytes end
 
 
@@ -427,9 +428,9 @@ static int bd_predic_stop2(void)
 
 	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
 	//int extra_dirty = (newcount-oldcount)*4096;
-	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
-	printk("cocotion test fucking difftime shit dirty rate = %d\n", dirty_diff_rate);
-	printk("cocotion test fucking difftime shit new dirty = %d\n", extra_dirty);
+//	printk("cocotion test fucking difftime shit t = %d\n", difftime2);
+//	printk("cocotion test fucking difftime shit dirty rate = %d\n", dirty_diff_rate);
+//	printk("cocotion test fucking difftime shit new dirty = %d\n", extra_dirty);
 
 
 
@@ -453,7 +454,7 @@ static int bd_predic_stop2(void)
     global_current_dirty_byte = current_dirty_byte;
     //beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
     beta = (current_dirty_byte +/*global_dirty_bytes_diff +*/ extra_dirty)/global_last_trans_rate + epoch_run_time;
-	printk("cocotion test global_dirty_bytes diff %ld\n", global_dirty_bytes_diff);
+//	printk("cocotion test global_dirty_bytes diff %ld\n", global_dirty_bytes_diff);
 
     //current_beta = beta;
 //	printk("cocotiion test fucking epoch_run_time 2. = %d, beta = %d\n", epoch_run_time, beta);
@@ -1944,6 +1945,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     global_total_last_transfer_bytes = update->ram_len;
 
 ///////cocotion test average diff dirty bytes start
+/*
 	if(global_current_100_count < 1000)
 		global_current_diff[global_current_100_count++] = global_predict_bytes - update->ram_len;
 	else {
@@ -1955,6 +1957,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			tmp += global_current_diff[i];
 		global_dirty_bytes_diff = tmp/1000;
 	}
+*/
 ///////cocotion test average diff dirty bytes end
 
 

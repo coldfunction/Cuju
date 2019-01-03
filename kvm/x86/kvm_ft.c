@@ -275,14 +275,14 @@ int kvmft_fire_timer(struct kvm_vcpu *vcpu, int moff)
 void kvm_shm_start_timer2(void *info)
 //void kvm_shm_start_timer2(void)
 {
-//	struct kvm_vcpu *vcpu = info;
+	struct kvm_vcpu *vcpu = info;
  //   struct hrtimer *hrtimer = &vcpu->hrtimer;
 
 
     ktime_t ktime;
 
     ktime = ktime_set(0, epoch_time_in_us * 1000);
-    hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
 
 }
 
@@ -299,7 +299,7 @@ static void spcl_kthread_notify_abandon(struct kvm *kvm);
 void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 {
     spcl_kthread_notify_abandon(global_vcpu->kvm);
-    hrtimer_cancel(&global_hrtimer);
+    hrtimer_cancel(&vcpu->hrtimer);
 }
 
 
@@ -474,7 +474,7 @@ static int bd_predic_stop2(void)
 			global_predict_bytes = current_dirty_byte;
 
         //if(hrtimer_cancel(&global_hrtimer)) {
-        	hrtimer_cancel(&global_hrtimer);
+        	hrtimer_cancel(&vcpu->hrtimer);
             enHRTimer = HRTIMER_NORESTART;
 
             update_flag = 2;
@@ -531,9 +531,9 @@ static int bd_predic_stop2(void)
         }
 
         //if(hrtimer_cancel(&global_hrtimer)) {
-            hrtimer_cancel(&global_hrtimer);
+            hrtimer_cancel(&vcpu->hrtimer);
             ktime_t ktime = ktime_set(0, t * 1000);
-            hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+            hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
         //}
         //printk("cocotion test fucking t = %d in update 0\n", t);
         return 1;
@@ -614,7 +614,7 @@ static int bd_predic_stop2(void)
         enHRTimer = HRTIMER_NORESTART;
         update_flag = 2;
         ktime_t ktime = ktime_set(0, t * 1000);
-        hrtimer_start(&global_hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+        hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
 
         //printk("cocotion test fucking t = %d in update 1\n", t);
  //   }
@@ -817,8 +817,8 @@ void kvm_shm_setup_vcpu_hrtimer(void *info)
 {
     struct kvm_vcpu *vcpu = info;
 
-    //struct hrtimer *hrtimer = &vcpu->hrtimer;
-    struct hrtimer *hrtimer = &global_hrtimer;
+    struct hrtimer *hrtimer = &vcpu->hrtimer;
+    //struct hrtimer *hrtimer = &global_hrtimer;
 
     global_timer_start_time = ktime_get();
 
@@ -2125,7 +2125,8 @@ void kvm_shm_notify_vcpu_destroy(struct kvm_vcpu *vcpu)
     if (global_vcpu->hrtimer_running) {
         global_vcpu->hrtimer_running = false;
     }
-    hrtimer_cancel(&global_hrtimer);
+    //hrtimer_cancel(&global_hrtimer);
+    hrtimer_cancel(&vcpu->hrtimer);
 }
 
 #if 0

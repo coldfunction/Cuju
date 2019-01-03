@@ -2688,11 +2688,12 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	mutex_unlock(&kvm->lock);
 	kvm_arch_vcpu_postcreate(vcpu);
 
-    if(id == 0)
+    if(id == 0) {
+        vcpu->last_trans_rate = 100;
         smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
         //kvm_shm_setup_vcpu_hrtimer(vcpu);
         //cocotion fucking here
-
+    }
 	return r;
 
 unlock_vcpu_destroy:
@@ -3295,6 +3296,10 @@ static long kvm_vm_ioctl(struct file *filp,
       r = 0;
       //kvm_shm_start_timer(kvm->vcpus[0]);
       //kvm_shm_start_timer2();
+      kvm->vcpus[0]->mark_start_time = ktime_get();
+      kvm->vcpus[0]->old_dirty_count = 0;
+      kvm->vcpus[0]->old_runtime = 0;
+
       smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
       break;
     }

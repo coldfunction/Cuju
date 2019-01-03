@@ -51,9 +51,6 @@ int global_predic_t_bytes = 0;
 int global_predict_bytes=0;
 
 int global_internal_time;
-int global_old_dirty_count = 0;
-
-int global_old_runtime = 0;
 
 
 unsigned long long global_interrupt_count = 0;
@@ -97,7 +94,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *time
 int vcpu_kick(unsigned long data);
 
 //struct kvmft_context *global_ft_ctx;
-struct hrtimer global_hrtimer;
+//struct hrtimer global_hrtimer;
 struct kvm *global_kvm;
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
@@ -105,12 +102,10 @@ DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
 ktime_t global_timer_start_time;
 
 
-int global_last_trans_rate = 100;
 //int first_timer = 1;
 
 //int vcpu_index = -1;
-//struct kvm_vcpu *global_vcpu[10];
-struct kvm_vcpu *global_vcpu;
+//struct kvm_vcpu *global_vcpu;
 const int max_latency = 29700;
 
 static int dirty_page = 0;
@@ -408,19 +403,24 @@ static int bd_predic_stop2(void)
     //
 	//
 	//
-    ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
+//    ktime_t diff = ktime_sub(ktime_get(), global_mark_start_time);
+    ktime_t diff = ktime_sub(ktime_get(), vcpu->mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
 	//
 
-	int dirty_diff = current_dirty_byte - global_old_dirty_count;
-	global_old_dirty_count = current_dirty_byte;
+//	int dirty_diff = current_dirty_byte - global_old_dirty_count;
+	int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
+	//global_old_dirty_count = current_dirty_byte;
+	vcpu->old_dirty_count = current_dirty_byte;
 	//int diffruntime = epoch_run_time-global_old_runtime;
-	int dirty_diff_rate = dirty_diff/(epoch_run_time-global_old_runtime);
+//	int dirty_diff_rate = dirty_diff/(epoch_run_time-global_old_runtime);
+	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime);
 
 
 	//int dirty_diff_rate = dirty_diff/(epoch_run_time-global_old_runtime+1);
 
-	global_old_runtime = epoch_run_time;
+//	global_old_runtime = epoch_run_time;
+	vcpu->old_runtime = epoch_run_time;
 
 
     ktime_t diff2 = ktime_sub(ktime_get(), start);
@@ -453,7 +453,8 @@ static int bd_predic_stop2(void)
 
     global_current_dirty_byte = current_dirty_byte;
     //beta = current_dirty_byte/global_last_trans_rate + epoch_run_time;
-    beta = (current_dirty_byte +/*global_dirty_bytes_diff +*/ extra_dirty)/global_last_trans_rate + epoch_run_time;
+//    beta = (current_dirty_byte +/*global_dirty_bytes_diff +*/ extra_dirty)/global_last_trans_rate + epoch_run_time;
+    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 //	printk("cocotion test global_dirty_bytes diff %ld\n", global_dirty_bytes_diff);
 
     //current_beta = beta;
@@ -554,7 +555,8 @@ static int bd_predic_stop2(void)
 
 
     int x = current_dirty_byte;
-    int R = global_last_trans_rate;
+    //int R = global_last_trans_rate;
+	int R = vcpu->last_trans_rate;
     int D = predict_dirty_rate;
     int E = epoch_run_time;
 //    int y = target_latency_us - 500;
@@ -1394,8 +1396,6 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 	printk("cocotion test fucking epoch count = %ld\n", global_epoch_count);
 	printk("cocotion test fucking average interrupt in epoch = %ld\n", global_interrupt_count/global_epoch_count);
 
-	global_old_runtime =  global_old_dirty_count = 0;
-
 
     return 0;
 }
@@ -1941,7 +1941,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     ctx->bd_average_latencies[put_off] = update->latency_us;
     ctx->bd_average_consts[put_off] = (update->latency_us - update->runtime_us - update->trans_us);
 
-    global_last_trans_rate = update->last_trans_rate;
+	kvm->vcpus[0]->last_trans_rate = update->last_trans_rate;
     global_total_last_transfer_bytes = update->ram_len;
 
 ///////cocotion test average diff dirty bytes start

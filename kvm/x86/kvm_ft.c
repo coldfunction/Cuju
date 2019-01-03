@@ -298,7 +298,7 @@ static void spcl_kthread_notify_abandon(struct kvm *kvm);
 
 void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 {
-    spcl_kthread_notify_abandon(global_vcpu->kvm);
+    spcl_kthread_notify_abandon(vcpu->kvm);
     hrtimer_cancel(&vcpu->hrtimer);
 }
 
@@ -322,7 +322,7 @@ static int bd_predic_stop2(void)
 
 
 	struct kvm_vcpu *vcpu = global_kvm->vcpus[0];
-    struct hrtimer *hrtimer = &vcpu->hrtimer;
+    //struct hrtimer *hrtimer = &vcpu->hrtimer;
 
     //printk("cocotion fucking test in bd_predic_stop2 cpu id is %d\n", smp_processor_id());
     struct kvmft_context *ctx;
@@ -480,9 +480,9 @@ static int bd_predic_stop2(void)
             update_flag = 2;
 			global_current_dirty_byte = 0;
 			global_predict_dirty_rate = 0;
-            global_vcpu->hrtimer_pending = true;
-            global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-            kvm_vcpu_kick(global_vcpu);
+            vcpu->hrtimer_pending = true;
+            vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+            kvm_vcpu_kick(vcpu);
             //printk("cocotion fucking test in bd_predic_stop2 to takesnapshot\n");
             return 1;
         //}
@@ -715,9 +715,9 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     if(update_flag == 2) {
     //if(predict_current_dirty_byte/global_last_trans_rate + runtime_difftime >= target_latency_us) {
        // hrtimer_cancel(&global_hrtimer);
-        global_vcpu->hrtimer_pending = true;
-        global_vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-        kvm_vcpu_kick(global_vcpu);
+        vcpu->hrtimer_pending = true;
+        vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(vcpu);
 //        printk("cocotion test runtime at fucking timer interrupt @@@@@@@@ = %d\n", runtime_difftime);
         //current_beta = 0;
         global_current_dirty_byte = 0;
@@ -830,7 +830,7 @@ void kvm_shm_setup_vcpu_hrtimer(void *info)
 	//__sync_fetch_and_add(&vcpu_index, 1);
 
     //global_vcpu[vcpu_index] = vcpu;
-    global_vcpu = vcpu;
+    //global_vcpu = vcpu;
     printk("kvm_shm_setup_vcpu_hrtimer vcpu = %p\n",vcpu);
 
     //printk("cocotion fucking test in setup_vcpu_hrtimer cpu id is %d\n", smp_processor_id());
@@ -2122,8 +2122,8 @@ int kvmft_page_dirty(struct kvm *kvm, unsigned long gfn,
 
 void kvm_shm_notify_vcpu_destroy(struct kvm_vcpu *vcpu)
 {
-    if (global_vcpu->hrtimer_running) {
-        global_vcpu->hrtimer_running = false;
+    if (vcpu->hrtimer_running) {
+        vcpu->hrtimer_running = false;
     }
     //hrtimer_cancel(&global_hrtimer);
     hrtimer_cancel(&vcpu->hrtimer);

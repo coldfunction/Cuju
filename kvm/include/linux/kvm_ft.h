@@ -193,7 +193,7 @@ int kvmft_ioctl_set_master_slave_sockets(struct kvm *kvm,
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update);
 int kvmft_ioctl_bd_set_alpha(struct kvm *kvm, int alpha);
 int kvmft_ioctl_bd_calc_dirty_bytes(struct kvm *kvm);
-int bd_calc_dirty_bytes(struct kvmft_context *global_ft_ctx, struct kvmft_dirty_list *dlist);
+int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *global_ft_ctx, struct kvmft_dirty_list *dlist);
 
 int kvmft_ioctl_bd_check_dirty_page_number(struct kvm *kvm);
 int kvmft_ioctl_bd_calc_left_runtime(struct kvm *kvm);

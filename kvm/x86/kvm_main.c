@@ -2644,6 +2644,8 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	if (IS_ERR(vcpu))
 		return PTR_ERR(vcpu);
 
+    printk("cocotion fucking testing VM id = %d\n", id);
+
 	preempt_notifier_init(&vcpu->preempt_notifier, &kvm_preempt_ops);
 
 	r = kvm_arch_vcpu_setup(vcpu);
@@ -2685,8 +2687,11 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	smp_wmb();
 	atomic_inc(&kvm->online_vcpus);
 
+
 	mutex_unlock(&kvm->lock);
 	kvm_arch_vcpu_postcreate(vcpu);
+
+    printk("cocotion test fucking online_vcpus @@@ = %d\n", atomic_read(&kvm->online_vcpus));
 
     if(id == 0) {
         vcpu->last_trans_rate = 100;

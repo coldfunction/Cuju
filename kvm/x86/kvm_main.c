@@ -2695,6 +2695,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 
     if(id == 0) {
         vcpu->last_trans_rate = 100;
+        vcpu->task = current;
         smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
         //kvm_shm_setup_vcpu_hrtimer(vcpu);
         //cocotion fucking here

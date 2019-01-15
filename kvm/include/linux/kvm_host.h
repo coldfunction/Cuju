@@ -333,6 +333,8 @@ struct kvm_vcpu {
     int old_dirty_count;
     int old_runtime;
     int last_trans_rate;
+
+    struct task_struct *task;
 };
 
 static inline struct kvm_vcpu *hrtimer_to_vcpu(struct hrtimer *timer)

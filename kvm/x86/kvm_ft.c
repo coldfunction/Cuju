@@ -74,9 +74,6 @@ int global_victim = 0; */
 enum hrtimer_restart enHRTimer=HRTIMER_RESTART;
 
 
-extern struct task_struct *myglobaltask;
-
-
 
 static DEFINE_SPINLOCK(myftlock);
 
@@ -5076,9 +5073,11 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 
 
         struct task_struct *current_backup = get_cpu_var(current_task);
-        if(current_backup != myglobaltask) {
-            __this_cpu_write(current_task, myglobaltask);
-
+        struct task_struct *kvm_task = kvm->vcpus[0]->task;
+        //if(current_backup != myglobaltask) {
+        if(current_backup != kvm_task) {
+            //__this_cpu_write(current_task, myglobaltask);
+            __this_cpu_write(current_task, kvm_task);
         }
 
         //if(current_backup == myglobaltask) {

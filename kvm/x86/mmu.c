@@ -78,8 +78,6 @@
 #include <linux/kvm_ft.h>
 
 
-struct task_struct *myglobaltask = NULL;
-
 /*
  * When setting this variable to true it enables Two-Dimensional-Paging
  * where the hardware walks 2 page tables:
@@ -4200,8 +4198,6 @@ static void init_kvm_tdp_mmu(struct kvm_vcpu *vcpu)
 	context->get_cr3 = get_cr3;
 	context->get_pdptr = kvm_pdptr_read;
 	context->inject_page_fault = kvm_inject_page_fault;
-
-    myglobaltask = current;
 
 	if (!is_paging(vcpu)) {
 		context->nx = false;

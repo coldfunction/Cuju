@@ -2295,6 +2295,25 @@ static void kvmft_flush_output(MigrationState *s)
 
 	static int trans_rate_h[5];
     static int trans_rate_c = 0;
+/*
+	printf("cocotion start ===========\n");
+	printf("cocotion test real trans_rate = %d\n", trans_rate);
+	printf("cocotion test guest trans_rate = %d\n", mybdupdate.last_trans_rate);
+	printf("cocotion end ===========\n");
+*/
+
+
+	static unsigned long int aacount = 0;
+	static unsigned long int totaltransdiff = 0;
+	static unsigned long int averagediff = 0;
+	aacount++;
+	totaltransdiff+=abs(trans_rate-mybdupdate.last_trans_rate);
+	averagediff = totaltransdiff/aacount;
+
+	if(count % 1000 == 0)
+		printf("now cocotion average diff trans = %ld\n", averagediff);
+
+
 
     trans_rate_h[trans_rate_c++] = trans_rate;
     int i = 0;
@@ -2309,6 +2328,7 @@ static void kvmft_flush_output(MigrationState *s)
     if(trans_rate_c == 5) trans_rate_c = 0;
 
 	mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+
 
 	if(count == 0) {
         exceeds = 0;

@@ -128,6 +128,9 @@ extern unsigned long address_to_pte(unsigned long addr);
 
 static int target_latency_us;
 static int epoch_time_in_us;
+int p_dirty_bytes = 0;
+unsigned long long p_count = 0;
+unsigned long long p_average = 0;
 
 
 static unsigned long pages_per_ms;
@@ -316,19 +319,21 @@ static int bd_predic_stop2(void)
     ktime_t diff2 = ktime_sub(ktime_get(), start);
    	int difftime2 = ktime_to_us(diff2);
 
-	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
+	int extra_dirty = (dirty_diff_rate * difftime2) /*+ (newcount-oldcount)*4096*/;
 
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
-	/*
+/*
 	printk("==================================\n");
+	printk("cocotion test self = %d\n", self);
 	printk("test current_dirty_byte = %d\n", current_dirty_byte);
 	printk("test vcpu->last_trans_rate = %d\n", vcpu->last_trans_rate);
 	printk("test epoch_run_time = %d\n", epoch_run_time);
 	printk("test beta = %d\n", beta);
 	printk("==================================\n");
-	*/
+*/
 	if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 
+//			p_dirty_bytes = current_dirty_byte;
         	hrtimer_cancel(&vcpu->hrtimer);
 
             vcpu->hrtimer_pending = true;
@@ -2635,6 +2640,108 @@ static int spcl_transfer_check(struct kvmft_dirty_list *dlist, int index)
         !test_and_clear_bit(index, dlist->spcl_bitmap);
 }
 
+struct dirtyinfo {
+	struct kvm *kvm;
+	struct socket *sock;
+	struct kvmft_dirty_list *dlist;
+	int start;
+	int end;
+	int trans_index;
+	int run_serial;
+	int ret;
+};
+
+static int new_kvmft_transfer_list(void *info)
+{
+	struct dirtyinfo *ft_info = info;
+	struct kvm *kvm = ft_info->kvm;
+	struct kvm *sock = ft_info->sock;
+	struct kvmft_dirty_list *dlist = ft_info->dlist;
+	int start = ft_info->start;
+	int end = ft_info->end;
+	int trans_index = ft_info->trans_index;
+	int run_serial = ft_info->run_serial;
+
+    int ret, i;
+    int len = 0, total = 0;
+    uint8_t *buf;
+    unsigned int *gfns = dlist->pages;
+
+#ifdef PAGE_TRANSFER_TIME_MEASURE
+    transfer_start_time = time_in_us();
+    page_transfer_end_times_off = end;
+#endif
+
+    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+    if (!buf)
+        return -ENOMEM;
+
+    kvmft_tcp_unnodelay(sock);
+
+    for (i = start; i < end; ++i) {
+        unsigned long gfn = gfns[i];
+
+#ifdef PAGE_TRANSFER_TIME_MEASURE
+        page_transfer_start_times[i] = time_in_us();
+#endif
+
+#ifdef SPCL
+        if (spcl_transfer_check(dlist, i))
+            continue;
+#endif
+
+        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+            trans_index, run_serial);
+        if (len >= 64 * 1024) {
+            ret = ktcp_send(sock, buf, len);
+            if (ret < 0)
+                goto free;
+            total += len;
+            len = 0;
+        }
+    }
+
+    if (len > 0) {
+        ret = ktcp_send(sock, buf, len);
+        if (ret < 0)
+            goto free;
+        total += len;
+    }
+
+    kvmft_tcp_nodelay(sock);
+/*
+	p_count++;
+	p_average+=abs(total-p_dirty_bytes);
+	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printk("cocotion test diffbytes = %d\n", p_average/p_count);
+	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	*/
+	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
+
+#ifdef PAGE_TRANSFER_TIME_MEASURE
+    transfer_end_time = time_in_us();
+    if (transfer_end_time - transfer_start_time > 3000) {
+        printk("%s already takes %ldms dirty page %d\n", __func__,
+            (transfer_end_time - transfer_start_time) / 1000, end);
+    }
+    if (transfer_end_time - transfer_start_time > 10000) {
+        dump_page_transfer_times();
+    }
+
+#endif
+
+    ret = total;
+free:
+    kfree(buf);
+
+	ft_info->ret = ret;
+
+
+	return ret;
+
+}
+
+
 static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_dirty_list *dlist, int start, int end,
     int trans_index, int run_serial)
@@ -2686,6 +2793,14 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
     kvmft_tcp_nodelay(sock);
+/*
+	p_count++;
+	p_average+=abs(total-p_dirty_bytes);
+	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	printk("cocotion test diffbytes = %d\n", p_average/p_count);
+	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+	*/
+	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
     transfer_end_time = time_in_us();
@@ -2702,7 +2817,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     ret = total;
 free:
     kfree(buf);
-    return ret;
+
+
+
+
+	return ret;
 }
 
 static int kvmft_transfer_list_old(struct kvm *kvm, struct socket *sock,
@@ -2778,10 +2897,21 @@ static int diff_and_tran_kthread_func(void *opaque)
         end = (desc->conn_index + 1) * dlist->put_off / desc->conn_count;
         len = 0;
 
+/*		struct dirtyinfo *ft_info;
+		ft_info->kvm = kvm;
+		ft_info->sock = sock;
+		ft_info->dlist = dlist;
+		ft_info->start = start;
+		ft_info->end = end;
+		ft_info->trans_index = desc->trans_index;
+		ft_info->run_serial = run_serial;
+*/
+
         if (end > start)
             len = kvmft_transfer_list(kvm, sock, dlist,
                 start, end, desc->trans_index, info->run_serial);
-
+// 			smp_call_function_single(7, new_kvmft_transfer_list, ft_info, true);
+//		len = ft_info->ret;
         //printk("%s trans_index %d conn %d (%d=>%d)\n", __func__, desc->trans_index, desc->conn_index, start, end);
         //printk("%s (%d/%d) %d %lx\n", __func__, desc->trans_index, desc->conn_index, i, gfn);
 

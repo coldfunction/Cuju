@@ -11,7 +11,7 @@ struct kvmft_update_latency mybdupdate;
 void bd_reset_epoch_timer(void)
 {
 
-	int bd_time_slot_us = 1000;
+	int bd_time_slot_us = 6986;
 
 	Error *err = NULL;
 	qmp_cuju_adjust_epoch((unsigned int)bd_time_slot_us, &err);

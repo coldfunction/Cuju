@@ -294,6 +294,8 @@ static int bd_predic_stop2(void)
     struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
     struct kvm *kvm = vcpu->kvm;
 
+	goto jump;
+
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
 
@@ -332,7 +334,7 @@ static int bd_predic_stop2(void)
 	printk("==================================\n");
 */
 	if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
-
+jump:
 //			p_dirty_bytes = current_dirty_byte;
         	hrtimer_cancel(&vcpu->hrtimer);
 

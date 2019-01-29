@@ -203,8 +203,13 @@ void kvm_shm_start_timer2(void *info)
     struct kvm_vcpu *vcpu = info;
     ktime_t ktime;
 
+//	printk("cocotion test vcpu start timer================== %p\n", vcpu);
     ktime = ktime_set(0, vcpu->epoch_time_in_us * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+    //hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+    vcpu->mark_start_time = ktime_get();
+//	printk("@@markstart = %ld\n", vcpu->mark_start_time);
+//	printk("cocotion test vcpu end start timer================== %p\n", vcpu);
 }
 
 
@@ -225,11 +230,35 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 	hrtimer_cancel(&vcpu->hrtimer);
 }
 
-
 static int bd_predic_stop3(void)
 {
-    smp_call_function_single(7, bd_predic_stop2, NULL, true);
-    return 0;
+    //smp_call_function_single(7, bd_predic_stop2, NULL, false);
+	//
+
+/*
+		static unsigned long long total_count = 0;
+		static unsigned long long time = 0;
+		static unsigned long long dodo = 0;
+*/
+		int self = bd_predic_stop2();
+ /*   	ktime_t start = ktime_get();
+
+		int i = 0;
+		for(i = 0; i < 1000000; i++) {
+			dodo+=i;
+		}
+
+		if(self %2 == 0) {
+    	ktime_t diff2 = ktime_sub(ktime_get(), start);
+   		int difftime2 = ktime_to_us(diff2);
+		time+=difftime2;
+		total_count++;
+		printk("!!!!@@ difftime when dirty calc is %d\n", difftime2);
+		printk("!!!!~~~~cocotion test fucking great count = %d, averagedifftime = %d\n", total_count, time/total_count);
+		printk("cocotion test process current pid= %d\n", current->pid);
+		}
+   */
+	return 0;
 }
 
 static int bd_predic_stop4(struct kvm *kvm)
@@ -289,12 +318,13 @@ static int bd_predic_stop2(void)
     ktime_t start = ktime_get();
 
     int self  = abs(atomic_inc_return(&ft_timer.start))%128;
+//	printk("cocotion test self = %d\n", self);
 
     struct hrtimer *timer = ft_timer.timer[self];
     struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
     struct kvm *kvm = vcpu->kvm;
 
-	goto jump;
+	//goto jump;
 
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
@@ -308,15 +338,17 @@ static int bd_predic_stop2(void)
 
     int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
 
-	ktime_t diff = ktime_sub(ktime_get(), vcpu->mark_start_time);
+	ktime_t now = ktime_get();
+	ktime_t diff = ktime_sub(now, vcpu->mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
+
+	goto jump;
 
 	int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
 	vcpu->old_dirty_count = current_dirty_byte;
 	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime);
 
 	vcpu->old_runtime = epoch_run_time;
-
 
     ktime_t diff2 = ktime_sub(ktime_get(), start);
    	int difftime2 = ktime_to_us(diff2);
@@ -336,12 +368,22 @@ static int bd_predic_stop2(void)
 	if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 jump:
 //			p_dirty_bytes = current_dirty_byte;
-        	hrtimer_cancel(&vcpu->hrtimer);
+/*
+			printk("@@@@@!!!!!!!================= start \n");
+			printk("cocotion test vcpu = %p\n", vcpu);
+			printk("cocotion test mark start time = %ld\n", vcpu->mark_start_time);
+			printk("cocotion test now time = %ld\n", now);
+			printk("cocotion test at begin of thisfun = %ld\n", start);
+			printk("cocotion test epoch run time = %d\n", epoch_run_time);
+			printk("@@@@@!!!!!!!================= end \n");
+*/
+        	//hrtimer_cancel(&vcpu->hrtimer);
 
             vcpu->hrtimer_pending = true;
             vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
             kvm_vcpu_kick(vcpu);
-            return 1;
+            //return 1;
+            return self;
     }
 
     diff = ktime_sub(ktime_get(), start);
@@ -369,15 +411,27 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
     int self = abs(atomic_inc_return(&ft_timer.end))%128;
 
     ft_timer.timer[self] = timer;
+/*
+	printk("cocotion herer in call back start #########################\n");
+	printk("cocotion test self = %d\n", self);
+	printk("cocotion test vcpu = %p\n", vcpu);
+	printk("cocotion test time = %ld\n", ktime_get());
+	printk("cocotion test @@@@@@process current pid= %d\n", current->pid);
+	printk("cocotion herer in call back end ###########################\n");
+*/
 
-	tasklet_schedule(&calc_dirty_tasklet2);
+//	tasklet_schedule(&calc_dirty_tasklet2);
+//    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
+    smp_call_function_single(7, bd_predic_stop3, 0, false);
+
 
     return HRTIMER_NORESTART;
 }
 
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer)
 {
-    smp_call_function_single(7, kvm_shm_vcpu_timer_callback, timer, false);
+    //smp_call_function_single(7, kvm_shm_vcpu_timer_callback, timer, false);
+	kvm_shm_vcpu_timer_callback(timer);
 	return HRTIMER_NORESTART;
 }
 
@@ -390,7 +444,8 @@ void kvm_shm_setup_vcpu_hrtimer(void *info)
 
     struct hrtimer *hrtimer = &vcpu->hrtimer;
 
-    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+    //hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     hrtimer->function = &kvm_shm_vcpu_timer_callcallback;
     vcpu->hrtimer_pending = false;
 }
@@ -2718,7 +2773,7 @@ static int new_kvmft_transfer_list(void *info)
 	printk("cocotion test diffbytes = %d\n", p_average/p_count);
 	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 	*/
-	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
+//	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
     transfer_end_time = time_in_us();
@@ -2802,7 +2857,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 	printk("cocotion test diffbytes = %d\n", p_average/p_count);
 	printk("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 	*/
-	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
+//	printk("cocotion test ok fucking kvm = %p, cpuid = %d\n", kvm, smp_processor_id());
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
     transfer_end_time = time_in_us();

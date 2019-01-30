@@ -3212,8 +3212,6 @@ static long kvm_vm_ioctl(struct file *filp,
       	kvm->vcpus[0]->old_dirty_count = 0;
       	kvm->vcpus[0]->old_runtime = 0;
 
-		printk("cocotion vcpu = %p\n", kvm->vcpus[0]);
-
 		//printk("markstart = %ld\n", kvm->vcpus[0]->mark_start_time);
 
 		kvm_shm_start_timer2(kvm->vcpus[0]);

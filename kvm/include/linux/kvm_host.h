@@ -335,6 +335,8 @@ struct kvm_vcpu {
     int old_runtime;
     int last_trans_rate;
 
+    int nextT;
+
     struct task_struct *task;
 };
 

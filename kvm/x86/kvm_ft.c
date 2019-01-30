@@ -42,7 +42,8 @@ static int page_transfer_offsets_off = 0;
 
 
 int global_internal_time = 300;
-static int bd_predic_stop2(void);
+//static int bd_predic_stop2(void);
+static struct kvm_vcpu* bd_predic_stop2(void);
 static int bd_predic_stop3(void);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
@@ -240,7 +241,7 @@ static int bd_predic_stop3(void)
 		static unsigned long long time = 0;
 		static unsigned long long dodo = 0;
 */
-		int self = bd_predic_stop2();
+		struct kvm_vcpu *vcpu = bd_predic_stop2();
  /*   	ktime_t start = ktime_get();
 
 		int i = 0;
@@ -258,10 +259,20 @@ static int bd_predic_stop3(void)
 		printk("cocotion test process current pid= %d\n", current->pid);
 		}
    */
+
+		if(vcpu) {
+			//printk("cocotion test fucking oh ya\n");
+    	//	hrtimer_cancel(&vcpu->hrtimer);
+    		ktime_t ktime = ktime_set(0, vcpu->nextT * 1000);
+			//printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT);
+    		hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+			//printk("cocotion test okokokokokokok\n");
+		}
+
 	return 0;
 }
 
-static int bd_predic_stop4(struct kvm *kvm)
+static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 {
     ktime_t start = ktime_get();
 
@@ -290,29 +301,33 @@ static int bd_predic_stop4(struct kvm *kvm)
 
     if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 
-        hrtimer_cancel(&vcpu->hrtimer);
+//        hrtimer_cancel(&vcpu->hrtimer);
 
         vcpu->hrtimer_pending = true;
         vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
         kvm_vcpu_kick(vcpu);
-        return 1;
+        return NULL;
 	}
     diff = ktime_sub(ktime_get(), start);
     int difftime = ktime_to_us(diff);
     int t = global_internal_time - difftime;
     if(t < 20) {
-        bd_predic_stop4(kvm);
-        return 1;
+        return bd_predic_stop4(kvm);
+        //return 1;
     }
 
+	vcpu->nextT = t;
+	return vcpu;
+/*
     hrtimer_cancel(&vcpu->hrtimer);
     ktime_t ktime = ktime_set(0, t * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
 
     return 1;
+	*/
 }
 
-static int bd_predic_stop2(void)
+static struct kvm_vcpu* bd_predic_stop2(void)
 {
 
     ktime_t start = ktime_get();
@@ -342,7 +357,7 @@ static int bd_predic_stop2(void)
 	ktime_t diff = ktime_sub(now, vcpu->mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
 
-	goto jump;
+//	goto jump;
 
 	int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
 	vcpu->old_dirty_count = current_dirty_byte;
@@ -366,7 +381,7 @@ static int bd_predic_stop2(void)
 	printk("==================================\n");
 */
 	if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
-jump:
+//jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*
 			printk("@@@@@!!!!!!!================= start \n");
@@ -377,13 +392,14 @@ jump:
 			printk("cocotion test epoch run time = %d\n", epoch_run_time);
 			printk("@@@@@!!!!!!!================= end \n");
 */
-        	//hrtimer_cancel(&vcpu->hrtimer);
+//        	hrtimer_cancel(&vcpu->hrtimer);
 
             vcpu->hrtimer_pending = true;
             vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
             kvm_vcpu_kick(vcpu);
             //return 1;
-            return self;
+            //return self;
+			return NULL;
     }
 
     diff = ktime_sub(ktime_get(), start);
@@ -392,14 +408,18 @@ jump:
     int t = global_internal_time - difftime;
 
 	if(t < 20) {
-    	bd_predic_stop4(kvm);
-        return 1;
+    	return bd_predic_stop4(kvm);
+        //return 1;
     }
+	vcpu->nextT = t;
 
+	return vcpu;
+/*
     hrtimer_cancel(&vcpu->hrtimer);
     ktime_t ktime = ktime_set(0, t * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
     return 1;
+*/
 }
 
 static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
@@ -422,8 +442,8 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 //	tasklet_schedule(&calc_dirty_tasklet2);
 //    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
-    smp_call_function_single(7, bd_predic_stop3, 0, false);
 
+	smp_call_function_single(7, bd_predic_stop3, 0, false);
 
     return HRTIMER_NORESTART;
 }

@@ -43,8 +43,8 @@ static int page_transfer_offsets_off = 0;
 
 int global_internal_time = 300;
 //static int bd_predic_stop2(void);
-static struct kvm_vcpu* bd_predic_stop2(void);
-static int bd_predic_stop3(void);
+static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
+static int bd_predic_stop3(struct kvm_vcpu *vcpu);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
@@ -231,7 +231,7 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 	hrtimer_cancel(&vcpu->hrtimer);
 }
 
-static int bd_predic_stop3(void)
+static int bd_predic_stop3(struct kvm_vcpu *vcpu)
 {
     //smp_call_function_single(7, bd_predic_stop2, NULL, false);
 	//
@@ -241,7 +241,7 @@ static int bd_predic_stop3(void)
 		static unsigned long long time = 0;
 		static unsigned long long dodo = 0;
 */
-		struct kvm_vcpu *vcpu = bd_predic_stop2();
+		struct kvm_vcpu *rvcpu = bd_predic_stop2(vcpu);
  /*   	ktime_t start = ktime_get();
 
 		int i = 0;
@@ -260,12 +260,12 @@ static int bd_predic_stop3(void)
 		}
    */
 
-		if(vcpu) {
+		if(rvcpu) {
 			//printk("cocotion test fucking oh ya\n");
     	//	hrtimer_cancel(&vcpu->hrtimer);
-    		ktime_t ktime = ktime_set(0, vcpu->nextT * 1000);
+    		ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
 			//printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT);
-    		hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+    		hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
 			//printk("cocotion test okokokokokokok\n");
 		}
 
@@ -327,16 +327,15 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 	*/
 }
 
-static struct kvm_vcpu* bd_predic_stop2(void)
+static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 {
 
     ktime_t start = ktime_get();
 
-    int self  = abs(atomic_inc_return(&ft_timer.start))%128;
-//	printk("cocotion test self = %d\n", self);
+//    int self  = abs(atomic_inc_return(&ft_timer.start))%128;
 
-    struct hrtimer *timer = ft_timer.timer[self];
-    struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
+ //   struct hrtimer *timer = ft_timer.timer[self];
+  //  struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
     struct kvm *kvm = vcpu->kvm;
 
 	//goto jump;
@@ -428,9 +427,9 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 	struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
 
-    int self = abs(atomic_inc_return(&ft_timer.end))%128;
+//    int self = abs(atomic_inc_return(&ft_timer.end))%128;
 
-    ft_timer.timer[self] = timer;
+ //   ft_timer.timer[self] = timer;
 /*
 	printk("cocotion herer in call back start #########################\n");
 	printk("cocotion test self = %d\n", self);
@@ -443,7 +442,7 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //	tasklet_schedule(&calc_dirty_tasklet2);
 //    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
 
-	smp_call_function_single(7, bd_predic_stop3, 0, false);
+	smp_call_function_single(7, bd_predic_stop3, vcpu, false);
 
     return HRTIMER_NORESTART;
 }

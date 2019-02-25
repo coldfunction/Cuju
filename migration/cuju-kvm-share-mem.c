@@ -1037,7 +1037,6 @@ static int kvm_start_kernel_transfer(int trans_index, int ram_fd, int conn_index
             }
         }
     } while (ret == -EINTR);
-
     s->transfer_real_finish_time = time_in_double();
 
     return ret;
@@ -1067,10 +1066,16 @@ static void thread_set_realtime(void)
     };
 
     err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    //err = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
     if (err != 0) {
         printf("%s pthread_setschedparam failed\n", __func__);
         exit(-1);
     }
+//cocotion fucking test
+ //   cpu_set_t cpuset;
+  //  CPU_ZERO(&cpuset);
+   // CPU_SET(6, &cpuset);
+    //pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)
@@ -1098,7 +1103,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         s->ram_len += ret;
 
         ret = kvm_start_kernel_transfer(s->cur_off, s->ram_fds[d->index], d->index, ft_ram_conn_count);
-
+        //sched_yield();
         assert(ret >= 0);
 
         // TODO need lock

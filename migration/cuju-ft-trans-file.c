@@ -7,7 +7,7 @@
  *  Wei-Chen Liao       <ms0472904@gmail.com>
  *  Po-Jui Tsao         <pjtsao@itri.org.tw>
  *  Yu-Shiang Lin       <YuShiangLin@itri.org.tw>
- *  
+ *
  *
  */
 
@@ -691,7 +691,6 @@ static ssize_t cuju_ft_trans_get_buffer(void *opaque, uint8_t *buf,
     //    error_report("get_buffer when error %d, bailing\n", s->has_error);
     //    return -EINVAL;
     //}
-
     // assuming qemu_file_get_notify() is calling
     if (pos == 0 && size == 0) {
         trace_cuju_ft_trans_get_ready();

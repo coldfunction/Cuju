@@ -3214,8 +3214,8 @@ static long kvm_vm_ioctl(struct file *filp,
 
 		//printk("markstart = %ld\n", kvm->vcpus[0]->mark_start_time);
 
-		kvm_shm_start_timer2(kvm->vcpus[0]);
-	  	//smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
+		//kvm_shm_start_timer2(kvm->vcpus[0]);
+	  	smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
       	break;
     }
     case KVM_SHM_SET_CHILD_PID: {

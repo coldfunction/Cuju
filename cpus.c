@@ -974,6 +974,13 @@ static void *qemu_kvm_cpu_thread_fn(void *arg)
     int r;
 
     rcu_register_thread();
+//cocotion fucking crazy
+//    cpu_set_t cpuset;
+ //   CPU_ZERO(&cpuset);
+  //  CPU_SET(4, &cpuset);
+   // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+
+
 
     qemu_mutex_lock_iothread();
     qemu_thread_get_self(cpu->thread);

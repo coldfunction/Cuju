@@ -14,6 +14,8 @@
 #include <linux/mmu_context.h>
 #include <linux/interrupt.h>
 
+#include <linux/sched.h>
+
 #define SHOW_AVERAGE_FRAG   1
 #undef SHOW_AVERAGE_FRAG
 
@@ -49,6 +51,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *time
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
 
+struct kvm_vcpu *global_vcpu;
+
+spinlock_t transfer_lock;
+
 struct ft_timer_q {
     atomic_t end;
     atomic_t start;
@@ -57,6 +63,15 @@ struct ft_timer_q {
 
 struct ft_timer_q ft_timer = {-1,-1,0};
 
+struct ft_send_d {
+	struct kvm *kvm;
+	struct socket *psock;
+	struct kvmft_dirty_list *dlist;
+	int count;
+	int trans_index;
+	int run_serial;
+	int len;
+};
 
 
 
@@ -199,6 +214,11 @@ int kvmft_fire_timer(struct kvm_vcpu *vcpu, int moff)
 }
 
 
+void timer_init(struct hrtimer *hrtimer)
+{
+    hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+}
+
 void kvm_shm_start_timer2(void *info)
 {
     struct kvm_vcpu *vcpu = info;
@@ -206,6 +226,7 @@ void kvm_shm_start_timer2(void *info)
 
 //	printk("cocotion test vcpu start timer================== %p\n", vcpu);
     ktime = ktime_set(0, vcpu->epoch_time_in_us * 1000);
+	//smp_call_function_single(7, timer_init, &vcpu->hrtimer, true);
     //hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
     hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
     vcpu->mark_start_time = ktime_get();
@@ -221,6 +242,8 @@ void kvm_shm_start_timer(struct kvm_vcpu *vcpu)
 
     ktime = ktime_set(0, vcpu->epoch_time_in_us * 1000);
     hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+    //hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+	//smp_call_function_single(7, timer_init, &vcpu->hrtimer, true);
 }
 
 static void spcl_kthread_notify_abandon(struct kvm *kvm);
@@ -236,36 +259,64 @@ static int bd_predic_stop3(struct kvm_vcpu *vcpu)
     //smp_call_function_single(7, bd_predic_stop2, NULL, false);
 	//
 
-/*
+
 		static unsigned long long total_count = 0;
 		static unsigned long long time = 0;
 		static unsigned long long dodo = 0;
-*/
-		struct kvm_vcpu *rvcpu = bd_predic_stop2(vcpu);
- /*   	ktime_t start = ktime_get();
+
+		struct kvm_vcpu *rvcpu;
+
+		/*if(global_vcpu == vcpu) {
+    	ktime_t start = ktime_get();
+		rvcpu = bd_predic_stop2(vcpu);
+    	ktime_t diff2 = ktime_sub(ktime_get(), start);
+   		int difftime2 = ktime_to_us(diff2);
+		time+=difftime2;
+		total_count++;
+		printk("!!!!@@ difftime when dirty calc is %d\n", difftime2); //cocotion fucking
+		printk("!!!!~~~~cocotion test fucking great count = %d, averagedifftime = %d\n", total_count, time/total_count); //cocotion fucking
+		if(rvcpu)
+		printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT); //cocotion fucking
+		}
+		else*/
+			rvcpu = bd_predic_stop2(vcpu);
+
+
+
+		/*
+		if(global_vcpu == vcpu) {
+    	ktime_t start = ktime_get();
 
 		int i = 0;
 		for(i = 0; i < 1000000; i++) {
 			dodo+=i;
 		}
 
-		if(self %2 == 0) {
+//		if(self %2 == 0) {
+		//if(global_vcpu == vcpu) {
     	ktime_t diff2 = ktime_sub(ktime_get(), start);
    		int difftime2 = ktime_to_us(diff2);
 		time+=difftime2;
 		total_count++;
 		printk("!!!!@@ difftime when dirty calc is %d\n", difftime2);
 		printk("!!!!~~~~cocotion test fucking great count = %d, averagedifftime = %d\n", total_count, time/total_count);
-		printk("cocotion test process current pid= %d\n", current->pid);
+		//printk("cocotion test process current pid= %d\n", current->pid);
+//		}
 		}
-   */
+*/
 
 		if(rvcpu) {
+			if(rvcpu->nextT < 50) {
+				bd_predic_stop3(vcpu);
+				return 0;
+			}
 			//printk("cocotion test fucking oh ya\n");
     	//	hrtimer_cancel(&vcpu->hrtimer);
     		ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
-			//printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT);
+//			printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT); //cocotion fucking
     		hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+    		//hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
+			//smp_call_function_single(7, timer_init, &rvcpu->hrtimer, true);
 			//printk("cocotion test okokokokokokok\n");
 		}
 
@@ -311,10 +362,10 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
     diff = ktime_sub(ktime_get(), start);
     int difftime = ktime_to_us(diff);
     int t = global_internal_time - difftime;
-    if(t < 20) {
-        return bd_predic_stop4(kvm);
+//    if(t < 20) {
+ //       return bd_predic_stop4(kvm);
         //return 1;
-    }
+  //  }
 
 	vcpu->nextT = t;
 	return vcpu;
@@ -379,7 +430,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	printk("test beta = %d\n", beta);
 	printk("==================================\n");
 */
-	if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
+	if(beta/*+ctx->bd_alpha*/ >= target_latency_us - ctx->bd_alpha) {
 //jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*
@@ -442,7 +493,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //	tasklet_schedule(&calc_dirty_tasklet2);
 //    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
 
-	smp_call_function_single(7, bd_predic_stop3, vcpu, false);
+	//if(vcpu == global_vcpu)
+		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
+	//else
+	//	smp_call_function_single(3, bd_predic_stop3, vcpu, false);
 
     return HRTIMER_NORESTART;
 }
@@ -463,10 +517,14 @@ void kvm_shm_setup_vcpu_hrtimer(void *info)
 
     struct hrtimer *hrtimer = &vcpu->hrtimer;
 
+	//smp_call_function_single(7, timer_init, hrtimer, true);
     //hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_PINNED);
     hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     hrtimer->function = &kvm_shm_vcpu_timer_callcallback;
     vcpu->hrtimer_pending = false;
+
+	//global_vcpu = vcpu;
+
 }
 
 
@@ -1789,13 +1847,20 @@ int ktcp_send(struct socket *sock, char *buf, int len)
     int size, done = 0;
     mm_segment_t oldfs;
 
+/*
+	msg.msg_controllen = 0; //cocotion
+    msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL; //cocotion
+    msg.msg_name = 0; //cocotion
+    msg.msg_namelen = 0; //cocotion
+*/
+
     while (done < len) {
         iov.iov_base = buf + done;
         iov.iov_len = len - done;
 
         //msg.msg_control = NULL;
-        msg.msg_controllen = 0;
-        msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
+        msg.msg_controllen = 0; //cocotion
+        msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL; //cocotion
         //msg.msg_iov = &iov;
         //msg.msg_iovlen = 1;
 	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
@@ -1805,12 +1870,12 @@ int ktcp_send(struct socket *sock, char *buf, int len)
 	     iov_iter_init(&msg.msg_iter, READ, &iov, 1, len - done);
 	#endif
 
-        msg.msg_name = 0;
-        msg.msg_namelen = 0;
+        msg.msg_name = 0; //cocotion
+        msg.msg_namelen = 0; //cocotion
 
         oldfs = get_fs();
         set_fs(KERNEL_DS);
-	size = sock_sendmsg(sock, &msg);
+		size = sock_sendmsg(sock, &msg);
         set_fs(oldfs);
 
         if (size == -EAGAIN)
@@ -2817,6 +2882,25 @@ free:
 
 }
 
+//void sched_yield(void){
+//	struct rq_flags rf;
+/*    struct rq *rq;
+
+    local_irq_disable();
+    rq = this_rq();
+    rq_lock(rq, &rf);
+
+    schedstat_inc(rq->yld_count);
+    current->sched_class->yield_task(rq);
+
+    preempt_disable();
+    rq_unlock(rq, &rf);
+    sched_preempt_enable_no_resched();
+
+    schedule();
+*/
+
+//}
 
 static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_dirty_list *dlist, int start, int end,
@@ -2837,6 +2921,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         return -ENOMEM;
 
     kvmft_tcp_unnodelay(sock);
+    //kvmft_tcp_nodelay(sock);
 
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
@@ -2852,6 +2937,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
         len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
+
+		//preempt_disable();
+//		spin_lock(&transfer_lock);
+
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
@@ -2859,7 +2948,13 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             total += len;
             len = 0;
         }
-    }
+//		spin_unlock(&transfer_lock);
+		//preempt_enable(); //cocotion fucking think
+		//sched_yield();
+		//schedule();
+	}
+
+//	spin_lock(&transfer_lock);
 
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
@@ -2867,6 +2962,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             goto free;
         total += len;
     }
+
+//	spin_unlock(&transfer_lock);
 
     kvmft_tcp_nodelay(sock);
 /*
@@ -2957,7 +3054,8 @@ static int diff_and_tran_kthread_func(void *opaque)
 
     use_mm(kvm->qemu_mm);
 
-    sched_setscheduler(current, SCHED_FIFO, &param);
+//    sched_setscheduler(current, SCHED_FIFO, &param);
+    //sched_setscheduler(current, SCHED_RR, &param);
 
     while (!kthread_should_stop()) {
         wait_event_interruptible(info->events[desc->conn_index],
@@ -3053,7 +3151,137 @@ static int __wait_for_tran_num(struct kvm *kvm, int trans_index)
             return -EINTR;
     }
 }
+/*
+static int diff_and_transfer_all2(void *ftinfo)
+{
+	struct ft_send_d *ft_d = ftinfo;
+	struct kvm *kvm = ft_d->kvm;
+	int trans_index = ft_d->trans_index;
+	int max_conn    = ft_d->max_conn;
 
+    struct socket *psock;
+    struct kvmft_context *ctx = &kvm->ft_context;
+    struct kvmft_master_slave_conn_info *info =
+        &ctx->master_slave_info[trans_index];
+    struct kvmft_dirty_list *dlist = ctx->page_nums_snapshot_k[trans_index];
+    int count, i, ret = 0, len = 0;
+    int run_serial = info->run_serial;
+
+#ifdef ENABLE_PRE_DIFF
+    int skipped = 0;
+#endif
+
+	psock = info->socks[0];
+
+    BUG_ON(!psock);
+
+#ifdef ENABLE_SWAP_PTE
+    clear_all_backup_transfer_bitmap(kvm, trans_index);
+#endif
+
+	if (dlist->put_off == 0) {
+		ft_d->ram_len = 0;
+        return 0;
+	}
+
+    // wake up other diff_and_tran_kthread
+    for (i = 1; i < info->nsocks; ++i)
+        wake_up(&info->events[i]);
+
+    kvm->xmit_off = 0;
+    xmit_off[trans_index] = 0;
+    xmit_kthread_notify_index(kvm, run_serial);
+
+    count = dlist->put_off / max_conn;
+
+#ifdef ENABLE_PRE_DIFF
+    ctx->diff_req_list[trans_index]->diff_off = 0;
+    ctx->diff_req_list[trans_index]->off = 0;
+    notify_diff_req_list_change(kvm, trans_index);
+#endif
+
+    len = kvmft_transfer_list(kvm, psock, dlist,
+        0, count, trans_index, run_serial);
+    if (len < 0) {
+		ft_d->ram_len = len;
+        return len;
+	}
+    info->trans_ret[0] = len;
+    __decrement_pending_tran_num(kvm, ctx);
+    //printk("%s trans_index %d len %d\n", __func__, trans_index, len);
+
+#if 0
+    kvmft_tcp_unnodelay(psock);
+    kvmft_tcp_cork(psock);
+
+    for (i = 0; i < count; i++) {
+        unsigned long gfn = dlist->pages[i];
+
+#ifdef SPCL
+        if (spcl_transfer_check(dlist, i)) {
+            transfer_finish_callback(kvm, gfn, trans_index);
+            continue;
+        }
+#endif
+
+#ifdef PAGE_TRANSFER_TIME_MEASURE
+        page_transfer_start_times[i] = time_in_us();
+#endif
+
+        //printk("%s %d %lx\n", __func__, i, gfn);
+#ifdef ENABLE_PRE_DIFF
+        if (gfn_in_diff_list(kvm, gfn)) {
+            ++skipped;
+            continue;
+        }
+#endif
+        ret = zerocopy_send_one_page_diff(psock,
+                                          kvm,
+                                          gfn,
+                                          i,
+                                          trans_index,
+                                          run_serial,
+                                          i < count - 1);
+        if (ret < 0) {
+            return ret;
+        }
+        len += ret;
+    }
+
+    kvmft_tcp_uncork(psock);
+    kvmft_tcp_nodelay(psock);
+#endif
+
+#ifdef ENABLE_PRE_DIFF
+    take_over_diff_req_list(kvm);
+    if (count > 0) {
+        //if (skipped > 0)
+        //    printk("%s\tskipped\t%8d\t%8d\n", __func__, skipped, count);
+        ret = transfer_diff_req_list(kvm, psock, trans_index);
+        if (ret < 0) {
+			ft_d->ram_len = ret;
+            return ret;
+        }
+        len += ret;
+        clear_all_backup_transfer_bitmap(kvm, trans_index);
+    }
+#endif
+
+    {
+        #ifdef PAGE_TRANSFER_TIME_MEASURE
+        s64 done_time = time_in_us();
+        if (done_time - transfer_start_time > 20000) {
+            printk("%s already takes %ldms %ld %ld\n", __func__, (done_time - transfer_start_time) / 1000, done_time, transfer_end_time);
+        }
+        #endif
+    }
+
+//    return __wait_for_tran_num(kvm, trans_index);
+	ret = __wait_for_tran_num(kvm, trans_index);
+	ft_d->ram_len = ret;
+	return ret;
+}
+*/
 static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 {
     struct socket *psock;
@@ -3094,9 +3322,23 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
     ctx->diff_req_list[trans_index]->off = 0;
     notify_diff_req_list_change(kvm, trans_index);
 #endif
-
+/*
+	struct dirtyinfo ft_info;
+	ft_info.kvm = kvm;
+	ft_info.sock = psock;
+	ft_info.dlist = dlist;
+	ft_info.start = 0;
+	ft_info.end = count;
+	ft_info.trans_index = trans_index;
+	ft_info.run_serial = run_serial;
+*/
     len = kvmft_transfer_list(kvm, psock, dlist,
         0, count, trans_index, run_serial);
+//	new_kvmft_transfer_list(&ft_info);
+	//work_on_cpu(6, new_kvmft_transfer_list, &ft_info);
+//	smp_call_function_single(6, new_kvmft_transfer_list, &ft_info, true);
+//	len = ft_info.ret;
+
     if (len < 0)
         return len;
     info->trans_ret[0] = len;
@@ -3223,6 +3465,24 @@ static inline int handle_diff_request(struct kvm *kvm,
                                               req->offsets);
     return 0;
 }
+/*
+int work_mycpu(int cpu, void *data)
+{
+	int err;
+	get_online_cpus();
+	if(!cpu_online(cpu))
+		err = -EINVAL;
+	else {
+		if (in_interrupt())
+			err = work_on_cpu(cpu, diff_and_transfer_all2, data);
+		else
+			smp_call_function_single(cpu, diff_and_transfer_all2, data, true);
+	}
+	put_online_cpus();
+	return err;
+
+}
+*/
 
 static int diff_thread_func(void *data)
 {
@@ -3325,7 +3585,15 @@ int kvm_start_kernel_transfer(struct kvm *kvm,
     sock = info->socks[conn_index];
 
     if (conn_index == 0) {
+
         ram_len = diff_and_transfer_all(kvm, trans_index, max_conn);
+	  	//smp_call_function_single(7, diff_and_transfer_all2, &ft_d, true);
+		//work_on_cpu(7, diff_and_transfer_all2, &ft_d);
+		//int err = work_mycpu(7, &ft_d);
+			//diff_and_transfer_all2(&ft_d);
+		//	printk("cocotion test cannot work on single CPU here\n");
+		//}
+		//ram_len = ft_d.ram_len;
         if (ram_len < 0) {
             return ram_len;
         }
@@ -3587,6 +3855,8 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     unsigned long cnt;
     struct kvmft_context *ctx = &kvm->ft_context;
 
+	spin_lock_init(&transfer_lock);
+
     // maximum integer is 2147*1e6
     if (info->epoch_time_in_ms > 2100) {
         printk("%s epoch_time_in_ms too bit, must be less then 2100\n",
@@ -3761,6 +4031,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
     ctx->bd_average_latencies[put_off] = update->latency_us;
     ctx->bd_average_consts[put_off] = (update->latency_us - update->runtime_us - update->trans_us);
+
+	ctx->bd_alpha = update->alpha;
 
 	kvm->vcpus[0]->last_trans_rate = update->last_trans_rate;
 

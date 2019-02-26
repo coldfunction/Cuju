@@ -2371,7 +2371,13 @@ static void kvmft_flush_output(MigrationState *s)
 	if(count % 1000 == 0)
 		printf("now cocotion average diff trans = %ld\n", averagediff);
 */
+//	static unsigned long int trans_rate_total = 0;
+    static unsigned long int mcount = 0;
+//	int trans_rate_average = 0;
+    mcount++;
 
+//	trans_rate_total += trans_rate;
+//	trans_rate_average = trans_rate_total/mcount;
 
     trans_rate_h[trans_rate_c++] = trans_rate;
     int i = 0;
@@ -2391,8 +2397,12 @@ static void kvmft_flush_output(MigrationState *s)
 
 	int t = 0;
 
-	if(trans_rate > mybdupdate.last_trans_rate) {
-		t = (s->ram_len/mybdupdate.last_trans_rate) - trans_us;
+	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
+		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
+//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
+//		t = (s->ram_len/trans_rate_average) - trans_us;
+//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
+//		t = (s->ram_len/trans_rate_average) - trans_us;
 //		printf("cocotion test wait t = %d", t);
 		if(t>0)
 			usleep(t);
@@ -2435,8 +2445,8 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile);
-*/
 
+*/
 
 
 
@@ -2488,7 +2498,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 
     static unsigned long int ok = 0;
-    static unsigned long int mcount = 0;
+    //static unsigned long int mcount = 0;
 
     //static long ok_runtime = 0;
 	//static int ok_average_runtime = 0;
@@ -2524,7 +2534,7 @@ static void kvmft_flush_output(MigrationState *s)
 	}
 
 
-    mcount++;
+    //mcount++;
 //	count++;
 
 
@@ -2551,29 +2561,35 @@ static void kvmft_flush_output(MigrationState *s)
 //	int average_run = 0;
 //
 //
+
+
 	double exceed_percentage, less_percentage, ok_percentage;
 
 	if(mcount%1000 == 0) {
-		exceed_percentage = (double) latency_exceed_count/mcount;
-		less_percentage = (double) latency_less_count/mcount;
+//		exceed_percentage = (double) latency_exceed_count/mcount;
+//		less_percentage = (double) latency_less_count/mcount;
+		if(latency_exceed_count+latency_less_count > 20) {
+			exceed_percentage = (double) latency_exceed_count/1000;
+			less_percentage = (double) latency_less_count/1000;
 
 	//	printf("test exceed percentage is %lf\n", exceed_percentage);
 	//	printf("test less percentage is %lf\n", less_percentage);
 
-		if(exceed_percentage > less_percentage) {
-			if(exceed_percentage > 0.04) {
-				bd_alpha += (exceed_percentage-0.04) * 1000;
+			if(exceed_percentage > less_percentage) {
+				if(exceed_percentage > 0.02) {
+					bd_alpha += (exceed_percentage-0.02) * 1000;
+				}
 			}
-		}
-		else {
-			if(less_percentage > 0.04) {
-				bd_alpha -= (less_percentage-0.04) * 1000;
+			else {
+				if(less_percentage > 0.02) {
+					bd_alpha -= (less_percentage-0.02) * 1000;
+				}
 			}
-
+			if(bd_alpha > 1000) bd_alpha = 1000;
+			if(bd_alpha < -1000) bd_alpha = -1000;
+			printf("test bd_alpha is %d\n", bd_alpha);
 		}
-		if(bd_alpha > 600) bd_alpha = 600;
-		if(bd_alpha < -600) bd_alpha = -600;
-		printf("test bd_alpha is %d\n", bd_alpha);
+		latency_exceed_count = latency_less_count = 0;
 	}
 
 

@@ -1049,7 +1049,7 @@ int kvm_shm_flip_sharing(struct kvm *kvm, __u32 cur_index, __u32 run_serial)
 	printk("kvm_shm_flip_sharing cur_index = %x\n", cur_index);
 	#endif
     //kvmft_protect_all_gva_spcl_pages(kvm, ctx->cur_index);
-	confirm_prev_dirty_bitmap_clear(kvm, cur_index);
+//	confirm_prev_dirty_bitmap_clear(kvm, cur_index); //cocotion disable
 
     ctx->cur_index = cur_index;
     info->run_serial = run_serial;

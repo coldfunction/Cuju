@@ -180,6 +180,7 @@ extern struct kvmft_update_latency mybdupdate;
 
 
 //bool global_enable_trans_wait = false;
+int trans_rate_h[100];
 
 
 // At the time setting up FT, current will pointer to 2nd MigrationState.
@@ -2351,8 +2352,8 @@ static void kvmft_flush_output(MigrationState *s)
 */
 //	static int trans_rate_h[5];
 //	static int trans_rate_h[100];
-	static int trans_rate_h[100];
-    static int trans_rate_c = 0;
+//	static int trans_rate_h[100];
+ //   static int trans_rate_c = 0;
 /*
 	printf("cocotion start ===========\n");
 	printf("cocotion test real trans_rate = %d\n", trans_rate);
@@ -2379,19 +2380,27 @@ static void kvmft_flush_output(MigrationState *s)
 //	trans_rate_total += trans_rate;
 //	trans_rate_average = trans_rate_total/mcount;
 
-    trans_rate_h[trans_rate_c++] = trans_rate;
-    int i = 0;
-    int all = 0;
-    for(i = 0; i < trans_rate_c; i++) {
-        all += trans_rate_h[i];
-	}
+  //  trans_rate_h[trans_rate_c++] = trans_rate;
+   // int i = 0;
+    //int all = 0;
+    //for(i = 0; i < trans_rate_c; i++) {
+     //   all += trans_rate_h[i];
+	//}
+
+	static int trans_oldest_head = 0;
+	static unsigned int all = 40000;
+	all-=trans_rate_h[trans_oldest_head];
+	all+=trans_rate;
+	trans_rate_h[trans_oldest_head] = trans_rate;
+	trans_oldest_head++;
 
 
+	int threshold = all/100 - bd_alpha;
 //    if(mybdupdate.last_trans_rate >= 0)
-        mybdupdate.last_trans_rate = all/trans_rate_c;
+        mybdupdate.last_trans_rate = threshold;
 //    if(trans_rate_c == 5) trans_rate_c = 0;
 //    if(trans_rate_c == 50) trans_rate_c = 0;
-    if(trans_rate_c == 100) trans_rate_c = 0; //88%
+    if(trans_oldest_head == 100) trans_oldest_head = 0; //88%
 
 
 
@@ -2495,10 +2504,10 @@ static void kvmft_flush_output(MigrationState *s)
         exceeds = 0;
     }
 */
- //   static unsigned long latency_exceed_count = 0;
-  //  static unsigned long latency_less_count = 0;
-    //static unsigned long latency_exceed = 0;
-    //static unsigned long latency_less = 0;
+    static unsigned long latency_exceed_count = 0;
+    static unsigned long latency_less_count = 0;
+//    static unsigned long latency_exceed = 0;
+ //   static unsigned long latency_less = 0;
 
     //static unsigned long latency_exceed_current_count = 0;
 
@@ -2531,7 +2540,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000)
 		ok++;
-/*
+
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
 	}
@@ -2539,7 +2548,7 @@ static void kvmft_flush_output(MigrationState *s)
 		latency_less_count++;
 	}
 
-*/
+
     //mcount++;
 //	count++;
 
@@ -2568,8 +2577,7 @@ static void kvmft_flush_output(MigrationState *s)
 //
 //
 
-	double ok_percentage;
-/*
+
 	double exceed_percentage, less_percentage, ok_percentage;
 
 	if(mcount%1000 == 0) {
@@ -2592,13 +2600,13 @@ static void kvmft_flush_output(MigrationState *s)
 					bd_alpha -= (less_percentage-0.02) * 1000;
 				}
 			}
-			if(bd_alpha > 1000) bd_alpha = 1000;
-			if(bd_alpha < -1000) bd_alpha = -1000;
+			if(bd_alpha > 200) bd_alpha = 200;
+			else if(bd_alpha < -200) bd_alpha = -200;
 			printf("test bd_alpha is %d\n", bd_alpha);
 		}
 		latency_exceed_count = latency_less_count = 0;
 	}
-*/
+
 
 
 
@@ -2609,6 +2617,9 @@ static void kvmft_flush_output(MigrationState *s)
 		//double less_percentage = (double) latency_less_count/mcount;
 
 		printf("test ok percentage is %lf\n", ok_percentage);
+
+		printf("test my threshold is %d\n", threshold);
+
 //		printf("test exceed percentage is %lf\n", exceed_percentage);
 //		printf("test less percentage is %lf\n", less_percentage);
 //		printf("test bd_alpha is %d\n", bd_alpha);
@@ -2976,6 +2987,11 @@ static void *migration_thread(void *opaque)
 		}
     	fclose(pFile);*/
 ////////////////////////////////////////////////////
+
+		int i;
+		for(i = 0; i < 100; i++)
+			trans_rate_h[i] = 400;
+
 
 
 		ft_setup_migrate_state(s, 0);

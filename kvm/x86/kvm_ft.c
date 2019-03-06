@@ -430,7 +430,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	printk("test beta = %d\n", beta);
 	printk("==================================\n");
 */
-	if(beta/*+ctx->bd_alpha*/ >= target_latency_us - ctx->bd_alpha) {
+	if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500/*ctx->bd_alpha*/) {
 //jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*

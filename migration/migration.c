@@ -2397,9 +2397,15 @@ static void kvmft_flush_output(MigrationState *s)
 
 	int t = 0;
 
-	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
-		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
-//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
+//	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
+//		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
+
+	if(trans_rate > mybdupdate.last_trans_rate && mybdupdate.last_trans_rate > 100) {
+		t = (s->ram_len/mybdupdate.last_trans_rate) - trans_us;
+
+
+
+		//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
 //		t = (s->ram_len/trans_rate_average) - trans_us;
 //	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
 //		t = (s->ram_len/trans_rate_average) - trans_us;
@@ -2489,8 +2495,8 @@ static void kvmft_flush_output(MigrationState *s)
         exceeds = 0;
     }
 */
-    static unsigned long latency_exceed_count = 0;
-    static unsigned long latency_less_count = 0;
+ //   static unsigned long latency_exceed_count = 0;
+  //  static unsigned long latency_less_count = 0;
     //static unsigned long latency_exceed = 0;
     //static unsigned long latency_less = 0;
 
@@ -2525,7 +2531,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000)
 		ok++;
-
+/*
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
 	}
@@ -2533,7 +2539,7 @@ static void kvmft_flush_output(MigrationState *s)
 		latency_less_count++;
 	}
 
-
+*/
     //mcount++;
 //	count++;
 
@@ -2562,7 +2568,8 @@ static void kvmft_flush_output(MigrationState *s)
 //
 //
 
-
+	double ok_percentage;
+/*
 	double exceed_percentage, less_percentage, ok_percentage;
 
 	if(mcount%1000 == 0) {
@@ -2591,7 +2598,7 @@ static void kvmft_flush_output(MigrationState *s)
 		}
 		latency_exceed_count = latency_less_count = 0;
 	}
-
+*/
 
 
 

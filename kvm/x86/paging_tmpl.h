@@ -219,7 +219,7 @@ static int FNAME(update_accessed_dirty_bits)(struct kvm_vcpu *vcpu,
 		if (!(pte & PT_GUEST_ACCESSED_MASK)) {
 			trace_kvm_mmu_set_accessed_bit(table_gfn, index, sizeof(pte));
 			// ignore pte, right, ptep_user is hva of table_gfn
-			kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL);
+			//kvmft_page_dirty(vcpu->kvm, table_gfn, ptep_user, 1, NULL); //cocotion fucking
 			pte |= PT_GUEST_ACCESSED_MASK;
 		}
 		if (level == walker->level && write_fault &&

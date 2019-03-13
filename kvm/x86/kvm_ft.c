@@ -44,6 +44,11 @@ static int page_transfer_offsets_off = 0;
 
 
 int global_internal_time = 300;
+//int global_nodiff = 0;
+//int global_diff = 0;
+//unsigned int global_count = 0;
+
+
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
 static int bd_predic_stop3(struct kvm_vcpu *vcpu);
@@ -2736,7 +2741,15 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         memset(header->h, 0xff, 16 * sizeof(__u8));
         memcpy(block, page, 4096);
         block += 4096;
+
+		//printk("cocotion fucking test fucking shit!!! fucking no diff %x\n", gfn);
+		//printk("cocotion fucking end\n");
+		//global_nodiff++;
     }
+//	else {
+		//printk("cocotion fucking yes you compress\n");
+//		global_diff++;
+//	}
 
     kunmap_atomic(backup);
     kunmap_atomic(page);
@@ -2907,7 +2920,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int trans_index, int run_serial)
 {
     int ret, i;
-    int len = 0, total = 0;
+    int len = 0, total = 0, offset = 0;
     uint8_t *buf;
     unsigned int *gfns = dlist->pages;
 
@@ -2916,14 +2929,25 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     page_transfer_end_times_off = end;
 #endif
 
-    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+//    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+ //   buf = kmalloc(48 * 64 * 1024, GFP_KERNEL);
+ //   cocotion test kthread run
+ 	buf = kvm->ft_buf;
     if (!buf)
         return -ENOMEM;
 
-    kvmft_tcp_unnodelay(sock);
-    //kvmft_tcp_nodelay(sock);
+//	wake_up(&kvm->ft_trans_thread_event);
 
-    for (i = start; i < end; ++i) {
+ //   kvmft_tcp_unnodelay(sock);
+//    kvmft_tcp_nodelay(sock);
+
+//	printk("cocotion fucking test total dirty pages = %d\n", end);
+	//global_nodiff = global_diff = 0;
+
+	//kvm->trans_kick = 1;
+	//wake_up(&kvm->ft_trans_thread_event);
+
+	for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
@@ -2935,19 +2959,52 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
-        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+//        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len + offset,
+ //           trans_index, run_serial);
+ //
+ 		if(kvm->ft_buf_tail + 4096 > 3145727) {
+			kvm->ft_buf_bottom = kvm->ft_buf_tail;
+			kvm->trans_kick = 1;
+			wake_up(&kvm->ft_trans_thread_event);
+			kvm->ft_buf_tail = 0;
+		}
+
+	//	wake_up(&kvm->ft_trans_thread_event);
+
+        len = kvmft_diff_to_buf(kvm, gfn, i, buf +  kvm->ft_buf_tail,
             trans_index, run_serial);
+
+//		kvm->ft_buf_tail = offset;
 
 		//preempt_disable();
 //		spin_lock(&transfer_lock);
 
+
+
+
+
+		kvm->ft_buf_tail+=len;
+//		wake_up(&kvm->ft_trans_thread_event);
+
+//		printk("cocotion test in calc dirty head = %d\n", kvm->ft_buf_head);
+//		printk("cocotion test in calc dirty tail = %d\n", kvm->ft_buf_tail);
+
+/*
+
         if (len >= 64 * 1024) {
-            ret = ktcp_send(sock, buf, len);
+            ret = ktcp_send(sock, buf + offset, len);
             if (ret < 0)
                 goto free;
             total += len;
+			offset += len;
             len = 0;
+
+			if(offset+65536 > 3145727)
+				offset = 0;
         }
+*/
+
+
 //		spin_unlock(&transfer_lock);
 		//preempt_enable(); //cocotion fucking think
 		//sched_yield();
@@ -2956,16 +3013,24 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 //	spin_lock(&transfer_lock);
 
+	//kvm->trans_kick = 1;
+	//wake_up(&kvm->ft_trans_thread_event);
+
+	/*
+	if(offset+len > 3145727)
+		offset = 0;
+
+
     if (len > 0) {
-        ret = ktcp_send(sock, buf, len);
+        ret = ktcp_send(sock, buf + offset, len);
         if (ret < 0)
             goto free;
         total += len;
     }
-
+*/
 //	spin_unlock(&transfer_lock);
 
-    kvmft_tcp_nodelay(sock);
+//    kvmft_tcp_nodelay(sock);
 /*
 	p_count++;
 	p_average+=abs(total-p_dirty_bytes);
@@ -2989,11 +3054,16 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     ret = total;
 free:
-    kfree(buf);
+    //kfree(buf);
 
 
-
-
+/*
+	if(global_count %1000 == 0) {
+	printk("cocotion test total dirty pages = %d\n", end);
+	printk("cocotion test nodiff count = %d\n", global_nodiff);
+	printk("cocotion test diff count = %d\n", global_diff);
+	}
+*/
 	return ret;
 }
 
@@ -3332,6 +3402,7 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 	ft_info.trans_index = trans_index;
 	ft_info.run_serial = run_serial;
 */
+
     len = kvmft_transfer_list(kvm, psock, dlist,
         0, count, trans_index, run_serial);
 //	new_kvmft_transfer_list(&ft_info);
@@ -3483,6 +3554,65 @@ int work_mycpu(int cpu, void *data)
 
 }
 */
+
+
+static int ft_trans_thread_func(void *data)
+{
+
+    struct kvm *kvm = data;
+    struct kvmft_context *ctx = &kvm->ft_context;
+    struct kvmft_master_slave_conn_info *info =
+        &ctx->master_slave_info[0];
+
+	struct socket *sock = info->socks[0];
+
+
+
+    allow_signal(SIGKILL);
+    while (!kthread_should_stop()) {
+		printk("cocotion test kthread run now start to wait\n");
+		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick
+//				|| ((kvm->ft_buf_tail - kvm->ft_buf_head) >= 64*1024)
+//				|| kvm->ft_buf_bottom
+			   	|| kthread_should_stop());
+		//printk("cocotion test kthread run now start to wait\n");
+//		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick || kthread_should_stop());
+		if(kthread_should_stop())
+			break;
+		printk("cocotion test kthread run now in ft trans thread\n");
+
+		int start = kvm->ft_buf_head;
+		int end   = kvm->ft_buf_tail;
+
+		int len;
+		printk("cocotion test start = %d, end = %d\n", start, end);
+
+
+
+		if(kvm->ft_buf_bottom) {
+        	ktcp_send(sock, kvm->ft_buf + start, kvm->ft_buf_bottom-start);
+			kvm->ft_buf_bottom = 0;
+			kvm->ft_buf_head   = 0;
+			continue;
+		}
+
+        len = ktcp_send(sock, kvm->ft_buf + start, end-start);
+
+		kvm->ft_buf_head += len;
+
+
+
+
+//		kvm->ft_buf_bottom = 0;
+
+		kvm->trans_kick = 0;
+/////////////////////////
+
+	}
+	printk("cocotion test kthread endendendend\n");
+	return 0;
+}
+
 
 static int diff_thread_func(void *data)
 {
@@ -3804,6 +3934,14 @@ void kvm_shm_exit(struct kvm *kvm)
     kfree(ctx->shared_pages_snapshot_k);
     kfree(ctx->shared_pages_snapshot_pages);
 
+
+	kfree(kvm->ft_buf);
+    if (kvm->ft_trans_kthread) {
+        kthread_stop(kvm->ft_trans_kthread);
+		//kill_pid(find_vpid(kvm->ft_trans_kthread), SIGKILL, 1);
+        kvm->ft_trans_kthread = NULL;
+    }
+
     kfifo_free(&kvm->trans_queue);
 
     modified_during_transfer_list_free(kvm);
@@ -3932,6 +4070,24 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     // DMA engine -- william
 
 //	net_set_tcp_zero_copy_callbacks(kvm_shm_tcp_get_callback, kvm_shm_tcp_put_callback);
+//cocotion start do trans thread fair som
+//cocotion kthread run test
+
+	kvm->ft_buf_tail = kvm->ft_buf_head = kvm->ft_buf_bottom = kvm->trans_kick = 0;
+	kvm->ft_buf = kmalloc(48 * 64 * 1024, GFP_KERNEL);
+
+    kvm->ft_trans_kthread = kthread_run(&ft_trans_thread_func, kvm, "ft_trans_thread");
+    if (IS_ERR(kvm->ft_trans_kthread)) {
+        ret = -PTR_ERR(kvm->ft_trans_kthread);
+        printk("%s failed to kthread_run %d\n", __func__, ret);
+        kvm->ft_trans_kthread = NULL;
+        goto err_free;
+    }
+	init_waitqueue_head(&kvm->ft_trans_thread_event);
+//	kvm->trans_kick = 1;
+
+	//wake_up(&kvm->ft_trans_thread_event);
+
 
 #ifdef ENABLE_PRE_DIFF
     ret = diff_req_init();

@@ -2404,21 +2404,15 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 
-	int t = 0;
+/*	int t = 0;
 
 //	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
 //		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
 
+    mybdupdate.last_trans_rate = 250;
 	if(trans_rate > mybdupdate.last_trans_rate && mybdupdate.last_trans_rate > 100) {
 		t = (s->ram_len/mybdupdate.last_trans_rate) - trans_us;
 
-
-
-		//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//		printf("cocotion test wait t = %d", t);
 		if(t>0)
 			usleep(t);
 		s->recv_ack1_time = time_in_double();
@@ -2427,7 +2421,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 		//s->recv_ack1_time = time_in_double();
 	}
-
+*/
 	s->recv_ack1_time = time_in_double();
 
    	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
@@ -2454,15 +2448,16 @@ static void kvmft_flush_output(MigrationState *s)
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_rate);
         fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", real_transfer_time);
+        sprintf(pbuf, "%d\n", trans_rate);
+        //sprintf(pbuf, "%d\n", real_transfer_time);
         fputs(pbuf, pFile);
     }
     else
         printf("no profile\n");
     fclose(pFile);
 
-*/
 
+*/
 
 
 

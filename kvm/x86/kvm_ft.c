@@ -2813,7 +2813,7 @@ static int new_kvmft_transfer_list(void *info)
 	int trans_index = ft_info->trans_index;
 	int run_serial = ft_info->run_serial;
 
-    int ret, i;
+    int ret = 0, i;
     int len = 0, total = 0;
     uint8_t *buf;
     unsigned int *gfns = dlist->pages;
@@ -2823,9 +2823,9 @@ static int new_kvmft_transfer_list(void *info)
     page_transfer_end_times_off = end;
 #endif
 
-    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
-    if (!buf)
-        return -ENOMEM;
+   // buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+ //   if (!buf)
+  //      return -ENOMEM;
 
     kvmft_tcp_unnodelay(sock);
 
@@ -2841,24 +2841,33 @@ static int new_kvmft_transfer_list(void *info)
             continue;
 #endif
 
-        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+        len = kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
-        if (len >= 64 * 1024) {
+
+
+		kvm->ft_buf_tail+=len;
+		kvm->ft_buf_tail = kvm->ft_buf_tail % kvm->ft_buf_size;
+
+
+		/*
+		if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
                 goto free;
             total += len;
             len = 0;
         }
-    }
+    	*/
 
+	}
+/*
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
         if (ret < 0)
             goto free;
         total += len;
     }
-
+*/
     kvmft_tcp_nodelay(sock);
 /*
 	p_count++;
@@ -2883,11 +2892,12 @@ static int new_kvmft_transfer_list(void *info)
 
     ret = total;
 free:
-    kfree(buf);
+//    kfree(buf);
 
 	ft_info->ret = ret;
 
 
+    printk("cocotion okokok\n");
 	return ret;
 
 }
@@ -2917,7 +2927,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int trans_index, int run_serial)
 {
     int ret, i;
-    int len = 0, total = 0;
+    int len = 0, total = 0, offset = 0;
     uint8_t *buf;
     unsigned int *gfns = dlist->pages;
 
@@ -2926,7 +2936,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     page_transfer_end_times_off = end;
 #endif
 
-    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+//    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+    buf = kvm->ft_buf;
     if (!buf)
         return -ENOMEM;
 
@@ -2945,12 +2956,21 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
-        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+   //     len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+    //        trans_index, run_serial);
+
+        len = kvmft_diff_to_buf(kvm, gfn, i, buf + kvm->ft_buf_tail,
             trans_index, run_serial);
+
+        total+=len;
+
+        kvm->ft_buf_tail+=len;
+		kvm->ft_buf_tail = kvm->ft_buf_tail % kvm->ft_buf_size;
 
 		//preempt_disable();
 //		spin_lock(&transfer_lock);
 
+        /*
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
@@ -2958,6 +2978,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             total += len;
             len = 0;
         }
+        */
+
 //		spin_unlock(&transfer_lock);
 		//preempt_enable(); //cocotion fucking think
 		//sched_yield();
@@ -2965,14 +2987,14 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 	}
 
 //	spin_lock(&transfer_lock);
-
+/*
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
         if (ret < 0)
             goto free;
         total += len;
     }
-
+*/
 //	spin_unlock(&transfer_lock);
 
     kvmft_tcp_nodelay(sock);
@@ -2998,12 +3020,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 #endif
 
     ret = total;
-free:
-    kfree(buf);
-
-
-
-
+//free:
+ //   kfree(buf);
+    return 0;
 	return ret;
 }
 
@@ -3814,6 +3833,9 @@ void kvm_shm_exit(struct kvm *kvm)
     kfree(ctx->shared_pages_snapshot_k);
     kfree(ctx->shared_pages_snapshot_pages);
 
+	kfree(kvm->ft_buf);
+
+
     kfifo_free(&kvm->trans_queue);
 
     modified_during_transfer_list_free(kvm);
@@ -3942,6 +3964,13 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     // DMA engine -- william
 
 //	net_set_tcp_zero_copy_callbacks(kvm_shm_tcp_get_callback, kvm_shm_tcp_put_callback);
+
+	kvm->ft_buf_tail = kvm->ft_buf_head = kvm->trans_kick = 0;
+	kvm->ft_buf_size = 4096*1024;
+	kvm->ft_buf = kmalloc(kvm->ft_buf_size, GFP_KERNEL);
+
+
+
 
 #ifdef ENABLE_PRE_DIFF
     ret = diff_req_init();

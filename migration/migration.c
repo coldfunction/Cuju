@@ -2885,7 +2885,12 @@ static void *migration_thread(void *opaque)
 
     trace_migration_thread_setup_complete();
 
-	printf("Start live migration iterate backup\n");
+	if(enable_cuju) {
+		printf("Start system memory backup\n");
+		migration_completion(s, current_active_state,
+               &old_vm_running, &start_time);
+	}
+
     while (s->state == MIGRATION_STATUS_ACTIVE ||
            s->state == MIGRATION_STATUS_POSTCOPY_ACTIVE) {
         int64_t current_time;
@@ -3157,7 +3162,8 @@ static ssize_t cuju_ft_dev_writev_buffer(void *opaque, struct iovec *iov, int io
         s->ft_dev->ft_dev_put_off += len;
 
         if (s->ft_dev->ft_dev_file->free_buf_on_flush)
-            g_free((void *)data);
+            memset(data, 0, sizeof(uint8_t) * len);
+            //g_free((void *)data);
 
         done += len;
     }

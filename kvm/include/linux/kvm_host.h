@@ -544,11 +544,15 @@ struct kvm {
 
     uint8_t *ft_buf;
     struct task_struct *ft_trans_kthread;
-    wait_queue_head_t ft_trans_thrad_event;
-    int trans_kick;
-    int ft_buf_tail;
-    int ft_buf_head;
+    wait_queue_head_t ft_trans_thread_event;
+    volatile int trans_kick;
+    volatile int ft_buf_tail;
+    volatile int ft_buf_head;
     int ft_buf_size;
+
+    struct socket *ft_sock;
+
+    spinlock_t ft_lock;
 
 };
 

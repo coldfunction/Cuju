@@ -2926,6 +2926,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_dirty_list *dlist, int start, int end,
     int trans_index, int run_serial)
 {
+    kvm->ft_sock = sock;
+//	printk("cocotion test in old sock = %p\n", sock);
+//	wake_up(&kvm->ft_trans_thread_event);
+
     int ret, i;
     int len = 0, total = 0, offset = 0;
     uint8_t *buf;
@@ -2940,6 +2944,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     buf = kvm->ft_buf;
     if (!buf)
         return -ENOMEM;
+
 
     kvmft_tcp_unnodelay(sock);
     //kvmft_tcp_nodelay(sock);
@@ -2964,8 +2969,18 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
         total+=len;
 
-        kvm->ft_buf_tail+=len;
-		kvm->ft_buf_tail = kvm->ft_buf_tail % kvm->ft_buf_size;
+        int tail = kvm->ft_buf_tail;
+
+//        spin_lock(&kvm->ft_lock);
+ //       kvm->ft_buf_tail+=len;
+//		kvm->ft_buf_tail = kvm->ft_buf_tail % kvm->ft_buf_size;
+ //       spin_unlock(&kvm->ft_lock);
+        tail+=len;
+        tail = tail % kvm->ft_buf_size;
+        kvm->ft_buf_tail = tail;
+
+	 	wake_up(&kvm->ft_trans_thread_event);
+		kvm->trans_kick = 1;
 
 		//preempt_disable();
 //		spin_lock(&transfer_lock);
@@ -3019,10 +3034,38 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 #endif
 
+
+    //spin_lock(&kvm->ft_lock);
+    int tail = kvm->ft_buf_tail;
+    int head = kvm->ft_buf_head;
+    //spin_unlock(&kvm->ft_lock);
+
+    //printk("cocotion test producer done, head = %d, tail = %d\n", kvm->ft_buf_head, kvm->ft_buf_tail);
+
+
+    while(total != 0 && (tail != head)) {
+     //   printk("cocotion wait consumer done@@@@@@@@@@@@@@@@@@@@\n");
+      //  printk("cocotion test producer done, head = %d, tail = %d\n", kvm->ft_buf_head, kvm->ft_buf_tail);
+        udelay(200);
+        //kvm->trans_kick = 1;
+        //spin_lock(&kvm->ft_lock);
+        //tail = kvm->ft_buf_tail;
+        head = kvm->ft_buf_head;
+        //spin_unlock(&kvm->ft_lock);
+    }
+
+
+	kvm->trans_kick = 0;
+    //spin_lock(&kvm->ft_lock);
+    //kvm->ft_buf_tail = kvm->ft_buf_head = 0;
+    //spin_unlock(&kvm->ft_lock);
+
+free:
+    //total = 0;
+
     ret = total;
 //free:
  //   kfree(buf);
-    return 0;
 	return ret;
 }
 
@@ -3545,6 +3588,138 @@ static int diff_thread_func(void *data)
     return 0;
 }
 
+
+static int ft_trans_thread_func(void *data)
+{
+
+    //struct cpumask mask;
+    //cpumask_clear(&mask);
+    //cpumask_set_cpu(7, &mask);
+    //sched_setaffinity(current->pid, &mask);
+
+    int block_len = 64*1024;
+	printk("cocotion test before fucking\n");
+	struct kvm *kvm = data;
+	allow_signal(SIGKILL);
+	while(!kthread_should_stop()) {
+		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick
+				|| kthread_should_stop());
+
+		if(kthread_should_stop())
+			break;
+
+ //       struct kvmft_context *ctx = &kvm->ft_context;
+//        struct kvmft_master_slave_conn_info *info =
+  //          &ctx->master_slave_info[0];
+
+//	    struct socket *sock = info->socks[0];
+
+        struct socket *sock = kvm->ft_sock;
+
+        //while(1) {
+
+            //spin_lock(&kvm->ft_lock);
+            int start = kvm->ft_buf_head;
+            int end   = kvm->ft_buf_tail;
+    //        spin_unlock(&kvm->ft_lock);
+    //        int len   = 0;
+//	        printk("cocotion test in new sock = %p\n", sock);
+//	        printk("cocotion test in end-start = %d\n", end-start);
+
+            //if(end-start == 0) break;
+
+
+            if(end < start){
+                end = 4096*1024;
+            }
+
+            int num = ((end-start) >= block_len) ? block_len : (end-start);
+            int total_times = num/block_len;
+            int i = 0;
+            int len = 0;
+
+            for(i = 0; i < total_times; i++) {
+
+               // len = ktcp_send(sock, kvm->ft_buf + start, block_len);
+//	            printk("cocotion test already send = %d\n", len);
+//	            printk("cocotion test want send before = %d, head = %d, tail = %d\n", block_len, kvm->ft_buf_head, kvm->ft_buf_tail);
+
+                int head = kvm->ft_buf_head;
+                head+=block_len;
+                head = head % kvm->ft_buf_size;
+                //spin_lock(&kvm->ft_lock);
+                kvm->ft_buf_head = head;
+                //spin_unlock(&kvm->ft_lock);
+/*
+                spin_lock(&kvm->ft_lock);
+                kvm->ft_buf_head += block_len;
+		        kvm->ft_buf_head = kvm->ft_buf_head % kvm->ft_buf_size;
+                spin_unlock(&kvm->ft_lock);
+	*/
+
+ //               printk("cocotion test want send after = %d, head = %d, tail = %d\n", block_len, kvm->ft_buf_head, kvm->ft_buf_tail);
+
+            }
+
+
+            int rest = num - total_times*block_len;
+            if(rest) {
+                //len = ktcp_send(sock, kvm->ft_buf + start, rest);
+//	            printk("cocotion test rest already send = %d\n", len);
+//	            printk("cocotion test want rest send = %d, head = %d\n", rest, kvm->ft_buf_head);
+//	            printk("cocotion test want send rest before = %d, head = %d, tail = %d\n", rest, kvm->ft_buf_head, kvm->ft_buf_tail);
+
+                int head = kvm->ft_buf_head;
+                head+=rest;
+                head = head % kvm->ft_buf_size;
+                //spin_lock(&kvm->ft_lock);
+                kvm->ft_buf_head = head;
+                //spin_unlock(&kvm->ft_lock);
+
+               /*
+                spin_lock(&kvm->ft_lock);
+                kvm->ft_buf_head += rest;
+		        kvm->ft_buf_head = kvm->ft_buf_head % kvm->ft_buf_size;
+                spin_unlock(&kvm->ft_lock);
+*/
+ //               printk("cocotion test want send rest after = %d, head = %d, tail = %d\n", rest, kvm->ft_buf_head, kvm->ft_buf_tail);
+            }
+
+
+            //len = ktcp_send(sock, kvm->ft_buf + start, end-start);
+	        //printk("cocotion test already send = %d\n", len);
+
+            //kvm->ft_buf_head += len;
+		    //kvm->ft_buf_head = kvm->ft_buf_head % kvm->ft_buf_size;
+            //
+            //
+
+
+        //}
+	    //printk("cocotion test in new sock = %p\n", kvm->ft_sock);
+
+//		printk("cocotion test @@@@@@@ fucking\n");
+
+		//kvm->trans_kick = 0;
+
+	}
+
+	/*
+	struct kvm *kvm = data;
+    struct kvmft_context *ctx = &kvm->ft_context;
+    struct kvmft_master_slave_conn_info *info =
+        &ctx->master_slave_info[0];
+
+	struct socket *sock = info->socks[0];
+*/
+//	printk("cocotion test fucking\n");
+//	printk("cocotion test in new sock = %p\n", sock);
+
+	return 0;
+}
+
+
+
 int kvm_start_kernel_transfer(struct kvm *kvm,
                               int trans_index,
                               int ram_fd,
@@ -3969,8 +4144,24 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 	kvm->ft_buf_size = 4096*1024;
 	kvm->ft_buf = kmalloc(kvm->ft_buf_size, GFP_KERNEL);
 
+    spin_lock_init(&kvm->ft_lock);
 
+    //kvm->ft_trans_kthread = kthread_run(&ft_trans_thread_func, kvm, "ft_trans_thread");
+    kvm->ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
+    if (IS_ERR(kvm->ft_trans_kthread)) {
+        ret = -PTR_ERR(kvm->ft_trans_kthread);
+        printk("%s failed to kthread_run %d\n", __func__, ret);
+        kvm->ft_trans_kthread = NULL;
+        goto err_free;
+    }
 
+    kthread_bind(kvm->ft_trans_kthread, 7);
+
+	init_waitqueue_head(&kvm->ft_trans_thread_event);
+
+    wake_up_process(kvm->ft_trans_kthread);
+
+	 //wake_up(&kvm->ft_trans_thread_event);
 
 #ifdef ENABLE_PRE_DIFF
     ret = diff_req_init();

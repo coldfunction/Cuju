@@ -2328,8 +2328,11 @@ static void kvmft_flush_output(MigrationState *s)
 */
 
 
-	if(trans_rate == 0) trans_rate = 1;
-/*    static unsigned long total_ram_trans = 0;
+//	if(trans_rate == 0) trans_rate = 100;
+	if(trans_rate < 400) trans_rate = 400;
+
+
+    /*    static unsigned long total_ram_trans = 0;
     static unsigned long total_trans_t = 0;
 
     static unsigned long total_epochs_count = 0;
@@ -2395,30 +2398,24 @@ static void kvmft_flush_output(MigrationState *s)
 	trans_oldest_head++;
 
 
-	int threshold = all/100 - bd_alpha;
+	int threshold = all/100;
 //    if(mybdupdate.last_trans_rate >= 0)
-        mybdupdate.last_trans_rate = threshold;
+    mybdupdate.last_trans_rate = threshold;
 //    if(trans_rate_c == 5) trans_rate_c = 0;
 //    if(trans_rate_c == 50) trans_rate_c = 0;
     if(trans_oldest_head == 100) trans_oldest_head = 0; //88%
 
 
 
-	int t = 0;
+//	int t = 0;
 
 //	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
 //		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
 
+    /*
 	if(trans_rate > mybdupdate.last_trans_rate && mybdupdate.last_trans_rate > 100) {
 		t = (s->ram_len/mybdupdate.last_trans_rate) - trans_us;
 
-
-
-		//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//		printf("cocotion test wait t = %d", t);
 		if(t>0)
 			usleep(t);
 		s->recv_ack1_time = time_in_double();
@@ -2427,7 +2424,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 		//s->recv_ack1_time = time_in_double();
 	}
-
+*/
 	s->recv_ack1_time = time_in_double();
 
    	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);

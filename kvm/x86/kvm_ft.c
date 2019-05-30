@@ -350,7 +350,7 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 
-    if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
+    if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
 
 //        hrtimer_cancel(&vcpu->hrtimer);
 
@@ -2979,8 +2979,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         tail = tail % kvm->ft_buf_size;
         kvm->ft_buf_tail = tail;
 
-	 	wake_up(&kvm->ft_trans_thread_event);
-		kvm->trans_kick = 1;
+//	 	wake_up(&kvm->ft_trans_thread_event);
+//		kvm->trans_kick = 1;
 
 		//preempt_disable();
 //		spin_lock(&transfer_lock);
@@ -3042,7 +3042,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     //printk("cocotion test producer done, head = %d, tail = %d\n", kvm->ft_buf_head, kvm->ft_buf_tail);
 
-
+/*
     while(total != 0 && (tail != head)) {
      //   printk("cocotion wait consumer done@@@@@@@@@@@@@@@@@@@@\n");
       //  printk("cocotion test producer done, head = %d, tail = %d\n", kvm->ft_buf_head, kvm->ft_buf_tail);
@@ -3053,7 +3053,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         head = kvm->ft_buf_head;
         //spin_unlock(&kvm->ft_lock);
     }
-
+*/
 
 	kvm->trans_kick = 0;
     //spin_lock(&kvm->ft_lock);
@@ -3061,7 +3061,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     //spin_unlock(&kvm->ft_lock);
 
 free:
-    //total = 0;
+    total = 0;
 
     ret = total;
 //free:

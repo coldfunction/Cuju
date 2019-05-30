@@ -350,7 +350,7 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 
-    if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
+    if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500) {
 
 //        hrtimer_cancel(&vcpu->hrtimer);
 

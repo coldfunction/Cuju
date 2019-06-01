@@ -3069,7 +3069,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     while(total != 0 && (kvm->ft_buf_tail != kvm->ft_buf_head)) {
         kvm->ft_producer_done = 1;
-        udelay(200);
+        udelay(20);
     }
 
 	kvm->trans_kick = 0;

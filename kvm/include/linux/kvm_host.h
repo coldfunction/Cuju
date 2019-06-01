@@ -463,6 +463,15 @@ struct kvm_trackable {
 	struct page **page;
 };
 
+
+
+struct ft_trans_data {
+    int size;
+    uint8_t *ft_buf;
+};
+
+
+
 struct kvm {
 	spinlock_t mmu_lock;
 	struct mutex slots_lock;
@@ -542,13 +551,16 @@ struct kvm {
     wait_queue_head_t trans_queue_event;
 
 
-    uint8_t *ft_buf;
+    //uint8_t *ft_buf;
+    struct ft_trans_data *ft_data;
+
     struct task_struct *ft_trans_kthread;
     wait_queue_head_t ft_trans_thread_event;
     volatile int trans_kick;
     volatile int ft_buf_tail;
     volatile int ft_buf_head;
     int ft_buf_size;
+    volatile int ft_producer_done;
 
     struct socket *ft_sock;
 

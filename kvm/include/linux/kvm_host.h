@@ -561,6 +561,7 @@ struct kvm {
     volatile int ft_buf_head;
     int ft_buf_size;
     volatile int ft_producer_done;
+    int ft_vm_id;
 
     struct socket *ft_sock;
 

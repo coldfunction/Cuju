@@ -55,6 +55,21 @@ DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
 
 struct kvm_vcpu *global_vcpu;
 
+
+
+struct ft_multi_trans_h {
+    atomic_t ft_vm_count;
+    atomic_t ft_mode_vm_count;
+    struct socket *sock[128];
+    struct kvm *global_kvm[128];
+    struct task_struct *ft_trans_kthread;
+};
+
+struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(-1), ATOMIC_INIT(-1)};
+
+static int ft_trans_thread_func(void *data);
+
+
 spinlock_t transfer_lock;
 
 struct ft_timer_q {
@@ -1078,6 +1093,25 @@ int kvm_shm_enable(struct kvm *kvm)
 {
     struct kvmft_context *ctx = &kvm->ft_context;
     ctx->shm_enabled = !ctx->shm_enabled;
+
+    atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
+
+    if(kvm->ft_vm_id == 0) {
+        ft_m_trans.ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
+        if (IS_ERR(kvm->ft_trans_kthread)) {
+            int ret = -PTR_ERR(kvm->ft_trans_kthread);
+            printk("%s failed to kthread_run %d\n", __func__, ret);
+            ft_m_trans.ft_trans_kthread = NULL;
+            //goto err_free;
+            kvm_shm_exit(kvm);
+        }
+        kthread_bind(ft_m_trans.ft_trans_kthread, 7);
+	    init_waitqueue_head(&kvm->ft_trans_thread_event); // VM 0 awake
+        wake_up_process(ft_m_trans.ft_trans_kthread);
+    }
+
+
+
     printk("%s shm_enabled %d\n", __func__, ctx->shm_enabled);
     return 0;
 }
@@ -3975,6 +4009,11 @@ void kvm_shm_exit(struct kvm *kvm)
     kfree(kvm->ft_data);
 
 
+    if(kvm->ft_vm_id == 0) {
+        kthread_stop(ft_m_trans.ft_trans_kthread);
+    }
+
+
     kfifo_free(&kvm->trans_queue);
 
     modified_during_transfer_list_free(kvm);
@@ -4120,7 +4159,12 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 
     spin_lock_init(&kvm->ft_lock);
 
+    ft_m_trans.global_kvm[atomic_inc_return(&ft_m_trans.ft_vm_count)] = kvm;
+    int vm_id = atomic_read(&ft_m_trans.ft_vm_count);
+    kvm->ft_vm_id = vm_id;
+
     //kvm->ft_trans_kthread = kthread_run(&ft_trans_thread_func, kvm, "ft_trans_thread");
+/*
     kvm->ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
     if (IS_ERR(kvm->ft_trans_kthread)) {
         ret = -PTR_ERR(kvm->ft_trans_kthread);
@@ -4134,7 +4178,7 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
 	init_waitqueue_head(&kvm->ft_trans_thread_event);
 
     wake_up_process(kvm->ft_trans_kthread);
-
+*/
 	 //wake_up(&kvm->ft_trans_thread_event);
 
 #ifdef ENABLE_PRE_DIFF

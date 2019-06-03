@@ -61,11 +61,13 @@ struct ft_multi_trans_h {
     atomic_t ft_vm_count;
     atomic_t ft_mode_vm_count;
     struct task_struct *ft_trans_kthread;
+    volatile int trans_kick;
+    wait_queue_head_t ft_trans_thread_event;
     struct socket *sock[128];
     struct kvm *global_kvm[128];
 };
 
-struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(-1), ATOMIC_INIT(-1), NULL};
+struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(-1), ATOMIC_INIT(0), NULL, 0};
 
 static int ft_trans_thread_func(void *data);
 
@@ -1106,7 +1108,8 @@ int kvm_shm_enable(struct kvm *kvm)
             kvm_shm_exit(kvm);
         }
         kthread_bind(ft_m_trans.ft_trans_kthread, 7);
-	    init_waitqueue_head(&kvm->ft_trans_thread_event); // VM 0 awake
+//	    init_waitqueue_head(&kvm->ft_trans_thread_event); // VM 0 awake
+	    init_waitqueue_head(&ft_m_trans.ft_trans_thread_event); // VM 0 awake
         wake_up_process(ft_m_trans.ft_trans_kthread);
     }
 
@@ -3045,8 +3048,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         }
 
 
-	 	wake_up(&kvm->ft_trans_thread_event);
-		kvm->trans_kick = 1;
+//	 	wake_up(&kvm->ft_trans_thread_event);
+//		kvm->trans_kick = 1;
+	 	wake_up(&ft_m_trans.ft_trans_thread_event);
+		ft_m_trans.trans_kick = 1;
 
 
     }
@@ -3106,7 +3111,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         udelay(20);
     }
 
-	kvm->trans_kick = 0;
+
+	ft_m_trans.trans_kick = 0;
+	//kvm->trans_kick = 0;
     kvm->ft_producer_done = 0;
     //spin_lock(&kvm->ft_lock);
     //kvm->ft_buf_tail = kvm->ft_buf_head = 0;
@@ -3661,10 +3668,13 @@ static int ft_trans_thread_func(void *data)
     int block_len = 64*1024;
     //int len = 0;
 	printk("cocotion test before fucking\n");
-	struct kvm *kvm = data;
+//	struct kvm *kvm = data;
+    int vm_id = 0;
 	allow_signal(SIGKILL);
 	while(!kthread_should_stop()) {
-		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick
+//		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick
+//				|| kthread_should_stop());
+		wait_event_interruptible(ft_m_trans.ft_trans_thread_event, ft_m_trans.trans_kick
 				|| kthread_should_stop());
 
 		if(kthread_should_stop())
@@ -3675,6 +3685,9 @@ static int ft_trans_thread_func(void *data)
   //          &ctx->master_slave_info[0];
 
 //	    struct socket *sock = info->socks[0];
+
+        struct kvm *kvm = ft_m_trans.global_kvm[vm_id];
+
 
         struct socket *sock = kvm->ft_sock;
 
@@ -3695,6 +3708,7 @@ static int ft_trans_thread_func(void *data)
                 //end = 4096*1024;
     //            printk("cocotion test wait tail  <= head \n");
                 udelay(200);
+                vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
                 continue;
             }
 
@@ -3704,6 +3718,8 @@ static int ft_trans_thread_func(void *data)
             start++;
             kvm->ft_buf_head = start;
 
+
+            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
 
 /////////////////////////////////////
 

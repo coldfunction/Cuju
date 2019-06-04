@@ -3688,6 +3688,12 @@ static int ft_trans_thread_func(void *data)
 
         struct kvm *kvm = ft_m_trans.global_kvm[vm_id];
 
+        if(kvm == NULL) {
+            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+            continue;
+        }
+
+
 
         struct socket *sock = kvm->ft_sock;
 
@@ -3707,7 +3713,7 @@ static int ft_trans_thread_func(void *data)
             if(end <= start) {
                 //end = 4096*1024;
     //            printk("cocotion test wait tail  <= head \n");
-                udelay(200);
+                //udelay(200);
                 vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
                 continue;
             }
@@ -4018,16 +4024,24 @@ void kvm_shm_exit(struct kvm *kvm)
     kfree(ctx->shared_pages_snapshot_k);
     kfree(ctx->shared_pages_snapshot_pages);
 
+    if(/*kvm->ft_vm_id == 0 &&*/ ft_m_trans.ft_trans_kthread != NULL) {
+        kthread_stop(ft_m_trans.ft_trans_kthread);
+        ft_m_trans.global_kvm[kvm->ft_vm_id] = NULL;
+
+        ft_m_trans.ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
+        kthread_bind(ft_m_trans.ft_trans_kthread, 7);
+	    init_waitqueue_head(&ft_m_trans.ft_trans_thread_event); // VM 0 awake
+        wake_up_process(ft_m_trans.ft_trans_kthread);
+	 	wake_up(&ft_m_trans.ft_trans_thread_event);
+		ft_m_trans.trans_kick = 1;
+    }
+
     for(i = 0; i < 128; i++) {
 
 	    kfree(kvm->ft_data[i].ft_buf);
     }
     kfree(kvm->ft_data);
 
-
-    if(kvm->ft_vm_id == 0 && ft_m_trans.ft_trans_kthread != NULL) {
-        kthread_stop(ft_m_trans.ft_trans_kthread);
-    }
 
 
     kfifo_free(&kvm->trans_queue);

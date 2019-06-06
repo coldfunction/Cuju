@@ -563,6 +563,16 @@ struct kvm {
     volatile int ft_producer_done;
     int ft_vm_id;
 
+    volatile long int virtualTime; // for fair scheduler
+    volatile long int start_time;    // for fair scheduler
+    volatile long int virtualRate;    // for fair scheduler
+    volatile long int ft_total_len;    // for fair scheduler
+
+
+    volatile long int average_trans_time;    // for fair scheduler
+
+
+
     struct socket *ft_sock;
 
     spinlock_t ft_lock;

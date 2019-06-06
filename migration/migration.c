@@ -2281,6 +2281,10 @@ static void kvmft_flush_output(MigrationState *s)
 //	int real_transfer_time = (int)((s->transfer_real_finish_time - s->transfer_real_start_time) * 1000000);
 
 	int trans_rate = s->ram_len/trans_us;
+
+
+
+
 /*	int t = 0;
 
 	if(trans_rate > 600) {
@@ -2329,8 +2333,10 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 //	if(trans_rate == 0) trans_rate = 100;
-	if(trans_rate < 400) trans_rate = 400;
-
+	if(trans_rate < 400) {
+//		printf("cocotion test trans_rate = %d, trans_us = %d, ram = %d\n", trans_rate, trans_us, s->ram_len);
+		trans_rate = 400;
+	}
 
     /*    static unsigned long total_ram_trans = 0;
     static unsigned long total_trans_t = 0;
@@ -2429,36 +2435,46 @@ static void kvmft_flush_output(MigrationState *s)
 
    	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
+	int old_latency_us = latency_us;
+	if(latency_us < 9000)
+		usleep(9000-latency_us);
+
+	s->recv_ack1_time = time_in_double();
+	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
 
-	mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+
+
+	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+	mybdupdate.last_trans_rate = trans_rate;
+//	mybdupdate.last_trans_rate = 700;
+
 
 
 /*
-
    FILE *pFile;
    char pbuf[200];
 
     pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
-        sprintf(pbuf, "%d\n", runtime_us);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", latency_us);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", trans_us);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", s->ram_len);
-        fputs(pbuf, pFile);
+//        sprintf(pbuf, "%d\n", runtime_us);
+ //       fputs(pbuf, pFile);
+  //      sprintf(pbuf, "%d\n", latency_us);
+   //     fputs(pbuf, pFile);
+    //    sprintf(pbuf, "%d\n", trans_us);
+     //   fputs(pbuf, pFile);
+      //  sprintf(pbuf, "%d\n", s->ram_len);
+       // fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_rate);
         fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", real_transfer_time);
-        fputs(pbuf, pFile);
+        //sprintf(pbuf, "%d\n", real_transfer_time);
+        //fputs(pbuf, pFile);
     }
     else
         printf("no profile\n");
     fclose(pFile);
-
 */
+
 
 
 
@@ -2614,7 +2630,9 @@ static void kvmft_flush_output(MigrationState *s)
 		//double less_percentage = (double) latency_less_count/mcount;
 
 		printf("test ok percentage is %lf\n", ok_percentage);
+//		printf("test less percentage is %lf\n", less_percentage);
 
+		printf("test my old latency is %d\n", old_latency_us);
 		printf("test my threshold is %d\n", threshold);
 
 //		printf("test exceed percentage is %lf\n", exceed_percentage);

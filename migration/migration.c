@@ -2333,9 +2333,12 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 //	if(trans_rate == 0) trans_rate = 100;
-	if(trans_rate < 400) {
+//	if(trans_rate < 400) {
 //		printf("cocotion test trans_rate = %d, trans_us = %d, ram = %d\n", trans_rate, trans_us, s->ram_len);
-		trans_rate = 400;
+//		trans_rate = 400;
+//	}
+	if(trans_rate < 1) {
+		trans_rate = 1;
 	}
 
     /*    static unsigned long total_ram_trans = 0;
@@ -2406,7 +2409,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 	int threshold = all/100;
 //    if(mybdupdate.last_trans_rate >= 0)
-    mybdupdate.last_trans_rate = threshold;
+    //mybdupdate.last_trans_rate = threshold;
 //    if(trans_rate_c == 5) trans_rate_c = 0;
 //    if(trans_rate_c == 50) trans_rate_c = 0;
     if(trans_oldest_head == 100) trans_oldest_head = 0; //88%
@@ -2436,14 +2439,14 @@ static void kvmft_flush_output(MigrationState *s)
    	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
 	int old_latency_us = latency_us;
-	if(latency_us < 9000)
-		usleep(9000-latency_us);
+//	if(latency_us < 9000)
+//		usleep(9000-latency_us);
 
-	s->recv_ack1_time = time_in_double();
-	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+//	s->recv_ack1_time = time_in_double();
+//	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
 
-
+//	int real_trans_rate = s->ram_len/latency_us;
 
 	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
 	mybdupdate.last_trans_rate = trans_rate;
@@ -2451,7 +2454,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 
-/*
+
    FILE *pFile;
    char pbuf[200];
 
@@ -2465,6 +2468,7 @@ static void kvmft_flush_output(MigrationState *s)
      //   fputs(pbuf, pFile);
       //  sprintf(pbuf, "%d\n", s->ram_len);
        // fputs(pbuf, pFile);
+        //sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
         sprintf(pbuf, "%d\n", trans_rate);
         fputs(pbuf, pFile);
         //sprintf(pbuf, "%d\n", real_transfer_time);
@@ -2473,7 +2477,7 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile);
-*/
+
 
 
 
@@ -2551,9 +2555,11 @@ static void kvmft_flush_output(MigrationState *s)
 	//static unsigned long latency_sum = 0;
     //latency_sum += latency_us;
 
-	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000)
+	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000) {
+	//if(latency_us <= target_latency  && latency_us >= target_latency - 2000) {
+//		mybdupdate.last_trans_rate = trans_rate;
 		ok++;
-
+	}
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
 	}

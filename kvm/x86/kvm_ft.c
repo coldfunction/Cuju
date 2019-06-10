@@ -46,6 +46,10 @@ static int page_transfer_offsets_off = 0;
 int ft_total_len = 0;
 
 int global_internal_time = 300;
+unsigned long int global_average_trans_sum = 1;
+unsigned long int global_average_trans_count = 1;
+int global_average_trans_rate = 1;
+
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
 static int bd_predic_stop3(struct kvm_vcpu *vcpu);
@@ -61,15 +65,17 @@ struct ft_multi_trans_h {
     atomic_t ft_vm_count;
     atomic_t ft_mode_vm_count;
     struct task_struct *ft_trans_kthread;
+    struct task_struct *ft_getInputRate_kthread;
     volatile int trans_kick;
     wait_queue_head_t ft_trans_thread_event;
     struct socket *sock[128];
     struct kvm *global_kvm[128];
 };
 
-struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), NULL, 0};
+struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), NULL, NULL, 0};
 
 static int ft_trans_thread_func(void *data);
+static int getInputRate(void *data);
 
 
 spinlock_t transfer_lock;
@@ -367,13 +373,16 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
     ktime_t diff2 = ktime_sub(ktime_get(), start);
    	int difftime2 = ktime_to_us(diff2);
 	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
+
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 
-    //if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
+    //if( beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
 //    if(epoch_run_time > 7500 || (current_dirty_byte > 2800000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 7000 || (current_dirty_byte > 1600000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 8000 || (current_dirty_byte > 2000000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
-    if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
+//    if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
+//    if(epoch_run_time > 7000 || beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
+    if(epoch_run_time > 8500 || ( beta >= target_latency_us)) {
 
 //        hrtimer_cancel(&vcpu->hrtimer);
 
@@ -443,6 +452,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 	int extra_dirty = (dirty_diff_rate * difftime2) /*+ (newcount-oldcount)*4096*/;
 
+
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 /*
 	printk("==================================\n");
@@ -456,7 +466,10 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	//if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500/*ctx->bd_alpha*/) {
 //    if(epoch_run_time > 7500 || (current_dirty_byte > 2800000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 8000 || (current_dirty_byte > 2000000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
-    if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
+    //if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
+//    if(epoch_run_time > 7000 || beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
+//    if(epoch_run_time > 9000 || (current_dirty_byte > 1800000 && beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
+    if(epoch_run_time > 8500 || ( beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
 //jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*
@@ -1107,9 +1120,9 @@ int kvm_shm_enable(struct kvm *kvm)
     atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
 
     if(kvm->ft_vm_id == 0) {
-        ft_m_trans.ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
-        if (IS_ERR(kvm->ft_trans_kthread)) {
-            int ret = -PTR_ERR(kvm->ft_trans_kthread);
+        ft_m_trans.ft_trans_kthread = kthread_create(&ft_trans_thread_func, NULL, "ft_trans_thread");
+        if (IS_ERR(ft_m_trans.ft_trans_kthread)) {
+            int ret = -PTR_ERR(ft_m_trans.ft_trans_kthread);
             printk("%s failed to kthread_run %d\n", __func__, ret);
             ft_m_trans.ft_trans_kthread = NULL;
             //goto err_free;
@@ -1119,6 +1132,19 @@ int kvm_shm_enable(struct kvm *kvm)
 //	    init_waitqueue_head(&kvm->ft_trans_thread_event); // VM 0 awake
 	    init_waitqueue_head(&ft_m_trans.ft_trans_thread_event); // VM 0 awake
         wake_up_process(ft_m_trans.ft_trans_kthread);
+
+        ///////////////////////
+
+        ft_m_trans.ft_getInputRate_kthread = kthread_create(&getInputRate, NULL, "ft_getInputRate_kthread");
+        if (IS_ERR(ft_m_trans.ft_getInputRate_kthread)) {
+            int ret = -PTR_ERR(ft_m_trans.ft_getInputRate_kthread);
+            printk("%s failed to kthread_run %d\n", __func__, ret);
+            ft_m_trans.ft_getInputRate_kthread = NULL;
+            //goto err_free;
+            kvm_shm_exit(kvm);
+        }
+        kthread_bind(ft_m_trans.ft_getInputRate_kthread, 6);
+        wake_up_process(ft_m_trans.ft_getInputRate_kthread);
     }
 
 
@@ -3054,6 +3080,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         blocklen+=len;
         total+=len;
 
+        kvm->input_length+=len;
 
         if(blocklen >= 64*1024) {
             //int tail = kvm->ft_buf_tail;
@@ -3067,9 +3094,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 
 //	 	wake_up(&kvm->ft_trans_thread_event);
-//		kvm->trans_kick = 1;
+		//kvm->trans_kick = 1;
 	 	wake_up(&ft_m_trans.ft_trans_thread_event);
 		ft_m_trans.trans_kick = 1;
+		kvm->trans_kick = 1;
 
 
     }
@@ -3126,7 +3154,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //    while(1){
         while(total != 0 && (kvm->ft_buf_tail != kvm->ft_buf_head)) {
             kvm->ft_producer_done = 1;
-            udelay(20);
+	        kvm->trans_kick = 1;
+            ft_m_trans.trans_kick = 1;
+            //udelay(20);
         }
         /*
         s64 trans_end = time_in_us();
@@ -3145,7 +3175,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         }*/
   //  }
 
-	ft_m_trans.trans_kick = 0;
+	//ft_m_trans.trans_kick = 0;
 	//kvm->trans_kick = 0;
     kvm->ft_producer_done = 0;
     //spin_lock(&kvm->ft_lock);
@@ -3165,6 +3195,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 
     kvm->virtualTime = kvm->virtualRate = 1;
+//    kvm->input_current_rate = kvm->input_rate_sum = kvm->input_rate_count = 1;
     //kvm->ft_total_len = 0;
 
      kvmft_tcp_nodelay(sock);
@@ -3178,15 +3209,22 @@ free:
 
     kvm->ft_total_len = 0;
 
+    kvm->input_length = 0;
+
 
     s64 trans_end = time_in_us();
     s64 trans_time = trans_end - trans_start;
-    printk("trans_time = %d, trans_byte = %d, trans_rate = %d\n", trans_time, total, total/trans_time);
+    //printk("trans_time = %d, trans_byte = %d, trans_rate = %d\n", trans_time, total, total/trans_time);
+
+    global_average_trans_sum += total/trans_time;
+    global_average_trans_count++;
+    global_average_trans_rate = global_average_trans_sum/global_average_trans_count;
+    //printk("cocotion test average trans rate= %d\n", global_average_trans_rate);
 
     sum_trans+=trans_time;
     trans_count++;
     kvm->average_trans_time = sum_trans/trans_count;
-//    printk("cocotion test average_trans_time = %d\n", kvm->average_trans_time);
+    //printk("cocotion test average_trans_time = %d\n", kvm->average_trans_time);
 
  //   printk("cocotion test trans rate = %d\n", total/trans_time);
 
@@ -3736,7 +3774,7 @@ static int diff_thread_func(void *data)
 
 static int selectVM(int vm_id) {
 
-
+/*
     int i = 0;
 
     for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
@@ -3762,20 +3800,19 @@ static int selectVM(int vm_id) {
     }
 
     return sel;
+*/
 
+/*
 
-
-    /*
     int i = 0;
     for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
         if(ft_m_trans.global_kvm[i]!=NULL) {
             s64 end_time = time_in_us();
             s64 difftime = end_time - ft_m_trans.global_kvm[i]->start_time;
-            printk("cocotion difftime = %d\n", difftime);
+            //printk("cocotion difftime = %d\n", difftime);
             ft_m_trans.global_kvm[i]->virtualTime += difftime;
             ft_m_trans.global_kvm[i]->virtualRate = ft_m_trans.global_kvm[i]->ft_total_len/ft_m_trans.global_kvm[i]->virtualTime;
             ft_m_trans.global_kvm[i]->start_time = time_in_us();
-
         }
     }
 
@@ -3783,9 +3820,13 @@ static int selectVM(int vm_id) {
     long int min = 2147483647;
     for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
         if(ft_m_trans.global_kvm[i]!=NULL) {
+            int alpha = 0;
+            if(ft_m_trans.global_kvm[i]->virtualTime > 1500) {
+                alpha = 100000;
+            }
 
-            if (ft_m_trans.global_kvm[i]->virtualRate <= min) {
-                min = ft_m_trans.global_kvm[i]->virtualRate;
+            if (ft_m_trans.global_kvm[i]->virtualRate - ft_m_trans.global_kvm[i]->virtualTime - alpha <= min) {
+                min = ft_m_trans.global_kvm[i]->virtualRate - ft_m_trans.global_kvm[i]->virtualTime - alpha;
                 sel = i;
             }
 
@@ -3793,8 +3834,75 @@ static int selectVM(int vm_id) {
     }
 
     return sel;
-    */
+*/
+
+    return 0;
 }
+
+
+static int getInputRate(void *data)
+{
+	allow_signal(SIGKILL);
+	while(!kthread_should_stop()) {
+		wait_event_interruptible(ft_m_trans.ft_trans_thread_event, ft_m_trans.trans_kick
+				|| kthread_should_stop());
+
+		if(kthread_should_stop())
+			break;
+
+        int i;
+        for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+            if(ft_m_trans.global_kvm[i]!=NULL && ft_m_trans.global_kvm[i]->ft_buf_tail != 0) {
+                struct kvm *kvm = ft_m_trans.global_kvm[i];
+                s64 end_time = time_in_us();
+                s64 difftime = end_time - kvm->start_time;
+
+                int remove_index = kvm->input_rate_count_index;
+                int remove_num = kvm->input_current_rate[remove_index];
+                kvm->input_rate_sum -= remove_num;
+
+                kvm->input_current_rate[remove_index] = kvm->input_length/difftime;
+                kvm->input_rate_sum += kvm->input_current_rate[remove_index];
+                kvm->input_rate_count_index = (remove_index+1)%10;
+            }
+        }
+        udelay(200);
+    }
+
+    return 0;
+}
+
+int dispatch_block(int vm_id)
+{
+
+    int sum_runaverage = 0;
+    int i;
+    for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        if(ft_m_trans.global_kvm[i]!=NULL && ft_m_trans.global_kvm[i]->ft_buf_tail != 0) {
+            struct kvm *kvm = ft_m_trans.global_kvm[i];
+            sum_runaverage += kvm->input_rate_sum/10;
+        }
+    }
+
+    int average_trans_rate = ft_m_trans.global_kvm[vm_id]->input_rate_sum/10;
+
+
+    if(vm_id == 1)
+        printk("cocotion test vm_id = %d, average_trans_rate = %d\n", vm_id, average_trans_rate);
+
+
+    if(sum_runaverage == 0)  sum_runaverage = 1;
+    int weight = 1000 * average_trans_rate/sum_runaverage;
+
+    int bytes = weight * 200;
+
+    int block = bytes/(64*1024);
+
+    return (block == 0)?1:block;
+
+//    return 1;
+}
+
 
 
 static int ft_trans_thread_func(void *data)
@@ -3811,64 +3919,49 @@ static int ft_trans_thread_func(void *data)
     static s64 averagetime = 0;
     start_time = time_in_us();
 
-
-
-//    int i;
- //   for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
-  //      ft_m_trans.global_kvm[i]->start_time = start_time;
-//    }
-
     int change_count = 500;
 
 	allow_signal(SIGKILL);
 	while(!kthread_should_stop()) {
-//		wait_event_interruptible(kvm->ft_trans_thread_event, kvm->trans_kick
-//				|| kthread_should_stop());
+
+trans_func_start:
+
 		wait_event_interruptible(ft_m_trans.ft_trans_thread_event, ft_m_trans.trans_kick
 				|| kthread_should_stop());
 
 		if(kthread_should_stop())
 			break;
 
+
+
         struct kvm *kvm = ft_m_trans.global_kvm[vm_id];
 
         if(kvm == NULL) {
             vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
-            change_count = 500;
+            //change_count = 500;
             continue;
         }
 
 
+        int blocknum = dispatch_block(vm_id);
+ //       printk("cocotion test vm_id = %d, dispatch block = %d\n", vm_id, blocknum);
+
 
         struct socket *sock = kvm->ft_sock;
 
+        int i;
+
+        for(i = 0; i < blocknum; i++) {
 
             int start = kvm->ft_buf_head;
             int end   = kvm->ft_buf_tail;
 
             if(end <= start) {
-
-               // end_time = time_in_us();
-                //s64 difftime = end_time - kvm->start_time;
-                //kvm->virtualTime += difftime;
-                //kvm->virtualRate = kvm->ft_total_len/kvm->virtualTime;
-
-                //kvm->start_time = time_in_us();
-
                 vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
-                //vm_id = selectVM(vm_id);
-
                 change_count = 500;
-                continue;
+                //continue;
+                goto trans_func_start;
             }
-
-//            end_time = time_in_us();
- //           s64 difftime = end_time - kvm->start_time;
-
-//            kvm->virtualTime -= difftime;
-
-            //            printk("vm_id = %d\n", vm_id);
-
 
 
             int size = kvm->ft_data[start].size;
@@ -3876,50 +3969,19 @@ static int ft_trans_thread_func(void *data)
 
             s64 start2 = time_in_us();
             int len = ktcp_send(sock, kvm->ft_data[start].ft_buf, size);
-            //ft_total_len += len;
-            //
-            //
-        /*    s64 diff = time_in_us() - start2;
-            if(diff < 100) {
-                time_count++;
-                sum_time+=diff;
-                averagetime = sum_time/time_count;
 
-            }
-            if(2*averagetime > diff) {
-                udelay(2*averagetime - diff);
-            }
-
-            printk("diff = %d, size = %d, averagetime = %d\n", diff, size, averagetime);
-*/
 
             kvm->ft_total_len += len;
             start++;
             kvm->ft_buf_head = start;
 
-
-            //end_time = time_in_us();
-            //s64 difftime = end_time - kvm->start_time;
-            //kvm->virtualTime += difftime;
-            //kvm->virtualRate = kvm->ft_total_len/kvm->virtualTime;
+        }
 
 
-            kvm->virtualTime += 2*len;
-
-           // kvm->start_time = time_in_us();
-            //if(time_in_us() - all_start_time >= kvm->average_trans_time/10) {
-
-        //    if(change_count == 0) {
-
-//                vm_id = selectVM(vm_id);
-                //vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
-            vm_id = selectVM(vm_id);
-         //       change_count = 500;
-          //  }
-            //}
+            //vm_id = selectVM(vm_id);
 
             change_count--;
-//            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
 /////////////////////////////////////
 
 	}
@@ -4227,10 +4289,13 @@ void kvm_shm_exit(struct kvm *kvm)
         wake_up_process(ft_m_trans.ft_trans_kthread);
 	 	wake_up(&ft_m_trans.ft_trans_thread_event);
 		ft_m_trans.trans_kick = 1;
+        //kvm->trans_kick = 1;
     }
 
     if(kvm->ft_vm_id == 0 && ft_m_trans.ft_trans_kthread != NULL) {
+	    ft_m_trans.trans_kick = 0;
         kthread_stop(ft_m_trans.ft_trans_kthread);
+        kthread_stop(ft_m_trans.ft_getInputRate_kthread);
     }
 
 
@@ -4390,6 +4455,11 @@ int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info)
     kvm->start_time = time_in_us();
     kvm->virtualRate = 1;
     kvm->ft_total_len = 0;
+    kvm->input_current_rate[0] = 1;
+    kvm->input_rate_sum = 10;
+    kvm->input_rate_count_index = 0;
+    kvm->input_rate_old_index = 0;
+    kvm->input_length = 0;
 
 
     ft_m_trans.global_kvm[atomic_read(&ft_m_trans.ft_vm_count)] = kvm;

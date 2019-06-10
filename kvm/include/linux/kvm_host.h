@@ -567,6 +567,11 @@ struct kvm {
     volatile long int start_time;    // for fair scheduler
     volatile long int virtualRate;    // for fair scheduler
     volatile long int ft_total_len;    // for fair scheduler
+    int input_current_rate[10];
+    int input_rate_sum;
+    int input_rate_count_index;
+    int input_rate_old_index;
+    int input_length;
 
 
     volatile long int average_trans_time;    // for fair scheduler

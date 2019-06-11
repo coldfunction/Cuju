@@ -2453,8 +2453,7 @@ static void kvmft_flush_output(MigrationState *s)
 //	mybdupdate.last_trans_rate = 700;
 
 
-
-
+/*
    FILE *pFile;
    char pbuf[200];
 
@@ -2478,8 +2477,7 @@ static void kvmft_flush_output(MigrationState *s)
         printf("no profile\n");
     fclose(pFile);
 
-
-
+*/
 
 
 

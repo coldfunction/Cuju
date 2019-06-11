@@ -573,6 +573,7 @@ struct kvm {
     int input_rate_old_index;
     int input_length;
 
+    ktime_t epoch_start_time;
 
     volatile long int average_trans_time;    // for fair scheduler
 

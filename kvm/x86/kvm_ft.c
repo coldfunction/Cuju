@@ -382,7 +382,9 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 //    if(epoch_run_time > 8000 || (current_dirty_byte > 2000000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 7000 || beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
-    if(epoch_run_time > 8500 || ( beta >= target_latency_us)) {
+    if(epoch_run_time > 7000 || ( beta >= target_latency_us)) {
+//    if(epoch_run_time > 8500 || ( current_dirty_byte > (ctx->bd_alpha-65536) && beta >= target_latency_us )) {
+//    if((epoch_run_time > 8000 && current_dirty_byte > (ctx->bd_alpha-65536)) || (beta >= target_latency_us )) {
 
 //        hrtimer_cancel(&vcpu->hrtimer);
         kvm->epoch_start_time = vcpu->mark_start_time;
@@ -470,7 +472,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     //if(epoch_run_time > 7000 || (current_dirty_byte > 1500000 && beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 )) {
 //    if(epoch_run_time > 7000 || beta/*+ctx->bd_alpha*/ >= target_latency_us - 500 ) {
 //    if(epoch_run_time > 9000 || (current_dirty_byte > 1800000 && beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
-    if(epoch_run_time > 8500 || ( beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
+    if(epoch_run_time > 7000 || ( beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
+    //if(epoch_run_time > 8500 || ( current_dirty_byte > (ctx->bd_alpha-65536) && beta >= target_latency_us )) {
+//    if((epoch_run_time > 8000 && current_dirty_byte > (ctx->bd_alpha-65536)) || (beta >= target_latency_us )) {
 //jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*
@@ -1132,7 +1136,7 @@ int kvm_shm_enable(struct kvm *kvm)
             //goto err_free;
             kvm_shm_exit(kvm);
         }
-        kthread_bind(ft_m_trans.ft_trans_kthread, 7);
+        kthread_bind(ft_m_trans.ft_trans_kthread, 5);
 //	    init_waitqueue_head(&kvm->ft_trans_thread_event); // VM 0 awake
 	    init_waitqueue_head(&ft_m_trans.ft_trans_thread_event); // VM 0 awake
         wake_up_process(ft_m_trans.ft_trans_kthread);
@@ -3033,7 +3037,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     s64 trans_start = time_in_us();
     kvm->start_time = trans_start;
 
-    kvmft_tcp_unnodelay(sock);
+//    kvmft_tcp_unnodelay(sock);
     //kvmft_tcp_nodelay(sock);
 
     for (i = start; i < end; ++i) {
@@ -3081,16 +3085,18 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         len = kvmft_diff_to_buf(kvm, gfn, i, kvm->ft_data[kvm->ft_buf_tail].ft_buf + blocklen,
             trans_index, run_serial);
 
+
         blocklen+=len;
         total+=len;
 
-        kvm->input_length+=len;
+//        kvm->input_length+=len;
 
         if(blocklen >= 64*1024) {
             //int tail = kvm->ft_buf_tail;
             //kvm->ft_buf_tail += blocklen;
             kvm->ft_data[kvm->ft_buf_tail].size = blocklen;
             kvm->ft_buf_tail++;
+            kvm->input_length+=blocklen;
 
 
             blocklen = 0;
@@ -3106,12 +3112,38 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     }
 
-    if(blocklen > 0) {
-        //kvm->ft_buf_tail += blocklen;
-        kvm->ft_data[kvm->ft_buf_tail].size = blocklen;
-        kvm->ft_buf_tail++;
+/*
+    if(total >= 64*1024 && total < 1500000) {
+            uint8_t *buf;
+            buf = kvm->ft_data[0].ft_buf;
+            int blocksize = kvm->ft_data[0].size;
+            int size = 1500000 - total;
+            for(; size > 0; size-=blocksize) {
+                kvm->ft_data[kvm->ft_buf_tail].ft_buf = buf;
+                kvm->ft_data[kvm->ft_buf_tail].size = blocksize;
+                kvm->ft_buf_tail++;
+                kvm->input_length+=blocksize;
+            }
+
         blocklen = 0;
     }
+
+*/
+
+// This section is necessary
+    if(blocklen > 0) {
+//        kvm->ft_buf_tail += blocklen;
+        //
+
+        kvm->ft_data[kvm->ft_buf_tail].size = blocklen;
+        kvm->ft_buf_tail++;
+        kvm->input_length+=blocklen;
+        blocklen = 0;
+    }
+
+
+
+
 
 
 //	spin_lock(&transfer_lock);
@@ -3155,13 +3187,37 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
     //printk("cocotion test producer done, head = %d, tail = %d\n", kvm->ft_buf_head, kvm->ft_buf_tail);
 
+//waitagain:
 //    while(1){
         while(total != 0 && (kvm->ft_buf_tail != kvm->ft_buf_head)) {
             kvm->ft_producer_done = 1;
 	        kvm->trans_kick = 1;
             ft_m_trans.trans_kick = 1;
+
+    //        ktime_t diff = ktime_sub(ktime_get(), kvm->epoch_start_time);
+     //       int epoch_run_time = ktime_to_us(diff);
+      //      if(8500-epoch_run_time > 0)
+       //         udelay(8500-epoch_run_time);
             //udelay(20);
         }
+
+/*
+        if(total >= 64*1024 && kvm->ft_total_len < 1500000) {
+            int size = 1500000 - kvm->ft_total_len;
+            int blocknum = size/(64*1024);
+            if (blocknum < kvm->ft_buf_tail) {
+                kvm->ft_buf_tail = 0;
+                kvm->ft_buf_head = 0;
+                kvm->ft_buf_tail = blocknum;
+            }
+            goto waitagain;
+        }
+*/
+
+  //      ktime_t diff = ktime_sub(ktime_get(), kvm->epoch_start_time);
+   //     int epoch_run_time = ktime_to_us(diff);
+    //    if(8500-epoch_run_time > 0)
+     //       udelay(8500-epoch_run_time);
         /*
         s64 trans_end = time_in_us();
         s64 trans_time = trans_end - trans_start;
@@ -3202,7 +3258,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //    kvm->input_current_rate = kvm->input_rate_sum = kvm->input_rate_count = 1;
     //kvm->ft_total_len = 0;
 
-     kvmft_tcp_nodelay(sock);
+ //    kvmft_tcp_nodelay(sock);
 
 free:
     //total = 0;
@@ -3840,17 +3896,24 @@ static int selectVM(int vm_id) {
     return sel;
 */
     int i;
-    int max = -10000000;
+    int max = 0;
     int sel = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count);
     for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
         if(ft_m_trans.global_kvm[i]!=NULL) {
             struct kvm *kvm = ft_m_trans.global_kvm[i];
             ktime_t diff = ktime_sub(ktime_get(), kvm->epoch_start_time);
             int epoch_run_time = ktime_to_us(diff);
+            int virtualTime;
+            if(epoch_run_time > 8000 && epoch_run_time < 10000)
+                virtualTime = 2147483647/(10000-epoch_run_time);
+            else
+                continue;
+
             //printk("i = %d, epoch_run_time = %d\n", i);
-            if(epoch_run_time - kvm->ft_total_len > max) {
+            if(virtualTime > max) {
                 //max = epoch_run_time;
-                max = epoch_run_time - kvm->ft_total_len;;
+                //max = epoch_run_time - kvm->ft_total_len;
+                max = virtualTime;
                 sel = i;
             }
         }
@@ -3936,7 +3999,8 @@ int dispatch_block(int vm_id)
     count++;
 
   //  return 1;
-    return (block == 0)?1:block;
+//    return (block == 0)?1:block;
+    return (block < 2)?2:block;
 
     //return 1;
 }
@@ -3947,7 +4011,7 @@ static int ft_trans_thread_func(void *data)
 {
     int block_len = 64*1024;
     //int len = 0;
-	printk("cocotion test before fucking\n");
+	printk("cocotion test before fucking %d\n", current->pid);
 //	struct kvm *kvm = data;
     int vm_id = 0;
 
@@ -3984,8 +4048,9 @@ trans_func_start:
         int blocknum = dispatch_block(vm_id);
  //       printk("cocotion test vm_id = %d, dispatch block = %d\n", vm_id, blocknum);
         if(blocknum == -1) {
-            //vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
-            vm_id = selectVM(vm_id);
+            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+           // vm_id = selectVM(vm_id);
+ //           udelay(20);
             continue;
         }
 
@@ -4000,10 +4065,11 @@ trans_func_start:
             int end   = kvm->ft_buf_tail;
 
             if(end <= start) {
-                //vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
-                vm_id = selectVM(vm_id);
+                vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+                //vm_id = selectVM(vm_id);
                 change_count = 500;
                 //continue;
+//                udelay(20);
                 goto trans_func_start;
             }
 
@@ -4012,8 +4078,30 @@ trans_func_start:
 
 
             s64 start2 = time_in_us();
-            int len = ktcp_send(sock, kvm->ft_data[start].ft_buf, size);
 
+            int len = 0;
+            //int len = ktcp_send(sock, kvm->ft_data[start].ft_buf, size);
+            s64 send_start = time_in_us();
+
+            len = ktcp_send(sock, kvm->ft_data[start].ft_buf, size);
+            int sendtime = time_in_us() - send_start;
+ /*           sendtime+=1;
+
+            int trans_rate = size/sendtime;
+
+            if(trans_rate > 1360) {
+                printk("@@@@@ = %d, time = %d size = %d \n", size/1360 - sendtime, sendtime, size);
+                if(size/1360 - sendtime > 0)
+                    udelay(size/1360 - sendtime);
+            }
+*/
+
+        //        if(50 > sendtime) {
+         //           udelay(50-sendtime);
+          //      }
+
+           // sendtime = time_in_us() - send_start;
+            //printk("cocotion test send time = %d, size = %d, trans rate = %d\n", sendtime, len, len/sendtime);
 
             kvm->ft_total_len += len;
             start++;
@@ -4022,10 +4110,10 @@ trans_func_start:
         }
 
 
-            vm_id = selectVM(vm_id);
+            //vm_id = selectVM(vm_id);
 
             change_count--;
-            //vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+            vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
 /////////////////////////////////////
 
 	}
@@ -4328,7 +4416,7 @@ void kvm_shm_exit(struct kvm *kvm)
         ft_m_trans.global_kvm[kvm->ft_vm_id] = NULL;
 
         ft_m_trans.ft_trans_kthread = kthread_create(&ft_trans_thread_func, kvm, "ft_trans_thread");
-        kthread_bind(ft_m_trans.ft_trans_kthread, 7);
+        kthread_bind(ft_m_trans.ft_trans_kthread, 5);
 	    init_waitqueue_head(&ft_m_trans.ft_trans_thread_event); // VM 0 awake
         wake_up_process(ft_m_trans.ft_trans_kthread);
 	 	wake_up(&ft_m_trans.ft_trans_thread_event);

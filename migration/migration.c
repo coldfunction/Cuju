@@ -2453,7 +2453,7 @@ static void kvmft_flush_output(MigrationState *s)
 //	mybdupdate.last_trans_rate = 700;
 
 
-/*
+
    FILE *pFile;
    char pbuf[200];
 
@@ -2477,7 +2477,7 @@ static void kvmft_flush_output(MigrationState *s)
         printf("no profile\n");
     fclose(pFile);
 
-*/
+
 
 
 
@@ -2557,12 +2557,16 @@ static void kvmft_flush_output(MigrationState *s)
 	//if(latency_us <= target_latency  && latency_us >= target_latency - 2000) {
 //		mybdupdate.last_trans_rate = trans_rate;
 		ok++;
+		bd_alpha = s->ram_len;
 	}
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
+		if(bd_alpha > 40000)
+			bd_alpha -= 30000;
 	}
 	else {
 		latency_less_count++;
+		bd_alpha += 10000;
 	}
 
 
@@ -2594,7 +2598,7 @@ static void kvmft_flush_output(MigrationState *s)
 //
 //
 
-
+/*
 	double exceed_percentage, less_percentage, ok_percentage;
 
 	if(mcount%1000 == 0) {
@@ -2623,10 +2627,10 @@ static void kvmft_flush_output(MigrationState *s)
 		}
 		latency_exceed_count = latency_less_count = 0;
 	}
+*/
 
 
-
-
+	double ok_percentage;
     if(mcount%500 == 0) {
     	ok_percentage = (double)ok/mcount;
 
@@ -2641,7 +2645,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 //		printf("test exceed percentage is %lf\n", exceed_percentage);
 //		printf("test less percentage is %lf\n", less_percentage);
-//		printf("test bd_alpha is %d\n", bd_alpha);
+		printf("test bd_alpha is %d\n", bd_alpha);
 /*
 		if(exceed_percentage > less_percentage) {
 			if(exceed_percentage > 0.03) {
@@ -2764,6 +2768,11 @@ static int migrate_ft_trans_get_ready(void *opaque)
             s->join.wait_group_transfer_done = true;
         break;
 	*/
+
+   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+	if(latency_us < 9000)
+		usleep(9000-latency_us);
+
 		kvmft_flush_output(s);
         break;
 

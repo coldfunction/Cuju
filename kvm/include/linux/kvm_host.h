@@ -577,7 +577,7 @@ struct kvm {
 
     volatile long int average_trans_time;    // for fair scheduler
 
-
+    int ft_offset;
 
     struct socket *ft_sock;
 

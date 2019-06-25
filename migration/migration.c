@@ -182,7 +182,6 @@ extern struct kvmft_update_latency mybdupdate;
 //bool global_enable_trans_wait = false;
 int trans_rate_h[100];
 
-
 // At the time setting up FT, current will pointer to 2nd MigrationState.
 static int migration_states_current;
 
@@ -2274,8 +2273,8 @@ static void kvmft_flush_output(MigrationState *s)
 
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
 //    int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
-    //int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-    //int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
+    int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+ //   int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
 
 //	int real_transfer_time = (int)((s->transfer_real_finish_time - s->transfer_real_start_time) * 1000000);
@@ -2331,15 +2330,16 @@ static void kvmft_flush_output(MigrationState *s)
 //}
 */
 
+	int real_trans_rate = trans_rate;
 
 //	if(trans_rate == 0) trans_rate = 100;
-//	if(trans_rate < 400) {
+	if(trans_rate < 100) {
 //		printf("cocotion test trans_rate = %d, trans_us = %d, ram = %d\n", trans_rate, trans_us, s->ram_len);
-//		trans_rate = 400;
-//	}
-	if(trans_rate < 1) {
-		trans_rate = 1;
+		trans_rate = 100;
 	}
+//	if(trans_rate < 1) {
+//		trans_rate = 1;
+//	}
 
     /*    static unsigned long total_ram_trans = 0;
     static unsigned long total_trans_t = 0;
@@ -2409,7 +2409,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 	int threshold = all/100;
 //    if(mybdupdate.last_trans_rate >= 0)
-    //mybdupdate.last_trans_rate = threshold;
+   // mybdupdate.last_trans_rate = threshold;
 //    if(trans_rate_c == 5) trans_rate_c = 0;
 //    if(trans_rate_c == 50) trans_rate_c = 0;
     if(trans_oldest_head == 100) trans_oldest_head = 0; //88%
@@ -2434,21 +2434,28 @@ static void kvmft_flush_output(MigrationState *s)
 		//s->recv_ack1_time = time_in_double();
 	}
 */
-	s->recv_ack1_time = time_in_double();
-
-   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-
-	int old_latency_us = latency_us;
-//	if(latency_us < 9000)
-//		usleep(9000-latency_us);
-
 //	s->recv_ack1_time = time_in_double();
-//	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+
+//   	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+
+	//int old_latency_us = latency_us;
+
+//	int real_trans_rate = trans_rate;
+	if(latency_us < 9000) {
+		usleep(9000-latency_us);
+
+		s->recv_ack1_time = time_in_double();
+		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
 
-//	int real_trans_rate = s->ram_len/latency_us;
+		real_trans_rate = s->ram_len/latency_us;
+		//trans_rate = real_trans_rate;
+		//if(trans_rate < 100) trans_rate = 100;
 
-	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+	}
+
+//	usleep(1000);
+//	mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
 	mybdupdate.last_trans_rate = trans_rate;
 //	mybdupdate.last_trans_rate = 700;
 
@@ -2467,11 +2474,11 @@ static void kvmft_flush_output(MigrationState *s)
      //   fputs(pbuf, pFile);
       //  sprintf(pbuf, "%d\n", s->ram_len);
        // fputs(pbuf, pFile);
-        //sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
-        sprintf(pbuf, "%d\n", trans_rate);
+//        sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
+//        sprintf(pbuf, "%d\n", trans_rate);
+ //       fputs(pbuf, pFile);
+	     sprintf(pbuf, "%d\n", real_trans_rate);
         fputs(pbuf, pFile);
-        //sprintf(pbuf, "%d\n", real_transfer_time);
-        //fputs(pbuf, pFile);
     }
     else
         printf("no profile\n");
@@ -2557,16 +2564,16 @@ static void kvmft_flush_output(MigrationState *s)
 	//if(latency_us <= target_latency  && latency_us >= target_latency - 2000) {
 //		mybdupdate.last_trans_rate = trans_rate;
 		ok++;
-		bd_alpha = s->ram_len;
+		//bd_alpha = s->ram_len;
 	}
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
-		if(bd_alpha > 40000)
-			bd_alpha -= 30000;
+		//if(bd_alpha > 40000)
+		//	bd_alpha -= 30000;
 	}
 	else {
 		latency_less_count++;
-		bd_alpha += 10000;
+		//bd_alpha += 10000;
 	}
 
 
@@ -2634,13 +2641,22 @@ static void kvmft_flush_output(MigrationState *s)
     if(mcount%500 == 0) {
     	ok_percentage = (double)ok/mcount;
 
-		//double exceed_percentage = (double) latency_exceed_count/mcount;
-		//double less_percentage = (double) latency_less_count/mcount;
+		double exceed_percentage = (double) latency_exceed_count/mcount;
+		double less_percentage = (double) latency_less_count/mcount;
+
+		if(less_percentage > exceed_percentage) {
+			bd_alpha--;
+		}
+		else if (exceed_percentage > less_percentage) {
+			bd_alpha++;
+
+		}
 
 		printf("test ok percentage is %lf\n", ok_percentage);
-//		printf("test less percentage is %lf\n", less_percentage);
+		printf("test less percentage is %lf\n", less_percentage);
+		printf("test exceed percentage is %lf\n", exceed_percentage);
 
-		printf("test my old latency is %d\n", old_latency_us);
+		printf("test my  latency is %d\n", latency_us);
 		printf("test my threshold is %d\n", threshold);
 
 //		printf("test exceed percentage is %lf\n", exceed_percentage);
@@ -2756,6 +2772,8 @@ static int migrate_ft_trans_get_ready(void *opaque)
         FTPRINTF("%s slave ack1 time %lf\n", __func__,
             time_in_double() - s->transfer_finish_time);
 
+
+
         dirty_page_tracking_logs_start_flush_output(s);
         migrate_set_ft_state(s, CUJU_FT_TRANSACTION_FLUSH_OUTPUT);
 
@@ -2769,9 +2787,10 @@ static int migrate_ft_trans_get_ready(void *opaque)
         break;
 	*/
 
-   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-	if(latency_us < 9000)
-		usleep(9000-latency_us);
+//   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+//	if(latency_us < 9000)
+//		usleep(9000-latency_us);
+
 
 		kvmft_flush_output(s);
         break;

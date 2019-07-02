@@ -396,6 +396,8 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 //    if( (kvm2 && !kvm2->ft_producer_done && epoch_run_time > 6500) ||  beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 //    if( current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 
+        kvm->snapshot_dirty_len = current_dirty_byte;
+
 //        hrtimer_cancel(&vcpu->hrtimer);
         kvm->epoch_start_time = vcpu->mark_start_time;
 
@@ -494,6 +496,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
    // if( (kvm2 && !kvm2->ft_producer_done && epoch_run_time > 6500) ||  beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
     if(epoch_run_time > (target_latency_us-target_latency_us/20) || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ - 2 * ctx->bd_alpha - 700 - 800 - 500) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
+        kvm->snapshot_dirty_len = current_dirty_byte;
 //jump:
 //			p_dirty_bytes = current_dirty_byte;
 /*
@@ -1168,6 +1171,8 @@ int kvm_shm_enable(struct kvm *kvm)
     kvm->input_rate_count_index = 0;
     kvm->input_rate_old_index = 0;
     kvm->input_length = 0;
+    kvm->snapshot_dirty_len = 0;
+
 
 
     ft_m_trans.global_kvm[atomic_read(&ft_m_trans.ft_vm_count)] = kvm;
@@ -3301,6 +3306,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             //udelay(20);
         }
 
+        kvm->snapshot_dirty_len = 0;
+
 /*
         if(total >= 64*1024 && kvm->ft_total_len < 1500000) {
             int size = 1500000 - kvm->ft_total_len;
@@ -4115,12 +4122,14 @@ int dispatch_block(int vm_id)
     static unsigned long int count = 0;
 
     int sum_runaverage = 0;
+    int sum = 0;
     int i;
     for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
 //        if(ft_m_trans.global_kvm[i]!=NULL && ft_m_trans.global_kvm[i]->ft_buf_tail != 0) {
         if(ft_m_trans.global_kvm[i]!=NULL) {
             struct kvm *kvm = ft_m_trans.global_kvm[i];
-            sum_runaverage += kvm->input_rate_sum/10;
+            //sum_runaverage += kvm->input_rate_sum/10;
+            sum += kvm->snapshot_dirty_len;
    //         printk("cocotion test input rate = %d, sum rate = %d\n", kvm->input_rate_sum, sum_runaverage);
    //         if(count%500 == 0) {
     //            printk("cocotion test i = %d, sum_runaverage = %d, ft_m_trans.ft_mode_vm_count = %d\n", i, sum_runaverage, ft_m_trans.ft_mode_vm_count);
@@ -4128,17 +4137,20 @@ int dispatch_block(int vm_id)
         }
     }
 
-    int average_trans_rate = ft_m_trans.global_kvm[vm_id]->input_rate_sum/10;
-
+//    int average_trans_rate = ft_m_trans.global_kvm[vm_id]->input_rate_sum/10;
+    int dirty_len = ft_m_trans.global_kvm[vm_id]->snapshot_dirty_len;
 
 //    if(vm_id == 1)
  //       printk("cocotion test vm_id = %d, average_trans_rate = %d\n", vm_id, average_trans_rate);
 
 
-    if(sum_runaverage == 0)
+//    if(sum_runaverage == 0)
+    if(sum == 0)
         return -1;
+//        return 1;
 
-    int weight = 1310 * average_trans_rate/sum_runaverage;
+//    int weight = 1310 * average_trans_rate/sum_runaverage;
+    int weight = 1310 * dirty_len/sum;
 
     int bytes = weight * 200;
 
@@ -4216,6 +4228,7 @@ static int ft_trans_thread_func(void *data)
             vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
            // vm_id = selectVM(vm_id);
  //           udelay(20);
+            blocknum = 0;
             continue;
         }
 

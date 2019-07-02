@@ -576,6 +576,8 @@ struct kvm {
     ktime_t epoch_start_time;
 
     volatile long int average_trans_time;    // for fair scheduler
+    volatile int snapshot_dirty_len;
+
 
     int ft_offset;
 

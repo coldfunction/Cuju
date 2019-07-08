@@ -1434,6 +1434,10 @@ struct kvmft_update_latency {
 	int alpha;
 };
 #define KVMFT_BD_UPDATE_LATENCY _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
+#define KVMFT_BD_SYNC_SIG       _IO(KVMIO, 0xd3)
+#define KVMFT_BD_SYNC_CHECK     _IO(KVMIO, 0xd4)
+#define KVMFT_BD_GET_DIRTY     _IO(KVMIO, 0xd5)
+
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)

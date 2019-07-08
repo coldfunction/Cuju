@@ -189,8 +189,9 @@ int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime);
 
 int kvmft_bd_page_fault_check(void);
 
-
-
+int kvmft_bd_sync_sig(struct kvm *kvm);
+int kvmft_bd_sync_check(struct kvm *kvm);
+int kvmft_bd_get_dirty(struct kvm *kvm);
 
 
 #endif

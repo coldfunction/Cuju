@@ -577,7 +577,8 @@ struct kvm {
 
     volatile long int average_trans_time;    // for fair scheduler
     volatile int snapshot_dirty_len;
-
+    int before_snapshot_dirty_len;
+    int ft_sync;
 
     int ft_offset;
 

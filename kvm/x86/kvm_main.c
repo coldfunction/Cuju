@@ -3503,6 +3503,18 @@ out_free_irq_routing:
         kvmft_bd_update_latency(kvm, &update);
         break;
 	}
+	case KVMFT_BD_SYNC_SIG: {
+		r = kvmft_bd_sync_sig(kvm);
+		break;
+	}
+    case KVMFT_BD_SYNC_CHECK: {
+		r = kvmft_bd_sync_check(kvm);
+		break;
+	}
+    case KVMFT_BD_GET_DIRTY: {
+		r = kvmft_bd_get_dirty(kvm);
+		break;
+	}
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);
 	}

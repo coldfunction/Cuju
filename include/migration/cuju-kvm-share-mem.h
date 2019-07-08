@@ -73,4 +73,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 void bd_update_stat(int dirty_num, double tran_time_s, double delay_time_s, double run_time_s, double invoke_commit1_s, double recv_ack1_s, int ram_len, int average_predict);
 void bd_reset_epoch_timer(void);
 
+int cuju_put_sync_local_VM_sig(void);
+int cuju_sync_local_VM_ok(void);
+int cuju_get_dirty(void);
+
 #endif

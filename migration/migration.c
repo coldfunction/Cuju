@@ -2280,9 +2280,9 @@ static void kvmft_flush_output(MigrationState *s)
 //	int real_transfer_time = (int)((s->transfer_real_finish_time - s->transfer_real_start_time) * 1000000);
 
 	int trans_rate = s->ram_len/trans_us;
-
-
-
+	int total_dirty = 0;
+//	int total_dirty = cuju_get_dirty();
+//	trans_rate = total_dirty/trans_us;
 
 /*	int t = 0;
 
@@ -2330,13 +2330,20 @@ static void kvmft_flush_output(MigrationState *s)
 //}
 */
 
-	int real_trans_rate = trans_rate;
+//	int real_trans_rate = trans_rate;
+
+	if(s->ram_len < trans_us) {
+		trans_rate = 1310;
+	}
+	if(trans_rate < 2) {
+		trans_rate = 2;
+	}
 
 //	if(trans_rate == 0) trans_rate = 100;
-	if(trans_rate < 100) {
+//	if(trans_rate < 100) {
 //		printf("cocotion test trans_rate = %d, trans_us = %d, ram = %d\n", trans_rate, trans_us, s->ram_len);
-		trans_rate = 100;
-	}
+//		trans_rate = 100;
+//	}
 //	if(trans_rate < 1) {
 //		trans_rate = 1;
 //	}
@@ -2441,7 +2448,7 @@ static void kvmft_flush_output(MigrationState *s)
 	//int old_latency_us = latency_us;
 
 //	int real_trans_rate = trans_rate;
-	if(latency_us < 9000) {
+/*	if(latency_us < 9000) {
 		usleep(9000-latency_us);
 
 		s->recv_ack1_time = time_in_double();
@@ -2453,7 +2460,7 @@ static void kvmft_flush_output(MigrationState *s)
 		//if(trans_rate < 100) trans_rate = 100;
 
 	}
-
+*/
 //	usleep(1000);
 //	mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
 	mybdupdate.last_trans_rate = trans_rate;
@@ -2476,8 +2483,9 @@ static void kvmft_flush_output(MigrationState *s)
        // fputs(pbuf, pFile);
 //        sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
 //        sprintf(pbuf, "%d\n", trans_rate);
+        sprintf(pbuf, "%d %d %d\n", migrate_get_index(s), trans_rate, total_dirty);
  //       fputs(pbuf, pFile);
-	     sprintf(pbuf, "%d\n", real_trans_rate);
+//	     sprintf(pbuf, "%d\n", real_trans_rate);
         fputs(pbuf, pFile);
     }
     else
@@ -2726,6 +2734,17 @@ static void kvmft_flush_output(MigrationState *s)
 }
 
 
+static void cuju_sync_local_VMs_runstage(void)
+{
+	if(!cuju_sync_local_VM_ok()) {
+		while(cuju_put_sync_local_VM_sig())	 {
+		}
+	}
+}
+
+
+
+
 // NOTE: don't send content in this function
 static int migrate_ft_trans_get_ready(void *opaque)
 {
@@ -2766,6 +2785,10 @@ static int migrate_ft_trans_get_ready(void *opaque)
             printf("%s sender receive ACK1 failed.\n", __func__);
             goto error_out;
         }
+
+
+		cuju_sync_local_VMs_runstage();
+
 
 		s->recv_ack1_time = time_in_double();
 
@@ -3337,6 +3360,7 @@ out:
     return NULL;
 }
 
+
 static void migrate_run(MigrationState *s)
 {
     static unsigned long run_serial = 0;
@@ -3361,6 +3385,11 @@ static void migrate_run(MigrationState *s)
         s->ft_event_tap_list, NULL, NULL);
 
     cuju_qemu_set_last_cmd(s->file, CUJU_QEMU_VM_TRANSACTION_BEGIN);
+
+
+//	if (s == migrate_by_index(0))
+//		cuju_sync_local_VMs_runstage();
+
 
     qemu_iohandler_ft_pause(false);
     vm_start_mig();

@@ -24,6 +24,22 @@ void bd_reset_epoch_timer(void)
 }
 
 
+int cuju_put_sync_local_VM_sig(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_SIG, NULL);
+}
+
+int cuju_sync_local_VM_ok(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_CHECK, NULL);
+}
+
+int cuju_get_dirty(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_DIRTY, NULL);
+}
+
+
 
 int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)
 {

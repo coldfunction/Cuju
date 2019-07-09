@@ -3504,11 +3504,19 @@ out_free_irq_routing:
         break;
 	}
 	case KVMFT_BD_SYNC_SIG: {
-		r = kvmft_bd_sync_sig(kvm);
+		int stage = 0; //0: run, 1: flush
+		r = -EFAULT;
+        if (copy_from_user(&stage, argp, sizeof stage))
+			goto out;
+		r = kvmft_bd_sync_sig(kvm, stage);
 		break;
 	}
     case KVMFT_BD_SYNC_CHECK: {
-		r = kvmft_bd_sync_check(kvm);
+		int stage = 0; //0: run, 1: flush
+		r = -EFAULT;
+        if (copy_from_user(&stage, argp, sizeof stage))
+			goto out;
+		r = kvmft_bd_sync_check(kvm, stage);
 		break;
 	}
     case KVMFT_BD_GET_DIRTY: {

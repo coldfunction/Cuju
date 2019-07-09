@@ -24,14 +24,14 @@ void bd_reset_epoch_timer(void)
 }
 
 
-int cuju_put_sync_local_VM_sig(void)
+int cuju_put_sync_local_VM_sig(int stage)
 {
-	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_SIG, NULL);
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_SIG, &stage);
 }
 
-int cuju_sync_local_VM_ok(void)
+int cuju_sync_local_VM_ok(int stage)
 {
-	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_CHECK, NULL);
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_CHECK, &stage);
 }
 
 int cuju_get_dirty(void)

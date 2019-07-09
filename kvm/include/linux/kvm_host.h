@@ -572,6 +572,8 @@ struct kvm {
     int input_rate_count_index;
     int input_rate_old_index;
     int input_length;
+    int sync_stage;
+
 
     ktime_t epoch_start_time;
 
@@ -579,6 +581,7 @@ struct kvm {
     volatile int snapshot_dirty_len;
     int before_snapshot_dirty_len;
     int ft_sync;
+    int ftflush;
 
     int ft_offset;
 

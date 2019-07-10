@@ -67,9 +67,11 @@ struct ft_multi_trans_h {
     atomic_t ft_snapshot_num;
     atomic_t ft_synced_num;
     atomic_t ft_synced_num2;
+    atomic_t ft_synced_num3;
 	atomic_t ft_total_dirty;
 	atomic_t sync_ok;
 	atomic_t sync_ok2;
+	atomic_t sync_ok3;
 	int ft_trans_dirty;
     struct task_struct *ft_trans_kthread;
     struct task_struct *ft_getInputRate_kthread;
@@ -82,7 +84,7 @@ struct ft_multi_trans_h {
     struct kvm *global_kvm[128];
 };
 
-struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), NULL, NULL, 1};
+struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0), NULL, NULL, 1};
 
 static int ft_trans_thread_func(void *data);
 static int getInputRate(void *data);
@@ -421,13 +423,31 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 //    if( (kvm2 && !kvm2->ft_producer_done && epoch_run_time > 6500) ||  beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 //    if( current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 
-//		printk("take snapshot vmid = %d, time = %d\n", kvm->ft_vm_id , time_in_us());
+		//printk("take snapshot1 vmid = %d, total_dirty_byte = %d, time = %d\n", kvm->ft_vm_id , total_dirty_byte, time_in_us());
 		atomic_inc(&ft_m_trans.ft_snapshot_num);
-        while(atomic_read(&ft_m_trans.ft_snapshot_num) && (atomic_read(&ft_m_trans.ft_snapshot_num) != atomic_read(&ft_m_trans.ft_mode_vm_count))) {
+     //   while(atomic_read(&ft_m_trans.ft_snapshot_num) && (atomic_read(&ft_m_trans.ft_snapshot_num) != atomic_read(&ft_m_trans.ft_mode_vm_count))) {
             //atomic_set(&ft_m_trans.ft_snapshot_num, 0);
-    		printk("cocotion test vmid = %d, snapshot_num = %d\n", kvm->ft_vm_id, atomic_read(&ft_m_trans.ft_snapshot_num)) ;
-        }
-        atomic_set(&ft_m_trans.ft_snapshot_num, 0);
+    		/*printk("cocotion test vmid = %d, snapshot_num = %d\n", kvm->ft_vm_id, atomic_read(&ft_m_trans.ft_snapshot_num)) ;
+				printk("cocotion test vmid = %d in snapsht 0, sync_stage = %d, time = %d, [vmid0: sync_stage = %d, ftflush = %d], [vmid1: sync_stage = %d, ftflush = %d]\n", kvm->ft_vm_id, kvm->sync_stage, time_in_us(), \
+						ft_m_trans.global_kvm[0]->sync_stage, ft_m_trans.global_kvm[0]->ftflush, \
+						ft_m_trans.global_kvm[1]->sync_stage, ft_m_trans.global_kvm[1]->ftflush);
+*/
+
+			/*
+			if(kvm->sync_stage <= 1) {
+				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        			if(i != kvm->ft_vm_id && ft_m_trans.global_kvm[i]!=NULL) {
+        				struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+						if(kvm_p->sync_stage == 1) {
+        					atomic_set(&ft_m_trans.ft_snapshot_num, 0);
+							break;
+    					}
+					}
+				}
+			}*/
+	//	}
+		if(atomic_read(&ft_m_trans.ft_snapshot_num) == atomic_read(&ft_m_trans.ft_mode_vm_count))
+        	atomic_set(&ft_m_trans.ft_snapshot_num, 0);
 
 
 
@@ -436,9 +456,31 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 //        hrtimer_cancel(&vcpu->hrtimer);
         kvm->epoch_start_time = vcpu->mark_start_time;
 
-        vcpu->hrtimer_pending = true;
-        vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-        kvm_vcpu_kick(vcpu);
+
+
+
+/*
+		spin_lock(&ft_m_trans.ft_lock);
+
+		if(vcpu->hrtimer_pending == false) {
+			for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        		if(ft_m_trans.global_kvm[i]!=NULL) {
+        			struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+					struct kvm_vcpu *vcpu_p = kvm_p->vcpus[0];
+        			vcpu_p->hrtimer_pending = true;
+        			vcpu_p->run->exit_reason = KVM_EXIT_HRTIMER;
+        			kvm_vcpu_kick(vcpu_p);
+				}
+			}
+		}
+*/
+		if(vcpu->hrtimer_pending == false) {
+        	vcpu->hrtimer_pending = true;
+        	vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        	kvm_vcpu_kick(vcpu);
+		}
+
+//		spin_unlock(&ft_m_trans.ft_lock);
         return NULL;
 	}
     diff = ktime_sub(ktime_get(), start);
@@ -545,12 +587,31 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     if(snum || epoch_run_time > (target_latency_us-target_latency_us/20) || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ ) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
 
-//		printk("take snapshot vmid = %d, time = %d\n", kvm->ft_vm_id , time_in_us());
+//		printk("take snapshot0 vmid = %d, total_dirty_byte = %d, time = %d\n", kvm->ft_vm_id , total_dirty_byte, time_in_us());
 		atomic_inc(&ft_m_trans.ft_snapshot_num);
-        while(atomic_read(&ft_m_trans.ft_snapshot_num) && (atomic_read(&ft_m_trans.ft_snapshot_num) != atomic_read(&ft_m_trans.ft_mode_vm_count))) {
-    		printk("cocotion test vmid = %d, snapshot_num = %d\n", kvm->ft_vm_id, atomic_read(&ft_m_trans.ft_snapshot_num)) ;
-		}
 
+
+	//	while(atomic_read(&ft_m_trans.ft_snapshot_num) && (atomic_read(&ft_m_trans.ft_snapshot_num) != atomic_read(&ft_m_trans.ft_mode_vm_count))) {
+/*    		printk("cocotion test vmid = %d, snapshot_num = %d\n", kvm->ft_vm_id, atomic_read(&ft_m_trans.ft_snapshot_num)) ;
+				printk("cocotion test vmid = %d in snapshot 1, sync_stage = %d, time = %d, [vmid0: sync_stage = %d, ftflush = %d], [vmid1: sync_stage = %d, ftflush = %d]\n", kvm->ft_vm_id, kvm->sync_stage, time_in_us(), \
+						ft_m_trans.global_kvm[0]->sync_stage, ft_m_trans.global_kvm[0]->ftflush, \
+						ft_m_trans.global_kvm[1]->sync_stage, ft_m_trans.global_kvm[1]->ftflush);
+*/
+			/*
+			if(kvm->sync_stage <= 1) {
+				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        			if(i != kvm->ft_vm_id && ft_m_trans.global_kvm[i]!=NULL) {
+        				struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+						if(kvm_p->sync_stage == 1 ) {
+        					atomic_set(&ft_m_trans.ft_snapshot_num, 0);
+							break;
+    					}
+					}
+				}
+			}*/
+	//	}
+
+	if(atomic_read(&ft_m_trans.ft_snapshot_num) == atomic_read(&ft_m_trans.ft_mode_vm_count))
         atomic_set(&ft_m_trans.ft_snapshot_num, 0);
 
 		kvm->snapshot_dirty_len = current_dirty_byte;
@@ -567,12 +628,32 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 */
 //        	hrtimer_cancel(&vcpu->hrtimer);
 
-
+/*
             kvm->epoch_start_time = vcpu->mark_start_time;
 
-            vcpu->hrtimer_pending = true;
-            vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-            kvm_vcpu_kick(vcpu);
+			spin_lock(&ft_m_trans.ft_lock);
+			if(vcpu->hrtimer_pending == false) {
+				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+	        		if(ft_m_trans.global_kvm[i]!=NULL) {
+	        			struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+						struct kvm_vcpu *vcpu_p = kvm_p->vcpus[0];
+	        			vcpu_p->hrtimer_pending = true;
+	        			vcpu_p->run->exit_reason = KVM_EXIT_HRTIMER;
+	        			kvm_vcpu_kick(vcpu_p);
+					}
+				}
+			}
+			spin_unlock(&ft_m_trans.ft_lock);
+*/
+
+
+
+			if(vcpu->hrtimer_pending == false) {
+            	vcpu->hrtimer_pending = true;
+            	vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+            	kvm_vcpu_kick(vcpu);
+			}
+
             //return 1;
             //return self;
 			return NULL;
@@ -1205,9 +1286,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->ft_buf_tail = kvm->ft_buf_head = kvm->trans_kick = 0;
 	kvm->ft_buf_size = 4096*1024;
 //	kvm->ft_buf = kmalloc(kvm->ft_buf_size, GFP_KERNEL);
-    kvm->ft_data = kmalloc(128*sizeof(struct ft_trans_data), GFP_KERNEL);
+    kvm->ft_data = kmalloc(256*sizeof(struct ft_trans_data), GFP_KERNEL);
     int i;
-    for(i = 0; i < 128; i++) {
+    for(i = 0; i < 256; i++) {
         kvm->ft_data[i].ft_buf = kmalloc(64*1024+8192, GFP_KERNEL);
         kvm->ft_data[i].size    = 0;
     }
@@ -5017,7 +5098,7 @@ void kvm_shm_exit(struct kvm *kvm)
     }
 
 
-    for(i = 0; i < 128; i++) {
+    for(i = 0; i < 256; i++) {
 	    kfree(kvm->ft_data[i].ft_buf);
     }
     kfree(kvm->ft_data);
@@ -5329,7 +5410,7 @@ int kvmft_bd_sync_sig(struct kvm *kvm, int stage)
 		if(r == 0) {
 			atomic_inc(&ft_m_trans.sync_ok);
 			spin_lock(&ft_m_trans.ft_lock);
-			kvm->ftflush = 1;
+			kvm->ftflush = 2;
 			kvm->sync_stage--;
 			spin_unlock(&ft_m_trans.ft_lock);
 //			printk("cocotion test sync run1 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
@@ -5339,10 +5420,10 @@ int kvmft_bd_sync_sig(struct kvm *kvm, int stage)
 		r = atomic_read(&ft_m_trans.ft_synced_num2);
 		if(r == 0) {
 			atomic_inc(&ft_m_trans.sync_ok2);
-			spin_lock(&ft_m_trans.ft_lock);
+			spin_lock(&ft_m_trans.ft_lock2);
 			kvm->ftflush = 0;
 			kvm->sync_stage--;
-			spin_unlock(&ft_m_trans.ft_lock);
+			spin_unlock(&ft_m_trans.ft_lock2);
 //			printk("cocotion test sync flush1 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
 		}
 
@@ -5353,20 +5434,51 @@ int kvmft_bd_sync_sig(struct kvm *kvm, int stage)
 				if(kvm->sync_stage == 1 && kvm_p->ftflush == 0) {
 					atomic_dec(&ft_m_trans.ft_synced_num2);
 
-					spin_lock(&ft_m_trans.ft_lock);
+					spin_lock(&ft_m_trans.ft_lock2);
 					kvm->ftflush = 0;
 					kvm->sync_stage--;
-					spin_unlock(&ft_m_trans.ft_lock);
+					spin_unlock(&ft_m_trans.ft_lock2);
 
 //					printk("other is run, but I am flush1 vmid = %d\n", kvm->ft_vm_id);
-
-
 					return 0;
 				}
 			}
 		}
+	}
+	else if(stage == 2){
+		r = atomic_read(&ft_m_trans.ft_synced_num3);
+		if(r == 0) {
+			atomic_inc(&ft_m_trans.sync_ok3);
+			spin_lock(&ft_m_trans.ft_lock);
+			kvm->ftflush = 1;
+	//		kvm->sync_stage--;
+			spin_unlock(&ft_m_trans.ft_lock);
+//			printk("cocotion test sync run1 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
+		}
+
+		printk("cocotion test vmid = %d in snapshot 1, sync_stage = %d, time = %d, [vmid0: sync_stage = %d, ftflush = %d], [vmid1: sync_stage = %d, ftflush = %d]\n", kvm->ft_vm_id, kvm->sync_stage, time_in_us(), \
+				ft_m_trans.global_kvm[0]->sync_stage, ft_m_trans.global_kvm[0]->ftflush, \
+				ft_m_trans.global_kvm[1]->sync_stage, ft_m_trans.global_kvm[1]->ftflush);
+
+				int i;
+				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        			struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+					if(kvm_p->sync_stage <= 1 && (kvm_p->ftflush == 0 || kvm_p->ftflush == 1)) {
+						atomic_dec(&ft_m_trans.ft_synced_num3);
+
+						spin_lock(&ft_m_trans.ft_lock);
+						kvm->ftflush = 1;
+						spin_unlock(&ft_m_trans.ft_lock);
+//							printk("other is run, but I am flush0 vmid = %d\n", kvm->ft_vm_id);
+						return 0;
+					}
+				}
+
+
+
 
 	}
+
 
 
 
@@ -5380,8 +5492,6 @@ int kvmft_bd_sync_check(struct kvm *kvm, int stage)
     int i;
 
 	if(stage == 0) {
-
-
 		spin_lock(&ft_m_trans.ft_lock);
 		kvm->ftflush = 0;
 		kvm->sync_stage++;
@@ -5403,7 +5513,7 @@ int kvmft_bd_sync_check(struct kvm *kvm, int stage)
 			}
 			atomic_set(&ft_m_trans.sync_ok, 0);
 			spin_lock(&ft_m_trans.ft_lock);
-			kvm->ftflush = 1;
+			kvm->ftflush = 2;
 			kvm->sync_stage--;
 			spin_unlock(&ft_m_trans.ft_lock);
 //			printk("cocotion test sync run0 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
@@ -5448,24 +5558,22 @@ int kvmft_bd_sync_check(struct kvm *kvm, int stage)
 						if(kvm_p->sync_stage == 1 && kvm_p->ftflush == 0) {
 							atomic_set(&ft_m_trans.sync_ok2, 0);
 
-							spin_lock(&ft_m_trans.ft_lock);
+							spin_lock(&ft_m_trans.ft_lock2);
 							kvm->ftflush = 0;
 							kvm->sync_stage--;
-							spin_unlock(&ft_m_trans.ft_lock);
+							spin_unlock(&ft_m_trans.ft_lock2);
 //							printk("other is run, but I am flush0 vmid = %d\n", kvm->ft_vm_id);
 							return 1;
 						}
-
-
 					}
 				}
 			}
 			atomic_set(&ft_m_trans.sync_ok2, 0);
 
-			spin_lock(&ft_m_trans.ft_lock);
+			spin_lock(&ft_m_trans.ft_lock2);
 			kvm->ftflush = 0;
 			kvm->sync_stage--;
-			spin_unlock(&ft_m_trans.ft_lock);
+			spin_unlock(&ft_m_trans.ft_lock2);
 
 //			printk("cocotion test sync flush0 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
 
@@ -5481,7 +5589,55 @@ int kvmft_bd_sync_check(struct kvm *kvm, int stage)
 
 		return 1;
 	}
+	else if (stage == 2) {
+		spin_lock(&ft_m_trans.ft_lock);
+		//kvm->ftflush = 0;
 
+		//if other sync stage == 1  and is fulsh  then go
+
+		int num = atomic_inc_return(&ft_m_trans.ft_synced_num3);
+		int total = atomic_read(&ft_m_trans.ft_mode_vm_count);
+		if(num == total) {
+			atomic_set(&ft_m_trans.ft_synced_num3, 0);
+			atomic_inc(&ft_m_trans.sync_ok3);
+			spin_unlock(&ft_m_trans.ft_lock);
+			while(atomic_read(&ft_m_trans.sync_ok3) != atomic_read(&ft_m_trans.ft_mode_vm_count))
+			{
+			//	kvm->ftflush = 0;
+			//
+			//
+				printk("cocotion test vmid = %d in snapshot 0, sync_stage = %d, time = %d, [vmid0: sync_stage = %d, ftflush = %d], [vmid1: sync_stage = %d, ftflush = %d]\n", kvm->ft_vm_id, kvm->sync_stage, time_in_us(), \
+						ft_m_trans.global_kvm[0]->sync_stage, ft_m_trans.global_kvm[0]->ftflush, \
+						ft_m_trans.global_kvm[1]->sync_stage, ft_m_trans.global_kvm[1]->ftflush);
+				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        			struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+					if(kvm_p->sync_stage <= 1 && (kvm_p->ftflush == 0 || kvm_p->ftflush == 1)) {
+						atomic_set(&ft_m_trans.sync_ok3, 0);
+
+						spin_lock(&ft_m_trans.ft_lock);
+						kvm->ftflush = 1;
+						spin_unlock(&ft_m_trans.ft_lock);
+//							printk("other is run, but I am flush0 vmid = %d\n", kvm->ft_vm_id);
+						return 1;
+					}
+				}
+			//
+			//
+			//
+			//
+			//
+			}
+			atomic_set(&ft_m_trans.sync_ok3, 0);
+			spin_lock(&ft_m_trans.ft_lock);
+			kvm->ftflush = 1;
+			//kvm->sync_stage--;
+			spin_unlock(&ft_m_trans.ft_lock);
+//			printk("cocotion test sync run0 vmid = %d time =  %d\n", kvm->ft_vm_id, time_in_us());
+			return 1;
+		}
+		spin_unlock(&ft_m_trans.ft_lock);
+		return 0;
+	}
 
 }
 

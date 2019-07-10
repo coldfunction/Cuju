@@ -3432,6 +3432,8 @@ static void migrate_timer(void *opaque)
     s->trans_serial = ++trans_serial;
 
     qemu_mutex_lock_iothread();
+	cuju_sync_local_VMs_runstage(2);
+
     s->snapshot_start_time = time_in_double();
     vm_stop_mig();
     qemu_iohandler_ft_pause(true);

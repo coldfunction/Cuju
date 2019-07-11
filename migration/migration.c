@@ -2474,7 +2474,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -3432,7 +3432,7 @@ static void migrate_timer(void *opaque)
     s->trans_serial = ++trans_serial;
 
     qemu_mutex_lock_iothread();
-	cuju_sync_local_VMs_runstage(2);
+//	cuju_sync_local_VMs_runstage(2);
 
     s->snapshot_start_time = time_in_double();
     vm_stop_mig();

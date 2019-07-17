@@ -34,9 +34,9 @@ int cuju_sync_local_VM_ok(int stage)
 	return kvm_vm_ioctl(kvm_state, KVMFT_BD_SYNC_CHECK, &stage);
 }
 
-int cuju_get_dirty(void)
+int cuju_get_dirty(int index)
 {
-	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_DIRTY, NULL);
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_DIRTY, &index);
 }
 
 

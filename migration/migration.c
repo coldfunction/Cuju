@@ -2283,7 +2283,8 @@ static void kvmft_flush_output(MigrationState *s)
 
 //	int trans_rate = s->ram_len/trans_us;
 //	int total_dirty = 0;
-	int total_dirty = cuju_get_dirty();
+//	int total_dirty = cuju_get_dirty();
+	int total_dirty = cuju_get_dirty(migrate_get_index(s));
 	int trans_rate = total_dirty/trans_us;
 
 /*	int t = 0;
@@ -2335,11 +2336,11 @@ static void kvmft_flush_output(MigrationState *s)
 //	int real_trans_rate = trans_rate;
 
 	//if(s->ram_len < trans_us) {
-	if(total_dirty < trans_us) {
-		trans_rate = 1310;
-	}
-	if(trans_rate < 2) {
-		trans_rate = 2;
+//	if(total_dirty < trans_us) {
+//		trans_rate = 1310;
+//	}
+	if(trans_rate < 100) {
+		trans_rate = 100;
 	}
 
 //	if(trans_rate == 0) trans_rate = 100;
@@ -2486,7 +2487,10 @@ static void kvmft_flush_output(MigrationState *s)
        // fputs(pbuf, pFile);
 //        sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
 //        sprintf(pbuf, "%d\n", trans_rate);
-        sprintf(pbuf, "%d %d %d %lf %lf %lf\n", migrate_get_index(s), trans_rate, total_dirty, s->run_real_start_time, s->recv_ack1_time, s->snapshot_start_time);
+        sprintf(pbuf, "%d %d %d %lf %lf %lf %d\n", \
+				migrate_get_index(s), trans_rate, \
+				total_dirty, s->run_real_start_time, \
+				s->recv_ack1_time, s->snapshot_start_time, s->ram_len);
  //       fputs(pbuf, pFile);
 //	     sprintf(pbuf, "%d\n", real_trans_rate);
         fputs(pbuf, pFile);
@@ -2737,14 +2741,16 @@ static void kvmft_flush_output(MigrationState *s)
 }
 
 
-static void cuju_sync_local_VMs_runstage(int stage)
+static int cuju_sync_local_VMs_runstage(int stage)
 {
 //	qemu_mutex_lock(&ft_sync_mutex);
-	if(!cuju_sync_local_VM_ok(stage)) {
-		while(cuju_put_sync_local_VM_sig(stage))	 {
+	int r = 0;
+	if((r = cuju_sync_local_VM_ok(stage)) == 0) {
+		while( (r = cuju_put_sync_local_VM_sig(stage)) == 0)	 {
 		}
 	}
 //	qemu_mutex_unlock(&ft_sync_mutex);
+	return r;
 }
 
 
@@ -2792,10 +2798,11 @@ static int migrate_ft_trans_get_ready(void *opaque)
         }
 
 
-		cuju_sync_local_VMs_runstage(1);
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
+	//	s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
-
-		s->recv_ack1_time = time_in_double();
+		//s->recv_ack1_time = time_in_double();
 
         FTPRINTF("%s slave ack1 time %lf\n", __func__,
             time_in_double() - s->transfer_finish_time);
@@ -3395,13 +3402,16 @@ static void migrate_run(MigrationState *s)
 
 
 //	if (s == migrate_by_index(0))
-		cuju_sync_local_VMs_runstage(0);
+		//cuju_sync_local_VMs_runstage(0);
 
 
+	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
 
-    s->run_real_start_time = time_in_double();
+//	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+
+    //s->run_real_start_time = time_in_double();
 
 #ifdef CONFIG_EPOCH_OUTPUT_TRIGGER
     kvmft_output_notified = 0;
@@ -3432,11 +3442,13 @@ static void migrate_timer(void *opaque)
     s->trans_serial = ++trans_serial;
 
     qemu_mutex_lock_iothread();
-//	cuju_sync_local_VMs_runstage(2);
+//	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
 
-    s->snapshot_start_time = time_in_double();
+//    s->snapshot_start_time = time_in_double();
     vm_stop_mig();
-    qemu_iohandler_ft_pause(true);
+//	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
+
+	qemu_iohandler_ft_pause(true);
 
     s->flush_vs_commit1 = false;
 
@@ -3499,6 +3511,8 @@ static void ft_tick_func(void)
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
     //s->snapshot_start_time = time_in_double();
 
+//	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
+	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
     migrate_timer(s);
 }
 

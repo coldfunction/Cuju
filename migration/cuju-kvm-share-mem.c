@@ -1060,6 +1060,7 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
 
 static void thread_set_realtime(void)
 {
+    return ;
     int err;
     struct sched_param param = {
         .sched_priority = 99
@@ -1072,10 +1073,10 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(6, &cpuset);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+//    cpu_set_t cpuset;
+ //   CPU_ZERO(&cpuset);
+  //  CPU_SET(6, &cpuset);
+   // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)
@@ -1102,6 +1103,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         assert(ret >= 0);
         s->ram_len += ret;
 
+        //printf("cocotion test start to trans ram size = %d\n", s->ram_len);
         ret = kvm_start_kernel_transfer(s->cur_off, s->ram_fds[d->index], d->index, ft_ram_conn_count);
         //sched_yield();
         assert(ret >= 0);

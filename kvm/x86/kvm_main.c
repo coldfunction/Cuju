@@ -2613,8 +2613,13 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 
  	if(id == 0) {
     	vcpu->last_trans_rate = 100;
+
         vcpu->task = current;
-    	smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
+		if(kvm->ft_vm_id == 0)
+    		smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
+		else
+    		smp_call_function_single(4, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
+		//work_on_cpu(7, kvm_shm_setup_vcpu_hrtimer, vcpu);
 	}
 
 	return r;
@@ -3215,7 +3220,12 @@ static long kvm_vm_ioctl(struct file *filp,
 		//printk("markstart = %ld\n", kvm->vcpus[0]->mark_start_time);
 
 		//kvm_shm_start_timer2(kvm->vcpus[0]);
-	  	smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
+		if(kvm->ft_vm_id == 0)
+	  		smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
+		else
+	  		smp_call_function_single(4, kvm_shm_start_timer2, kvm->vcpus[0], false);
+
+		//work_on_cpu(7, kvm_shm_start_timer2, kvm->vcpus[0]);
       	break;
     }
     case KVM_SHM_SET_CHILD_PID: {
@@ -3520,7 +3530,10 @@ out_free_irq_routing:
 		break;
 	}
     case KVMFT_BD_GET_DIRTY: {
-		r = kvmft_bd_get_dirty(kvm);
+		int stage = 0;
+        if (copy_from_user(&stage, argp, sizeof stage))
+			goto out;
+		r = kvmft_bd_get_dirty(kvm, stage);
 		break;
 	}
 	default:

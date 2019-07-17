@@ -83,7 +83,7 @@ struct kvmft_context {
     bool shm_enabled;
     bool log_full;
 
-    int *sync_stage;
+//    int *sync_stage;
 
     // array of (struct kvmft_dirty_list *)
     struct kvmft_dirty_list **page_nums_snapshot_k;
@@ -126,6 +126,11 @@ struct kvmft_context {
     int bd_last_average_dirty_bytes;
     int bd_alpha;
 
+    int last_trans_rate[4];
+    int sync_stage[4];
+
+    int ft_cur_index;
+    int snapshot_dirty_len[4];
 };
 
 int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info);
@@ -191,9 +196,9 @@ int kvmft_ioctl_bd_get_runtime(struct kvm *kvm, int *epoch_runtime);
 
 int kvmft_bd_page_fault_check(void);
 
-int kvmft_bd_sync_sig(struct kvm *kvm, int stage);
-int kvmft_bd_sync_check(struct kvm *kvm, int stage);
-int kvmft_bd_get_dirty(struct kvm *kvm);
+unsigned long int kvmft_bd_sync_sig(struct kvm *kvm, int stage);
+unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage);
+int kvmft_bd_get_dirty(struct kvm *kvm, int index);
 
 
 #endif

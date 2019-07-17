@@ -573,6 +573,10 @@ struct kvm {
     int input_rate_old_index;
     int input_length;
     int sync_stage;
+    int snapshot_ok;
+    int snapshot_start_time;
+    int ft_cur_index;
+    int ft_cur_index2;
 
 
     ktime_t epoch_start_time;

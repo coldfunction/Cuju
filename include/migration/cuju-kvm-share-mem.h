@@ -75,6 +75,6 @@ void bd_reset_epoch_timer(void);
 
 int cuju_put_sync_local_VM_sig(int stage);
 int cuju_sync_local_VM_ok(int stage);
-int cuju_get_dirty(void);
+int cuju_get_dirty(int index);
 
 #endif

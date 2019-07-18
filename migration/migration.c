@@ -2475,7 +2475,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2798,8 +2798,11 @@ static int migrate_ft_trans_get_ready(void *opaque)
         }
 
 
-		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
-	//	s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+//	    qemu_mutex_lock(&ft_sync_mutex);
+//        printf("cocotion give me hop curindex = %d\n", migrate_get_index(s));
+//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
+//	    qemu_mutex_unlock(&ft_sync_mutex);
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
 	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
 		//s->recv_ack1_time = time_in_double();
@@ -3381,11 +3384,18 @@ static void migrate_run(MigrationState *s)
 
     FTPRINTF("%s %d\n", __func__, s->cur_off);
 
+
     if (migrate_token_owner != s || s->ft_state != CUJU_FT_TRANSACTION_PRE_RUN) {
         FTPRINTF("%s cant run own != s ? %d ft_state == %d\n", __func__,
             migrate_token_owner != s, s->ft_state);
+   //     if(migrate_token_owner != s && s->ft_state == CUJU_FT_TRANSACTION_PRE_RUN) {
+ //           printf("fucking you serious??? index = %d\n", migrate_get_index(s));
+  //          getchar();
+    //    }
         return;
     }
+
+//    printf("okokok index = %d\n", migrate_get_index(s));
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_RUN);
     s->run_serial = ++run_serial;
@@ -3405,11 +3415,22 @@ static void migrate_run(MigrationState *s)
 		//cuju_sync_local_VMs_runstage(0);
 
 
-	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+//	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(3) / 1000000;
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
 
 //	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+/*
+    if(cuju_sync_local_VM_ok(4) == 2) {
+        while (!cuju_put_sync_local_VM_sig(4)) {}
+    }
+    else if (cuju_sync_local_VM_ok(4) == 0) {
+        while (!cuju_sync_local_VM_ok(5)) {}
+    }
+*/
+//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 
     //s->run_real_start_time = time_in_double();
 
@@ -3449,6 +3470,8 @@ static void migrate_timer(void *opaque)
 //	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
 
 	qemu_iohandler_ft_pause(true);
+
+	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
 
     s->flush_vs_commit1 = false;
 
@@ -3505,14 +3528,15 @@ static void ft_tick_func(void)
         return;
 
     s = migrate_token_owner;
-    if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
+    if (s->ft_state != CUJU_FT_TRANSACTION_RUN) {
         return;
+    }
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
     //s->snapshot_start_time = time_in_double();
 
 //	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(2) / 1000000;
-	s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+	//s->snapshot_start_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
     migrate_timer(s);
 }
 

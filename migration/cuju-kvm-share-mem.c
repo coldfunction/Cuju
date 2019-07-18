@@ -1111,6 +1111,16 @@ static void* trans_ram_conn_thread_func(void *opaque)
         // TODO need lock
         s->ram_len += ret;
 
+    //    cuju_sync_local_VMs_runstage(1);
+
+		int r = 0;
+		if((r = cuju_sync_local_VM_ok(1)) == 0) {
+			while( (r = cuju_put_sync_local_VM_sig(1)) == 0) {
+			}
+		}
+
+
+
         if (d->index == 0) {
 #ifdef CONFIG_KVMFT_USERSPACE_TRANSFER
             g_free(s->dirty_pfns);

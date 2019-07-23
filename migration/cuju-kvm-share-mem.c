@@ -1092,7 +1092,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         s = QTAILQ_FIRST(&d->list);
         if (s != NULL) {
             QTAILQ_REMOVE(&d->list, s, nodes[d->index]);
-            qemu_mutex_unlock(&d->mutex);
+            //qemu_mutex_unlock(&d->mutex);
         } else {
             qemu_cond_wait(&d->cond, &d->mutex);
             qemu_mutex_unlock(&d->mutex);
@@ -1116,9 +1116,9 @@ static void* trans_ram_conn_thread_func(void *opaque)
 		int r = 0;
 		if((r = cuju_sync_local_VM_ok(1)) == 0) {
 			while( (r = cuju_put_sync_local_VM_sig(1)) == 0) {
+				usleep(500);
 			}
 		}
-
 
 
         if (d->index == 0) {
@@ -1129,6 +1129,8 @@ static void* trans_ram_conn_thread_func(void *opaque)
 
             qemu_bh_schedule(s->bh);
         }
+
+		qemu_mutex_unlock(&d->mutex);
     }
 
     return NULL;

@@ -2475,7 +2475,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2660,10 +2660,14 @@ static void kvmft_flush_output(MigrationState *s)
 		double less_percentage = (double) latency_less_count/mcount;
 
 		if(less_percentage > exceed_percentage) {
-			bd_alpha--;
+			//bd_alpha--;
+			//bd_alpha+=10;
+			bd_alpha-=10;
 		}
 		else if (exceed_percentage > less_percentage) {
-			bd_alpha++;
+			//bd_alpha++;
+			//bd_alpha-=10;
+			bd_alpha+=10;
 
 		}
 
@@ -2828,6 +2832,7 @@ static int migrate_ft_trans_get_ready(void *opaque)
 //   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 //	if(latency_us < 9000)
 //		usleep(9000-latency_us);
+//	s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
 
 
 		kvmft_flush_output(s);

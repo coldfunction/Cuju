@@ -6,7 +6,7 @@
 #include "qmp-commands.h"
 
 struct kvmft_update_latency mybdupdate;
-int bd_alpha = 0;
+int bd_alpha = 1500;
 
 void bd_reset_epoch_timer(void)
 {

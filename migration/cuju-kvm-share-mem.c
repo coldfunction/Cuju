@@ -1060,7 +1060,7 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
 
 static void thread_set_realtime(void)
 {
-    return ;
+//    return ;
     int err;
     struct sched_param param = {
         .sched_priority = 99
@@ -1073,10 +1073,10 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-//    cpu_set_t cpuset;
- //   CPU_ZERO(&cpuset);
-  //  CPU_SET(6, &cpuset);
-   // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(5, &cpuset);
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)
@@ -1092,7 +1092,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         s = QTAILQ_FIRST(&d->list);
         if (s != NULL) {
             QTAILQ_REMOVE(&d->list, s, nodes[d->index]);
-            //qemu_mutex_unlock(&d->mutex);
+    //        qemu_mutex_unlock(&d->mutex);
         } else {
             qemu_cond_wait(&d->cond, &d->mutex);
             qemu_mutex_unlock(&d->mutex);
@@ -1103,6 +1103,9 @@ static void* trans_ram_conn_thread_func(void *opaque)
         assert(ret >= 0);
         s->ram_len += ret;
 
+
+//		double s1 = (double) cuju_sync_local_VM_ok(3) / 1000000;
+
         //printf("cocotion test start to trans ram size = %d\n", s->ram_len);
         ret = kvm_start_kernel_transfer(s->cur_off, s->ram_fds[d->index], d->index, ft_ram_conn_count);
         //sched_yield();
@@ -1111,15 +1114,32 @@ static void* trans_ram_conn_thread_func(void *opaque)
         // TODO need lock
         s->ram_len += ret;
 
-    //    cuju_sync_local_VMs_runstage(1);
+//		printf("cocotion already trans %d\n", s->ram_len);
 
+   //    cuju_sync_local_VMs_runstage(1);
+
+		/*
 		int r = 0;
 		if((r = cuju_sync_local_VM_ok(1)) == 0) {
 			while( (r = cuju_put_sync_local_VM_sig(1)) == 0) {
-				usleep(500);
+				usleep(100);
 			}
 		}
 
+		double s2 = (double) cuju_sync_local_VM_ok(3) / 1000000;
+
+		s1 = s2-s1;
+		int time = s1*1000000;
+		if(time > 10000) printf("takes time = %d\n", time);
+*/
+//		ret = kvm_vm_ioctl(kvm_state, KVM_GET_TRANS_SIZE, NULL);
+ //       s->ram_len += ret;
+
+
+//		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+//		printf("cocotion already trans %d, time = %lf\n", s->ram_len, s->recv_ack1_time);
+
+		//printf("ok after transfer ram_len = %d\n", s->ram_len);
 
         if (d->index == 0) {
 #ifdef CONFIG_KVMFT_USERSPACE_TRANSFER
@@ -1127,8 +1147,11 @@ static void* trans_ram_conn_thread_func(void *opaque)
             s->dirty_pfns = NULL;
 #endif
 
-            qemu_bh_schedule(s->bh);
-        }
+//            qemu_bh_schedule(s->bh);
+			kvm_shmem_trans_ram_bh(s);
+			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+
+		}
 
 		qemu_mutex_unlock(&d->mutex);
     }

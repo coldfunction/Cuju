@@ -2214,6 +2214,7 @@ static void send_commit1(MigrationState *s)
     s->time_buf_off = 0;
 
     FTPRINTF("\n%s %d (%lf) send commmit1\n", __func__, migrate_get_index(s), time_in_double());
+//    printf("cocotion send commit1, ram_len = %d\n", s->ram_len);
 }
 
 static void flush_dev(void *opaque)
@@ -2253,6 +2254,7 @@ static void migrate_ft_trans_flush_cb(void *opaque)
 
     FTPRINTF("%s(%lf) %d\n", __func__, time_in_double(), migrate_get_index(s));
 
+	qemu_mutex_lock(&ft_sync_mutex);
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_PRE_RUN); //cocotion fucking crazy
     migrate_run(s); //cocotion fucking crazy
 }
@@ -2285,7 +2287,18 @@ static void kvmft_flush_output(MigrationState *s)
 //	int total_dirty = 0;
 //	int total_dirty = cuju_get_dirty();
 	int total_dirty = cuju_get_dirty(migrate_get_index(s));
+//    printf("cocotion test total dirty = %d\n", total_dirty);
+ //   printf("cocotion test trans us = %d\n", trans_us);
+
+
 	int trans_rate = total_dirty/trans_us;
+
+    if(latency_us < 9000) {
+        usleep(9000-latency_us);
+        latency_us = 9001;
+    }
+
+
 
 /*	int t = 0;
 
@@ -2475,7 +2488,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2487,10 +2500,10 @@ static void kvmft_flush_output(MigrationState *s)
        // fputs(pbuf, pFile);
 //        sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
 //        sprintf(pbuf, "%d\n", trans_rate);
-        sprintf(pbuf, "%d %d %d %lf %lf %lf %d\n", \
+        sprintf(pbuf, "%d %d %d %lf %lf %lf %d %d\n", \
 				migrate_get_index(s), trans_rate, \
 				total_dirty, s->run_real_start_time, \
-				s->recv_ack1_time, s->snapshot_start_time, s->ram_len);
+				s->recv_ack1_time, s->snapshot_start_time, s->ram_len, latency_us);
  //       fputs(pbuf, pFile);
 //	     sprintf(pbuf, "%d\n", real_trans_rate);
         fputs(pbuf, pFile);
@@ -2751,7 +2764,8 @@ static int cuju_sync_local_VMs_runstage(int stage)
 	int r = 0;
 	if((r = cuju_sync_local_VM_ok(stage)) == 0) {
 		while( (r = cuju_put_sync_local_VM_sig(stage)) == 0)	 {
-		}
+	        usleep(100);
+        }
 	}
 //	qemu_mutex_unlock(&ft_sync_mutex);
 	return r;
@@ -2800,13 +2814,14 @@ static int migrate_ft_trans_get_ready(void *opaque)
             printf("%s sender receive ACK1 failed.\n", __func__);
             goto error_out;
         }
+//        printf("yayaya comback ack1 s->ram_len == %d\n", s->ram_len);
 
 
 //	    qemu_mutex_lock(&ft_sync_mutex);
 //        printf("cocotion give me hop curindex = %d\n", migrate_get_index(s));
 //		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
 //	    qemu_mutex_unlock(&ft_sync_mutex);
-		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
 	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
 		//s->recv_ack1_time = time_in_double();
@@ -3390,6 +3405,7 @@ static void migrate_run(MigrationState *s)
     FTPRINTF("%s %d\n", __func__, s->cur_off);
 
 
+//	qemu_mutex_lock(&ft_sync_mutex);
     if (migrate_token_owner != s || s->ft_state != CUJU_FT_TRANSACTION_PRE_RUN) {
         FTPRINTF("%s cant run own != s ? %d ft_state == %d\n", __func__,
             migrate_token_owner != s, s->ft_state);
@@ -3397,12 +3413,28 @@ static void migrate_run(MigrationState *s)
  //           printf("fucking you serious??? index = %d\n", migrate_get_index(s));
   //          getchar();
     //    }
+
+        /*printf("cocotion test now state index= %d, state = %d\n", migrate_get_index(s), s->ft_state);
+        if(s->ft_state == CUJU_FT_TRANSACTION_PRE_RUN)
+            printf("holy shit! I need return, cuz state is trans pre run\n");
+        else if(migrate_token_owner == s && s->ft_state != CUJU_FT_TRANSACTION_PRE_RUN)
+            //printf("holy shit! I need return, cuz token is not own\n");
+            printf("holy shit! I need return, cuz state is shit! but token is ok\n");
+*/
+
+	qemu_mutex_unlock(&ft_sync_mutex);
         return;
     }
 
-//    printf("okokok index = %d\n", migrate_get_index(s));
+ //   printf("okokok index = %d\n", migrate_get_index(s));
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_RUN);
+
+	qemu_mutex_unlock(&ft_sync_mutex);
+
+
+//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+
     s->run_serial = ++run_serial;
 
     kvmft_reset_put_off(s);
@@ -3419,11 +3451,14 @@ static void migrate_run(MigrationState *s)
 //	if (s == migrate_by_index(0))
 		//cuju_sync_local_VMs_runstage(0);
 
-
-//	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+ //   printf("ok now ready to enter sync run!!!\n");
+	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+//    printf("ok now ready to after sync run!!!\n");
 	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(3) / 1000000;
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
+//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 
 //	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 /*
@@ -3435,7 +3470,7 @@ static void migrate_run(MigrationState *s)
     }
 */
 //    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
-    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 
     //s->run_real_start_time = time_in_double();
 
@@ -3513,6 +3548,7 @@ static void migrate_timer(void *opaque)
     //qemu_fflush(s->file);
     //ft_trans_flush_buf_desc(s->file);
 
+	qemu_mutex_lock(&ft_sync_mutex);
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_TRANSFER);
 
     qemu_bh_schedule(s->flush_bh);

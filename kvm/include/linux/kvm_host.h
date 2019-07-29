@@ -578,7 +578,11 @@ struct kvm {
     int ft_cur_index;
     int ft_cur_index2;
     int input_rate;
-
+    int ft_count;
+    struct kvmft_dirty_list *ft_dlist;
+    int ft_trans_index;
+    int ft_run_serial;
+    int ft_len;
 
     ktime_t epoch_start_time;
 

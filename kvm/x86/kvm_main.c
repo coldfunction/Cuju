@@ -3360,6 +3360,11 @@ static long kvm_vm_ioctl(struct file *filp,
                                   req.max_conn);
     break;
   }
+  case KVM_GET_TRANS_SIZE: {
+
+	return kvm->ft_len;
+
+  }
 #ifdef KVM_COALESCED_MMIO_PAGE_OFFSET
 	case KVM_REGISTER_COALESCED_MMIO: {
 		struct kvm_coalesced_mmio_zone zone;

@@ -2321,11 +2321,12 @@ static void kvmft_flush_output(MigrationState *s)
 
 	//int trans_rate = total_dirty/trans_us;
 
-	//int times = 0;
+	int times = 0;
 //
 
 //	if(latency_us > 8500 && latency_us < 9000) {
-/*		while( cuju_wait() ) {
+	if(latency_us < 9000) {
+		while( cuju_wait() ) {
 //		if( cuju_wait() ) {
 	//		usleep(9000-latency_us);
 
@@ -2333,13 +2334,13 @@ static void kvmft_flush_output(MigrationState *s)
 			times++;
 			if(latency_us+times*300 > 9000)
 				break;
-		}*/
+		}
 //		usleep(9000-latency_us);
 
-//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
- //  		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+   		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 //    	trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
-//	}
+	}
 
 	int trans_rate = total_dirty/trans_us;
 

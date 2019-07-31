@@ -90,6 +90,9 @@ struct ft_multi_trans_h {
     volatile int trans_kick;
     wait_queue_head_t ft_trans_thread_event;
     wait_queue_head_t ft_trans_getInputRate_event;
+    wait_queue_head_t timeout_wq;
+    wait_queue_head_t timeout_wq2;
+    wait_queue_head_t timeout_wq3;
 	spinlock_t ft_lock;
 	spinlock_t ft_lock2;
     struct socket *sock[128];
@@ -441,7 +444,7 @@ static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
 
 
 //	spin_lock(&ft_m_trans.ft_lock);
-    if(epoch_run_time > (target_latency_us-target_latency_us/20) ||  (beta/*+ctx->bd_alpha*/ >= target_latency_us /*- ctx->bd_alpha*/)) {
+    if(epoch_run_time > (target_latency_us-target_latency_us/20) ||  (beta/*+ctx->bd_alpha*/ >= target_latency_us /*- ctx->bd_alpha*/ - 600)) {
 //    if( (kvm2 && !kvm2->ft_producer_done && epoch_run_time > 6500) ||  beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 //    if( current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
 		//if (hrtimer_cancel(&vcpu->hrtimer)) {
@@ -661,7 +664,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
    // if( (kvm2 && !kvm2->ft_producer_done && epoch_run_time > 6500) ||  beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
     //if(snum || epoch_run_time > (target_latency_us-target_latency_us/20) || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ ) {
 //	spin_lock(&ft_m_trans.ft_lock);
-    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ /*- ctx->bd_alpha*/ )) {
+    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ /*- ctx->bd_alpha*/ -600 )) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
 //		if (hrtimer_cancel(&vcpu->hrtimer)) {
 //			return NULL;
@@ -1460,6 +1463,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->input_rate = 1000;
 	kvm->current_transfer_rate = 100;
 	kvm->wait = 0;
+    kvm->ft_dlist = NULL;
+    kvm->ft_len = -1;
 
 //	atomic_inc(&ft_m_trans.ft_synced_num);
 //	atomic_inc(&ft_m_trans.ft_synced_num2);
@@ -1513,6 +1518,9 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
 	if(kvm->ft_vm_id == 0) {
+        init_waitqueue_head(&ft_m_trans.timeout_wq);
+        init_waitqueue_head(&ft_m_trans.timeout_wq2);
+        init_waitqueue_head(&ft_m_trans.timeout_wq3);
 /*
         ft_m_trans.ft_getInputRate_kthread = kthread_create(&getInputRate, NULL, "ft_getInputRate_kthread");
         if (IS_ERR(ft_m_trans.ft_getInputRate_kthread)) {
@@ -4278,23 +4286,29 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 */
 
 	kvm->ft_sock = psock;
-	kvm->ft_dlist = dlist;
 	kvm->ft_count = count;
 	kvm->ft_trans_index = trans_index;
 	kvm->ft_run_serial = run_serial;
+	kvm->ft_dlist = dlist;
 
+/*
 	if(!kvmft_bd_sync_check(kvm, 1)) {
 		while(!kvmft_bd_sync_sig(kvm, 1)) {
 			udelay(200);
-//			printk("vmid = %d, wait\n", kvm->ft_vm_id);
 		}
 	}
+*/
 
 
 	if(kvm->ft_vm_id == 0) {
 		int dirty_sum = 0;
     	for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
             struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+            if(kvm_p->ft_dlist == NULL) {
+                i--;
+                //udelay(200);
+                continue;
+            }
 //			struct task_struct *current_backup, *kvm_task;
  //       	kvm_task = kvm_p->vcpus[0]->task;
 
@@ -4328,9 +4342,12 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 		int index = ft_m_trans.index;
 		ft_m_trans.ft_trans_dirty[index] = dirty_sum;
 		ft_m_trans.index = (index+1) % 2;
-	}
 
+        wake_up_interruptible(&ft_m_trans.timeout_wq);
+    } else {
 
+        wait_event_interruptible(ft_m_trans.timeout_wq, kvm->ft_len != -1);
+    }
 
 //		spin_lock(&ft_m_trans.ft_lock);
 //	printk("vmid = %d, trans len = %d, time = %d before sync\n", kvm->ft_vm_id, len, time_in_us());
@@ -4367,14 +4384,19 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 */
 
 
+/*
 	if(!kvmft_bd_sync_check(kvm, 1)) {
 		while(!kvmft_bd_sync_sig(kvm, 1)) {
-			udelay(200);
+			udelay(500);
 //			printk("vmid = %d, wait\n", kvm->ft_vm_id);
 		}
 	}
+*/
+    kvm->ft_dlist = NULL;
+
 
 	len = kvm->ft_len;
+    kvm->ft_len = -1;
 //	printk("vmid = %d, trans len = %d, time = %d after sync\n", kvm->ft_vm_id, len, time_in_us());
 
 	return len;
@@ -6055,11 +6077,26 @@ unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage)
     int i;
 
 	if(stage == 0) {
+
 		kvm->ftflush = 0;
 
 		int num = atomic_inc_return(&ft_m_trans.ft_synced_num);
 		int total = atomic_read(&ft_m_trans.ft_mode_vm_count);
-		if(num == total) {
+
+        if(num == total) {
+            wake_up_interruptible(&ft_m_trans.timeout_wq2);
+        } else {
+            wait_event_interruptible(ft_m_trans.timeout_wq2, atomic_read(&ft_m_trans.ft_mode_vm_count) == atomic_read(&ft_m_trans.ft_synced_num));
+			atomic_set(&ft_m_trans.ft_synced_num, 0);
+            //printk("run stage ok wakeup\n");
+        }
+		return time_in_us();
+
+
+
+
+
+        if(num == total) {
 
 			atomic_set(&ft_m_trans.ft_synced_num, 0);
 
@@ -6146,15 +6183,28 @@ unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage)
 		return 1;
 	}
 	else if (stage == 2) {
-//		return time_in_us();
+        //		return time_in_us();
 
 //		spin_lock(&ft_m_trans.ft_lock);
 		kvm->ftflush = 2;
 
+        int num = atomic_inc_return(&ft_m_trans.ft_synced_num3);
+		int total = atomic_read(&ft_m_trans.ft_mode_vm_count);
+
+        if(num == total) {
+            wake_up_interruptible(&ft_m_trans.timeout_wq3);
+        } else {
+            wait_event_interruptible(ft_m_trans.timeout_wq3, atomic_read(&ft_m_trans.ft_mode_vm_count) == atomic_read(&ft_m_trans.ft_synced_num3));
+			atomic_set(&ft_m_trans.ft_synced_num3, 0);
+//            printk("snapshot stage ok wakeup\n");
+        }
+		return time_in_us();
+
+
 		//if other sync stage == 1  and is fulsh  then go
 
-		int num = atomic_inc_return(&ft_m_trans.ft_synced_num3);
-		int total = atomic_read(&ft_m_trans.ft_mode_vm_count);
+		//int num = atomic_inc_return(&ft_m_trans.ft_synced_num3);
+	//	int total = atomic_read(&ft_m_trans.ft_mode_vm_count);
 		if(num == total) {
 			atomic_set(&ft_m_trans.ft_synced_num3, 0);
 			atomic_inc(&ft_m_trans.sync_ok3);

@@ -3541,6 +3541,11 @@ out_free_irq_routing:
 		r = kvmft_bd_get_dirty(kvm, stage);
 		break;
 	}
+    case KVMFT_BD_WAIT: {
+
+		r = kvmft_bd_wait(kvm);
+		break;
+	}
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);
 	}

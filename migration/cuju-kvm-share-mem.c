@@ -1092,7 +1092,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         s = QTAILQ_FIRST(&d->list);
         if (s != NULL) {
             QTAILQ_REMOVE(&d->list, s, nodes[d->index]);
-    //        qemu_mutex_unlock(&d->mutex);
+            //qemu_mutex_unlock(&d->mutex);
         } else {
             qemu_cond_wait(&d->cond, &d->mutex);
             qemu_mutex_unlock(&d->mutex);
@@ -1104,7 +1104,6 @@ static void* trans_ram_conn_thread_func(void *opaque)
         s->ram_len += ret;
 
 
-//		double s1 = (double) cuju_sync_local_VM_ok(3) / 1000000;
 
         //printf("cocotion test start to trans ram size = %d\n", s->ram_len);
         ret = kvm_start_kernel_transfer(s->cur_off, s->ram_fds[d->index], d->index, ft_ram_conn_count);
@@ -1113,6 +1112,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
 
         // TODO need lock
         s->ram_len += ret;
+
 
 //		printf("cocotion already trans %d\n", s->ram_len);
 
@@ -1147,9 +1147,10 @@ static void* trans_ram_conn_thread_func(void *opaque)
             s->dirty_pfns = NULL;
 #endif
 
-//            qemu_bh_schedule(s->bh);
-			kvm_shmem_trans_ram_bh(s);
-			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+            qemu_bh_schedule(s->bh);
+	//		kvm_shmem_trans_ram_bh(s);
+//			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+
 
 		}
 

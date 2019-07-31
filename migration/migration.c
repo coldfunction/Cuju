@@ -189,6 +189,8 @@ static int migration_states_current;
 
 static void migrate_fd_get_notify(void *opaque);
 
+static int cuju_sync_local_VMs_runstage(int stage);
+
 int cuju_get_fd_from_QIOChannel(QIOChannel *ioc);
 
 MigrationState *migrate_by_index(int index)
@@ -2199,6 +2201,8 @@ int migrate_fd_get_buffer(void *opaque, uint8_t *data, int64_t pos, size_t size)
     return ret;
 }
 
+static void kvmft_flush_output(MigrationState *s);
+
 static void send_commit1(MigrationState *s)
 {
     // TODO what if snapshot stage isn't finished yet?
@@ -2215,6 +2219,9 @@ static void send_commit1(MigrationState *s)
 
     FTPRINTF("\n%s %d (%lf) send commmit1\n", __func__, migrate_get_index(s), time_in_double());
 //    printf("cocotion send commit1, ram_len = %d\n", s->ram_len);
+//
+    //    migrate_set_ft_state(s, CUJU_FT_TRANSACTION_FLUSH_OUTPUT);
+	//	kvmft_flush_output(s);
 }
 
 static void flush_dev(void *opaque)
@@ -2229,6 +2236,25 @@ static void flush_dev(void *opaque)
     else
         s->flush_vs_commit1 = true;
 }
+
+/*
+void* kvm_shmem_trans_ram_bh2(void *opaque)
+{
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+	  CPU_SET(4, &cpuset);
+      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+
+
+    MigrationState *s = opaque;
+
+    if (s->flush_vs_commit1)
+        send_commit1(s);
+    else
+        s->flush_vs_commit1 = true;
+
+    pthread_exit(NULL);
+}*/
 
 // we need this bh because only main-io-thread can send/recv
 // control messages to/from slave.
@@ -2275,6 +2301,8 @@ static void kvmft_flush_output(MigrationState *s)
  //   static unsigned long exceeds = 0;
   //  static unsigned long latency_sum_us = 0;
 
+	static unsigned long total_sum_bytes;
+
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
 //    int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
@@ -2291,12 +2319,36 @@ static void kvmft_flush_output(MigrationState *s)
  //   printf("cocotion test trans us = %d\n", trans_us);
 
 
+	//int trans_rate = total_dirty/trans_us;
+
+	//int times = 0;
+//
+
+//	if(latency_us > 8500 && latency_us < 9000) {
+/*		while( cuju_wait() ) {
+//		if( cuju_wait() ) {
+	//		usleep(9000-latency_us);
+
+			usleep(300);
+			times++;
+			if(latency_us+times*300 > 9000)
+				break;
+		}*/
+//		usleep(9000-latency_us);
+
+//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+ //  		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+//    	trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+//	}
+
 	int trans_rate = total_dirty/trans_us;
 
+	/*
     if(latency_us < 9000) {
-        usleep(9000-latency_us);
-        latency_us = 9001;
+        usleep(10990-latency_us);
+        latency_us = 10991;
     }
+*/
 
 
 
@@ -2411,7 +2463,7 @@ static void kvmft_flush_output(MigrationState *s)
 //	static unsigned long int trans_rate_total = 0;
     static unsigned long int mcount = 0;
 //	int trans_rate_average = 0;
-    mcount++;
+    //mcount++;
 
 //	trans_rate_total += trans_rate;
 //	trans_rate_average = trans_rate_total/mcount;
@@ -2488,7 +2540,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2563,6 +2615,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 
     static unsigned long int ok = 0;
+    static unsigned long int ok2 = 0;
     //static unsigned long int mcount = 0;
 
     //static long ok_runtime = 0;
@@ -2592,7 +2645,11 @@ static void kvmft_flush_output(MigrationState *s)
 	//if(latency_us <= target_latency  && latency_us >= target_latency - 2000) {
 //		mybdupdate.last_trans_rate = trans_rate;
 		ok++;
+		ok2++;
 		//bd_alpha = s->ram_len;
+		//bd_alpha = total_dirty;
+		total_sum_bytes += total_dirty;
+		//mcount++;
 	}
 	else if (latency_us > target_latency + 1000) {
 		latency_exceed_count++;
@@ -2605,7 +2662,7 @@ static void kvmft_flush_output(MigrationState *s)
 	}
 
 
-    //mcount++;
+    mcount++;
 //	count++;
 
 
@@ -2664,6 +2721,13 @@ static void kvmft_flush_output(MigrationState *s)
 	}
 */
 
+	if(ok2 == 1000) {
+//		bd_alpha = total_sum_bytes/1000;
+		total_sum_bytes = 0;
+		ok2 = 0;
+	}
+
+
 
 	double ok_percentage;
     if(mcount%500 == 0) {
@@ -2672,16 +2736,26 @@ static void kvmft_flush_output(MigrationState *s)
 		double exceed_percentage = (double) latency_exceed_count/mcount;
 		double less_percentage = (double) latency_less_count/mcount;
 
+
+//		bd_alpha = total_sum_bytes/500;
+//		total_sum_bytes = 0;
+
 		if(less_percentage > exceed_percentage) {
 			//bd_alpha--;
 			//bd_alpha+=10;
-			bd_alpha-=10;
+			//bd_alpha-=10;
+			bd_alpha -= 100;
+			if(bd_alpha < 0)
+				bd_alpha = 0;
 		}
 		else if (exceed_percentage > less_percentage) {
 			//bd_alpha++;
 			//bd_alpha-=10;
-			bd_alpha+=10;
+			//bd_alpha+=10;
 
+			bd_alpha += 100;
+			if(bd_alpha > 1500)
+				bd_alpha = 1500;
 		}
 
 		printf("test ok percentage is %lf\n", ok_percentage);
@@ -2821,7 +2895,7 @@ static int migrate_ft_trans_get_ready(void *opaque)
 //        printf("cocotion give me hop curindex = %d\n", migrate_get_index(s));
 //		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
 //	    qemu_mutex_unlock(&ft_sync_mutex);
-//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
 	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
 		//s->recv_ack1_time = time_in_double();
@@ -2852,9 +2926,19 @@ static int migrate_ft_trans_get_ready(void *opaque)
 
 		kvmft_flush_output(s);
         break;
+/*
+    case CUJU_FT_TRANSACTION_FLUSH_OUTPUT:
+    case CUJU_FT_TRANSACTION_RUN:
+    case CUJU_FT_TRANSACTION_PRE_RUN:
+        if ((ret = qemu_ft_trans_recv_ack1(s->file)) < 0) {
+            printf("%s sender receive ACK1 failed.\n", __func__);
+            goto error_out;
+        }
 
+        break;*/
     default:
         printf("%s unexpected (%d) state %d\n", __func__, migrate_get_index(s), s->ft_state);
+        //break;
         goto error_out;
     }
 

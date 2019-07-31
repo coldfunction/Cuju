@@ -6,7 +6,7 @@
 #include "qmp-commands.h"
 
 struct kvmft_update_latency mybdupdate;
-int bd_alpha = 1500;
+int bd_alpha = 900;
 
 void bd_reset_epoch_timer(void)
 {
@@ -39,6 +39,9 @@ int cuju_get_dirty(int index)
 	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_DIRTY, &index);
 }
 
+int cuju_wait(void) {
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_WAIT, NULL);
+}
 
 
 int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)

@@ -1440,6 +1440,8 @@ struct kvmft_update_latency {
 
 #define KVM_GET_TRANS_SIZE     _IO(KVMIO, 0xd7)
 
+#define KVMFT_BD_WAIT     _IO(KVMIO, 0xd8)
+
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
 #define KVM_DEV_ASSIGN_MASK_INTX	(1 << 2)

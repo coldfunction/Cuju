@@ -33,6 +33,7 @@ void kvm_share_mem_init(unsigned long ram_size);
 void trans_ram_init(void);
 void trans_ram_add(MigrationState *s);
 
+void* kvm_shmem_trans_ram_bh2(void *opaque);
 void kvm_shmem_trans_ram_bh(void *opaque);
 
 void kvm_shmem_start_ft(void);
@@ -76,5 +77,6 @@ void bd_reset_epoch_timer(void);
 int cuju_put_sync_local_VM_sig(int stage);
 int cuju_sync_local_VM_ok(int stage);
 int cuju_get_dirty(int index);
+int cuju_wait(void);
 
 #endif

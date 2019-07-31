@@ -199,7 +199,7 @@ int kvmft_bd_page_fault_check(void);
 unsigned long int kvmft_bd_sync_sig(struct kvm *kvm, int stage);
 unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage);
 int kvmft_bd_get_dirty(struct kvm *kvm, int index);
-
+int kvmft_bd_wait(struct kvm *kvm);
 
 #endif
 

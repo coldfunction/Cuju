@@ -2541,7 +2541,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2731,7 +2731,7 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 	double ok_percentage;
-    if(mcount%500 == 0) {
+    if(mcount%1000 == 0) {
     	ok_percentage = (double)ok/mcount;
 
 		double exceed_percentage = (double) latency_exceed_count/mcount;

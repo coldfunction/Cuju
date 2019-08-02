@@ -2615,10 +2615,10 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
     	vcpu->last_trans_rate = 100;
 
         vcpu->task = current;
-		if(kvm->ft_vm_id == 0)
+		//if(kvm->ft_vm_id == 0)
     		smp_call_function_single(7, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
-		else
-    		smp_call_function_single(4, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
+		//else
+    		//smp_call_function_single(4, kvm_shm_setup_vcpu_hrtimer, vcpu, true);
 		//work_on_cpu(7, kvm_shm_setup_vcpu_hrtimer, vcpu);
 	}
 

@@ -1061,7 +1061,7 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
 static void thread_set_realtime(void)
 {
 //    return ;
-/*    int err;
+    int err;
     struct sched_param param = {
         .sched_priority = 99
     };
@@ -1071,7 +1071,7 @@ static void thread_set_realtime(void)
     if (err != 0) {
         printf("%s pthread_setschedparam failed\n", __func__);
         exit(-1);
-    }*/
+    }
 //cocotion fucking test
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);

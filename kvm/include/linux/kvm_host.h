@@ -585,6 +585,9 @@ struct kvm {
     int ft_len;
     int current_transfer_rate;
     int wait;
+    int timer_flag;
+    int is_snapshot;
+
 
     ktime_t epoch_start_time;
 

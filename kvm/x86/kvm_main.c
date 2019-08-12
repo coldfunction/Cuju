@@ -3221,7 +3221,7 @@ static long kvm_vm_ioctl(struct file *filp,
 
 		kvm_shm_start_timer2(kvm->vcpus[0]);
 		//if(kvm->ft_vm_id == 0)
-	  		//smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
+	  	//	smp_call_function_single(7, kvm_shm_start_timer2, kvm->vcpus[0], false);
 		//else
 	  		//smp_call_function_single(4, kvm_shm_start_timer2, kvm->vcpus[0], false);
 

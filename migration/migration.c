@@ -2294,7 +2294,6 @@ static void kvmft_flush_output(MigrationState *s)
         kvm_blk_epoch_commit(kvm_blk_session);
 	*/
 
-
 //	s->flush_start_time = time_in_double();
 
 //    static unsigned long count   = 0;
@@ -2315,16 +2314,27 @@ static void kvmft_flush_output(MigrationState *s)
 //	int total_dirty = 0;
 //	int total_dirty = cuju_get_dirty();
 	int total_dirty = cuju_get_dirty(migrate_get_index(s));
+//	int total_dirty = s->ram_len;
 //    printf("cocotion test total dirty = %d\n", total_dirty);
  //   printf("cocotion test trans us = %d\n", trans_us);
 
 
 	//int trans_rate = total_dirty/trans_us;
 
-	int times = 0;
+//	int times = 0;
 //
 
 //	if(latency_us > 8500 && latency_us < 9000) {
+/*
+	while( cuju_wait() ) {
+		printf("wait!\n");
+		usleep(300);
+	}
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+   		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+    	trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+*/
+/*
 	if(latency_us < 9000) {
 		while( cuju_wait() ) {
 //		if( cuju_wait() ) {
@@ -2339,9 +2349,9 @@ static void kvmft_flush_output(MigrationState *s)
 
 		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
    		latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-//    	trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+    	trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
 	}
-
+*/
 	int trans_rate = total_dirty/trans_us;
 
 	/*
@@ -2541,7 +2551,7 @@ static void kvmft_flush_output(MigrationState *s)
    FILE *pFile;
    char pbuf[200];
 
-    pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    pFile = fopen("runtime_latency_trans_rate2.txt", "a");
     if(pFile != NULL){
 //        sprintf(pbuf, "%d\n", runtime_us);
  //       fputs(pbuf, pFile);
@@ -2889,14 +2899,26 @@ static int migrate_ft_trans_get_ready(void *opaque)
             printf("%s sender receive ACK1 failed.\n", __func__);
             goto error_out;
         }
+
+
+
 //        printf("yayaya comback ack1 s->ram_len == %d\n", s->ram_len);
+
+
+
+//		cuju_sync_local_VMs_runstage(6);
 
 
 //	    qemu_mutex_lock(&ft_sync_mutex);
 //        printf("cocotion give me hop curindex = %d\n", migrate_get_index(s));
 //		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
 //	    qemu_mutex_unlock(&ft_sync_mutex);
-		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+//		s->recv_ack1_time = (((double) cuju_sync_local_VMs_runstage(3) / 1000000) - s->recv_ack1_time)*1000000;
+//		printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
+//		printf("ack rate = %f\n", s->ram_len/s->recv_ack1_time);
+//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+
 	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
 		//s->recv_ack1_time = time_in_double();
@@ -3518,7 +3540,7 @@ static void migrate_run(MigrationState *s)
 	qemu_mutex_unlock(&ft_sync_mutex);
 
 
-//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+
 
     s->run_serial = ++run_serial;
 
@@ -3538,12 +3560,12 @@ static void migrate_run(MigrationState *s)
 
  //   printf("ok now ready to enter sync run!!!\n");
 	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
-	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 //    printf("ok now ready to after sync run!!!\n");
 	//s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(3) / 1000000;
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
-//    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
+    s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 
 //	s->run_real_start_time = (double)cuju_sync_local_VMs_runstage(0) / 1000000;
 /*

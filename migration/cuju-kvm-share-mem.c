@@ -1075,7 +1075,7 @@ static void thread_set_realtime(void)
 //cocotion fucking test
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(5, &cpuset);
+    CPU_SET(6, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 }
 
@@ -1136,7 +1136,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
  //       s->ram_len += ret;
 
 
-//		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
 //		printf("cocotion already trans %d, time = %lf\n", s->ram_len, s->recv_ack1_time);
 
 		//printf("ok after transfer ram_len = %d\n", s->ram_len);

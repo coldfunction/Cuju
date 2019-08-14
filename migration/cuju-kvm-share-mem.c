@@ -1136,7 +1136,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
  //       s->ram_len += ret;
 
 
-		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+//		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
 //		printf("cocotion already trans %d, time = %lf\n", s->ram_len, s->recv_ack1_time);
 
 		//printf("ok after transfer ram_len = %d\n", s->ram_len);
@@ -1153,6 +1153,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
 
 
 		}
+		s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
 
 		qemu_mutex_unlock(&d->mutex);
     }

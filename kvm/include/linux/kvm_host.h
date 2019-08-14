@@ -587,6 +587,7 @@ struct kvm {
     int wait;
     int timer_flag;
     int is_snapshot;
+    int blockid;
 
 
     ktime_t epoch_start_time;

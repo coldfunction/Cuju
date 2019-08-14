@@ -28,7 +28,7 @@
 #define PAGE_TRANSFER_TIME_MEASURE  1
 #undef PAGE_TRANSFER_TIME_MEASURE
 
-//#define TIMER_CALC_COMPRESS_DEBUG
+#define TIMER_CALC_COMPRESS_DEBUG
 
 //#define SPCL    1
 
@@ -664,6 +664,10 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     }
 	spin_unlock(&ft_m_trans.ft_lock);
 
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+        printk("vmid = %d, before calc!!!!\n", kvm->ft_vm_id);
+#endif
+
     int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
 	//spin_unlock(&ft_m_trans.ft_lock);
 
@@ -743,7 +747,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 #ifdef TIMER_CALC_COMPRESS_DEBUG
     printk("cocotion test vmid = %d, epoch run time = %d is_compress = %d\n", kvm->ft_vm_id, epoch_run_time, ft_m_trans.is_compress);
 #endif
-    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta >= target_latency_us - ctx->bd_alpha /*- ft_m_trans.bd_alpha*/)) {
+    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta >= target_latency_us /*- ctx->bd_alpha*/ /*- ft_m_trans.bd_alpha*/)) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
 //		if (hrtimer_cancel(&vcpu->hrtimer)) {
 //			return NULL;
@@ -957,11 +961,15 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 //	tasklet_schedule(&calc_dirty_tasklet2);
 //    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
 
+//    bd_predic_stop3(vcpu);
+
 	//if(vcpu == global_vcpu)
-//	if(vcpu->kvm->ft_vm_id == 0)
+
+	if(vcpu->kvm->ft_vm_id == 0)
 		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
-//	else
-//		smp_call_function_single(4, bd_predic_stop3, vcpu, false);
+	else
+		smp_call_function_single(3, bd_predic_stop3, vcpu, false);
+
 //		work_on_cpu(7, bd_predic_stop3, vcpu);
 
 
@@ -1589,6 +1597,7 @@ int kvm_shm_enable(struct kvm *kvm)
     kvm->ft_len = -1;
     kvm->timer_flag = 1;
     kvm->is_snapshot = 0;
+    kvm->blockid = 0;
 
 //	atomic_inc(&ft_m_trans.ft_synced_num);
 //	atomic_inc(&ft_m_trans.ft_synced_num2);
@@ -1641,7 +1650,7 @@ int kvm_shm_enable(struct kvm *kvm)
 
     kvm->start_time = time_in_us();
     atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
-//	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
+	//atomic_set(&ft_m_trans.ft_mode_vm_count, 3); //cocotion nfucking test
 
 
 
@@ -3561,7 +3570,7 @@ free:
 
 static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_dirty_list *dlist, int start, int end,
-    int trans_index, int run_serial)
+    int trans_index, int run_serial, int blockid, int issend)
 {
 
     static unsigned long long sum_trans = 0;
@@ -3574,7 +3583,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	wake_up(&kvm->ft_trans_thread_event);
 
     int ret, i;
-    int len = 0, total = 0, offset = 0, blocklen = 0;
+    int len = 0, offset = 0, total = 0, blocklen = 0;
     int last_trans_rate = 700;
 
     //uint8_t **buf;
@@ -3604,7 +3613,13 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 	kvm->ft_producer_done = 0;
 
+
+    if(issend == 0) {
+
     ft_m_trans.is_compress = 1;
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+    printk("vmid = %d, now we are already in compress\n", kvm->ft_vm_id);
+#endif
 /*
 	if(atomic_inc_return(&ft_m_trans.sync_ok4) == 2) {
 		int vm_id = kvm->ft_vm_id;
@@ -3629,8 +3644,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
  //   kvmft_tcp_unnodelay(sock);
 //    kvmft_tcp_nodelay(sock);
-
-    int blockid = 0;
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+    printk("cocotion test vmid = %d, start = %d, end = %d\n", kvm->ft_vm_id, start, end);
+#endif
+    blockid = 0;
 //	spin_lock(&ft_m_trans.ft_lock);
     for (i = start; i < end; ++i) {
 //	spin_lock(&ft_m_trans.ft_lock);
@@ -3808,13 +3825,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 //    ft_m_trans.is_compress = 0;
-	s64 issue_end = time_in_us();
-/*    int compress_time = issue_end - issue_start;
-    if(compress_time > ft_m_trans.max_compress_time) {
-        ft_m_trans.max_compress_time = compress_time;
-        printk("cocotion %d\n", compress_time);
-    }
-*/
+/*	s64 issue_end = time_in_us();
 #ifdef TIMER_CALC_COMPRESS_DEBUG
     printk("cocotion test after compress time = %ld, total runtime = %d\n", time_in_us(), issue_end - ft_m_trans.mark_start_time);
 #endif
@@ -3845,6 +3856,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
     spin_unlock(&ft_m_trans.ft_lock);
+*/
 
 /*
 
@@ -3887,13 +3899,22 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 //	spin_unlock(&ft_m_trans.ft_lock4);
 */
+        return blockid;
+    }
+
+
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+    printk("cocotion test now vmid = %d, blockid is %d\n", kvm->ft_vm_id, blockid);
+#endif
 
     for(i = 0; i < blockid; i++) {
         int len = kvm->ft_data[i].size;
         ret = ktcp_send(sock, kvm->ft_data[i].ft_buf, len);
+        total+=ret;
         if (ret < 0)
             goto free;
     }
+
 
 //	spin_unlock(&ft_m_trans.ft_lock);
 
@@ -4257,7 +4278,7 @@ static int diff_and_tran_kthread_func(void *opaque)
 
         if (end > start)
             len = kvmft_transfer_list(kvm, sock, dlist,
-                start, end, desc->trans_index, info->run_serial);
+                start, end, desc->trans_index, info->run_serial, 0, 0);
 // 			smp_call_function_single(7, new_kvmft_transfer_list, ft_info, true);
 //		len = ft_info->ret;
         //printk("%s trans_index %d conn %d (%d=>%d)\n", __func__, desc->trans_index, desc->conn_index, start, end);
@@ -4543,6 +4564,7 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
                 //udelay(200);
                 continue;
             }
+        }
 //			struct task_struct *current_backup, *kvm_task;
  //       	kvm_task = kvm_p->vcpus[0]->task;
 
@@ -4559,8 +4581,68 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans before len = %d, kvm_task = %p\n", i, len, kvm_task);
 
 
+    	for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+            struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+			kvm_p->blockid = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
+        		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial, 0, 0);
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+    printk("cocotion test after compress vmid = %d, blockid= %d\n", i, kvm_p->blockid);
+#endif
+        }
+
+        s64 issue_end = time_in_us();
+
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+    printk("cocotion test after compress time = %ld, total runtime = %d\n", time_in_us(), issue_end - ft_m_trans.mark_start_time);
+#endif
+/*
+        for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+            struct kvm *kvm_p = ft_m_trans.global_kvm[i];
 			len = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
-        		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial);
+        		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial, kvm_p->blockid, 1);
+
+            kvm_p->ft_len = len;
+			dirty_sum+=len;
+        }
+*/
+       // s64 issue_end = time_in_us();
+	    spin_lock(&ft_m_trans.ft_lock);
+        if(ft_m_trans.is_compress && ft_m_trans.mark_start_time) {
+            for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+	            if(ft_m_trans.global_kvm[i]!=NULL) {
+	                struct kvm *kvm_pp = ft_m_trans.global_kvm[i];
+				    struct kvm_vcpu *vcpu_p = kvm_pp->vcpus[0];
+                    ktime_t ktime;
+                    ktime = ktime_set(0, 1000);
+                    hrtimer_start(&vcpu_p->hrtimer, ktime, HRTIMER_MODE_REL);
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+                    printk("in trans thread call timer start vmid = %d\n", i);
+#endif
+                }
+            }
+            ft_m_trans.is_compress = 0;
+        }
+        if(!ft_m_trans.mark_start_time) {
+            ft_m_trans.is_compress = 0;
+        }
+        spin_unlock(&ft_m_trans.ft_lock);
+
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+        printk("in trans thread after timer start is_compress = %d\n", ft_m_trans.is_compress);
+#endif
+
+        for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+            struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+			len = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
+        		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial, kvm_p->blockid, 1);
+
+            kvm_p->ft_len = len;
+			dirty_sum+=len;
+#ifdef TIMER_CALC_COMPRESS_DEBUG
+			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d\n", i, len);
+#endif
+        }
+
 
 
 //			if(i == 1) {
@@ -4570,9 +4652,9 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d, kvm_task = %p\n", i, len, kvm_task);
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d\n", i, len);
-			kvm_p->ft_len = len;
-			dirty_sum+=len;
-		}
+		//	kvm_p->ft_len = len;
+		//	dirty_sum+=len;
+		//}
 		int index = ft_m_trans.index;
 		ft_m_trans.ft_trans_dirty[index] = dirty_sum;
         ft_m_trans.index = (index+1) % 2;
@@ -6364,6 +6446,7 @@ unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage)
 
 					}
 				}
+	            spin_lock(&ft_m_trans.ft_lock);
 				for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
         			if(ft_m_trans.global_kvm[i]!=NULL) {
         				struct kvm *kvm_p = ft_m_trans.global_kvm[i];
@@ -6371,16 +6454,18 @@ unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage)
     					ctx_p = &kvm_p->ft_context;
 
 						ctx_p->last_trans_rate[ctx_p->cur_index] = min;
+
+                        kvm_p->is_snapshot = 0;
+                        ft_m_trans.mark_start_time = time_in_us();
 					}
                 }
+                spin_unlock(&ft_m_trans.ft_lock);
 
-	        spin_lock(&ft_m_trans.ft_lock);
-            kvm->is_snapshot = 0;
-//            kvm->vcpus[0]->mark_start_time = ktime_get();
-            ft_m_trans.mark_start_time = time_in_us();
-            spin_unlock(&ft_m_trans.ft_lock);
+
+
+
 #ifdef TIMER_CALC_COMPRESS_DEBUG
-            printk("after mark start time %ld\n", ft_m_trans.mark_start_time);
+            printk("vmid = %d, after mark start time %ld\n", kvm->ft_vm_id, ft_m_trans.mark_start_time);
 #endif
 //    			struct kvmft_context *ctx;
  //   			ctx = &kvm->ft_context;
@@ -6571,7 +6656,7 @@ unsigned long int kvmft_bd_sync_check(struct kvm *kvm, int stage)
         spin_unlock(&ft_m_trans.ft_lock);
 
 #ifdef TIMER_CALC_COMPRESS_DEBUG
-        printk("fuck mark_start_time = 0 after snapshot\n");
+        printk("fuck mark_start_time = 0 vmid = %d, after snapshot\n", kvm->ft_vm_id);
 #endif
 		return time_in_us();
 

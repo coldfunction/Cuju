@@ -586,6 +586,7 @@ struct kvm {
     int current_transfer_rate;
     int wait;
     int timer_flag;
+    int timer_flag2;
     int is_snapshot;
     int blockid;
 

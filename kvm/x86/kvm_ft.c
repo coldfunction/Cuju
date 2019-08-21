@@ -1655,7 +1655,7 @@ int kvm_shm_enable(struct kvm *kvm)
 
     kvm->start_time = time_in_us();
     //atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
-	atomic_set(&ft_m_trans.ft_mode_vm_count, 3); //cocotion nfucking test
+	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
 
 
 
@@ -4585,8 +4585,13 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans before len = %d, kvm_task = %p\n", i, len, kvm_task);
 
+    static s64 dtime = 0;
+    static unsigned long int compress_count = 0;
+    compress_count++;
+    //s64 istart = time_in_us();
 
 	spin_lock(&ft_m_trans.ft_lock);
+    s64 istart = time_in_us();
     	for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
             struct kvm *kvm_p = ft_m_trans.global_kvm[i];
 			kvm_p->blockid = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
@@ -4595,7 +4600,13 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
     printk("cocotion test after compress vmid = %d, blockid= %d\n", i, kvm_p->blockid);
 #endif
         }
+    s64 iend = time_in_us();
 	spin_unlock(&ft_m_trans.ft_lock);
+
+    //s64 iend = time_in_us();
+    dtime += (iend-istart);
+    int average_compress = dtime/compress_count;
+    printk("cocotion test average compress = %d\n", average_compress);
 
         s64 issue_end = time_in_us();
 

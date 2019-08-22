@@ -969,10 +969,10 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 	//if(vcpu == global_vcpu)
 
-	if(vcpu->kvm->ft_vm_id == 0)
+//	if(vcpu->kvm->ft_vm_id == 0)
 		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
-	else
-		smp_call_function_single(3, bd_predic_stop3, vcpu, false);
+//	else
+//		smp_call_function_single(3, bd_predic_stop3, vcpu, false);
 
 //		work_on_cpu(7, bd_predic_stop3, vcpu);
 
@@ -1654,8 +1654,8 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
     kvm->start_time = time_in_us();
-    //atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
-	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
+//    atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
+    atomic_set(&ft_m_trans.ft_mode_vm_count, 3); //cocotion nfucking test
 
 
 
@@ -3363,6 +3363,12 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     header->gfn = gfn << 12 | 1;
     memset(header->h, 0, sizeof(header->h));
+static unsigned long int dcount = 0;
+s64 istart = 0;
+s64 iend = 0;
+s64 idiff = 0;
+static s64 itotal = 0;
+istart = time_in_us();
 
     kernel_fpu_begin();
 
@@ -3374,7 +3380,17 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
         }
     }
 
+
     kernel_fpu_end();
+
+iend = time_in_us();
+idiff = iend-istart;
+idiff++;
+idiff = 4096/idiff;
+itotal += idiff;
+dcount++;
+printk("average compress rate = %d\n", itotal/dcount);
+
 
     if (block == buf + sizeof(*header)) {
 		#ifdef ft_debug_mode_enable

@@ -593,6 +593,8 @@ struct kvm {
     int before_snapshot_dirty_len;
     int ft_sync;
     int ftflush;
+    int ft_kick;
+    wait_queue_head_t calc_event;
 
     int ft_offset;
 

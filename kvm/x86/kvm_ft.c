@@ -58,7 +58,8 @@ int global_send_size;
 
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
-static int bd_predic_stop3(struct kvm_vcpu *vcpu);
+//static int bd_predic_stop3(struct kvm_vcpu *vcpu);
+static int bd_predic_stop3(void *arg);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
@@ -88,8 +89,10 @@ struct ft_multi_trans_h {
 	int index;
     struct task_struct *ft_trans_kthread;
     struct task_struct *ft_getInputRate_kthread;
+    struct task_struct *ft_cmp_tsk[4];
     volatile int trans_kick;
     wait_queue_head_t ft_trans_thread_event;
+    wait_queue_head_t calc_event;
     wait_queue_head_t ft_trans_getInputRate_event;
     wait_queue_head_t timeout_wq;
     wait_queue_head_t timeout_wq2;
@@ -310,17 +313,30 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 	hrtimer_cancel(&vcpu->hrtimer);
 }
 
-static int bd_predic_stop3(struct kvm_vcpu *vcpu)
+//static int bd_predic_stop3(struct kvm_vcpu *vcpu)
+static int bd_predic_stop3(void *arg)
 {
     //smp_call_function_single(7, bd_predic_stop2, NULL, false);
 	//
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) arg;
 
+	while(!kthread_should_stop()) {
+
+//		schedule();
+//		set_current_state(TASK_RUNNING);
+
+		wait_event_interruptible(vcpu->kvm->calc_event, vcpu->kvm->ft_kick
+				|| kthread_should_stop());
+
+		if(kthread_should_stop())
+			break;
 
 		static unsigned long long total_count = 0;
 		static unsigned long long time = 0;
 		static unsigned long long dodo = 0;
 
 		struct kvm_vcpu *rvcpu;
+//		printk("cocotion test now is time = %d\n", time_in_us());
 
 		/*if(global_vcpu == vcpu) {
     	ktime_t start = ktime_get();
@@ -360,7 +376,7 @@ static int bd_predic_stop3(struct kvm_vcpu *vcpu)
 //		}
 		}
 */
-
+		vcpu->kvm->ft_kick = 0;
 		if(rvcpu) {
 //			if(rvcpu->nextT < 50) {
 //				bd_predic_stop3(vcpu);
@@ -376,6 +392,7 @@ static int bd_predic_stop3(struct kvm_vcpu *vcpu)
 			//printk("cocotion test okokokokokokok\n");
 		}
 
+	}
 	return 0;
 }
 
@@ -677,7 +694,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     //if(snum || epoch_run_time > (target_latency_us-target_latency_us/20) || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ ) {
 //	spin_lock(&ft_m_trans.ft_lock);
 //    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ - /*ctx->bd_alpha*/ 800 )) {
-    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us - ctx->bd_alpha)) {
+    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
 //		if (hrtimer_cancel(&vcpu->hrtimer)) {
 //			return NULL;
@@ -850,10 +867,38 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 //	tasklet_schedule(&calc_dirty_tasklet2);
 //    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
+//
+//
+/*
+    ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id] = kthread_create(bd_predic_stop3, vcpu, "cmp thread");
+    if(IS_ERR(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id])) {
+    	int ret = PTR_ERR(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]);
+		ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id] = NULL;
+    	return HRTIMER_NORESTART;
+	}
+    kthread_bind(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id], 7-kvm->ft_vm_id);
+*/
 
+	if(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]) {
+//		printk("before wakeup time = %d\n", time_in_us());
+		wake_up_process(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]);
+//		printk("after wakeup time = %d\n", time_in_us());
+	}
+	wake_up(&kvm->calc_event);
+	kvm->ft_kick = 1;
+/*
+    if(IS_ERR(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id])) {
+	//	int ret = kthread_stop(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]);
+		printk("no ok thread!!!!!!!!!!!!!!!!\n");
+	} else {
+		printk("before stop@@@@@@\n");
+		int ret = kthread_stop(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]);
+		printk("return ret = %d\n", ret);
+	}
+*/
 	//if(vcpu == global_vcpu)
 //	if(vcpu->kvm->ft_vm_id == 0)
-		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
+//		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
 //	else
 //		smp_call_function_single(4, bd_predic_stop3, vcpu, false);
 //		work_on_cpu(7, bd_predic_stop3, vcpu);
@@ -1454,6 +1499,8 @@ int kvm_shm_enable(struct kvm *kvm)
     kvm->ft_producer_done = 0;
 
     kvm->ft_offset = 0;
+	kvm->ft_kick = 1;
+
 
     spin_lock_init(&kvm->ft_lock);
     spin_lock_init(&ft_m_trans.ft_lock);
@@ -1525,9 +1572,19 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
     kvm->start_time = time_in_us();
-//    atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
+    //atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
 	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
 
+
+	init_waitqueue_head(&kvm->calc_event); // VM 0 awake
+
+   	ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id] = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
+    if(IS_ERR(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id])) {
+    	int ret = PTR_ERR(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id]);
+		ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id] = NULL;
+		return 0;
+	}
+    kthread_bind(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id], 7-kvm->ft_vm_id);
 
 
 
@@ -1536,6 +1593,23 @@ int kvm_shm_enable(struct kvm *kvm)
         init_waitqueue_head(&ft_m_trans.timeout_wq2);
         init_waitqueue_head(&ft_m_trans.timeout_wq3);
 /*
+        for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+        	struct kvm *kvm_p = ft_m_trans.global_kvm[i];
+
+            ft_m_trans.ft_cmp_tsk[i] = kthread_create(bd_predic_stop3, kvm_p->vcpus[0], "cmp thread");
+            if(IS_ERR(ft_m_trans.ft_cmp_tsk[i])) {
+            	int ret = PTR_ERR(ft_m_trans.ft_cmp_tsk[i]);
+				ft_m_trans.ft_cmp_tsk[i] = NULL;
+				return 0;
+			}
+
+            kthread_bind(ft_m_trans.ft_cmp_tsk[i], 7-i);
+        }
+*/
+
+
+
+		/*
         ft_m_trans.ft_getInputRate_kthread = kthread_create(&getInputRate, NULL, "ft_getInputRate_kthread");
         if (IS_ERR(ft_m_trans.ft_getInputRate_kthread)) {
             int ret = -PTR_ERR(ft_m_trans.ft_getInputRate_kthread);

@@ -1075,7 +1075,7 @@ static void thread_set_realtime(void)
 //cocotion fucking test
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(5, &cpuset);
+    CPU_SET(4, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 }
 
@@ -1149,7 +1149,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
 
             qemu_bh_schedule(s->bh);
 	//		kvm_shmem_trans_ram_bh(s);
-//			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+			//s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
 
 
 		}

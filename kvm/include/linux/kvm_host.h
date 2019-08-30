@@ -594,6 +594,7 @@ struct kvm {
     int ft_sync;
     int ftflush;
     int ft_kick;
+    int is_snapshot;
     wait_queue_head_t calc_event;
 
     int ft_offset;

@@ -559,6 +559,8 @@ struct kvm {
     volatile int trans_kick;
     volatile int ft_buf_tail;
     volatile int ft_buf_head;
+
+    uint8_t *ft_buf;
     int ft_buf_size;
     volatile int ft_producer_done;
     int ft_vm_id;
@@ -583,6 +585,7 @@ struct kvm {
     int ft_trans_index;
     int ft_run_serial;
     int ft_len;
+    int ft_sublen;
     int current_transfer_rate;
     int wait;
 
@@ -595,6 +598,7 @@ struct kvm {
     int ftflush;
     int ft_kick;
     int is_snapshot;
+    int start_dirty;
     wait_queue_head_t calc_event;
 
     int ft_offset;

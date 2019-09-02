@@ -58,6 +58,11 @@ int global_send_size;
 
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
+
+static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
+		        struct kvmft_dirty_list *dlist, int start, int end,
+				      int trans_index, int run_serial);
+
 //static int bd_predic_stop3(struct kvm_vcpu *vcpu);
 static int bd_predic_stop3(void *arg);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
@@ -1559,7 +1564,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->current_transfer_rate = 100;
 	kvm->wait = 0;
     kvm->ft_dlist = NULL;
-    kvm->ft_len = -1;
+    kvm->ft_len = 0;
+    kvm->ft_sublen = 0;
+	kvm->start_dirty = 0;
 
 //	atomic_inc(&ft_m_trans.ft_synced_num);
 //	atomic_inc(&ft_m_trans.ft_synced_num2);
@@ -1606,8 +1613,8 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
     kvm->start_time = time_in_us();
- //   atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
-	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
+    atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
+	//atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
 
 
 	init_waitqueue_head(&kvm->calc_event); // VM 0 awake
@@ -3554,6 +3561,46 @@ free:
 
 //}
 
+
+static int kvmft_transfer(struct kvm *kvm, struct socket *sock,
+    struct kvmft_dirty_list *dlist, int start, int end,
+    int trans_index, int run_serial)
+{
+
+	int total_vm = atomic_read(&ft_m_trans.ft_mode_vm_count);
+	int vm_id = 0;
+	int count = 0;
+
+	kvm->ft_buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+    //buf = kvm->ft_buf;
+    if (!kvm->ft_buf)
+        return -ENOMEM;
+	//kvm = ft_m_trans.global_kvm[vm_id];
+
+   	//vm_id = (vm_id+1) % atomic_read(&ft_m_trans.ft_mode_vm_count); //select VM
+	while (count < total_vm) {
+		kvm = ft_m_trans.global_kvm[vm_id];
+		if(kvm->start_dirty+1 == kvm->ft_count) {
+   			vm_id = (vm_id+1) % total_vm; //select VM
+			continue;
+		}
+
+		int len = kvmft_transfer_list(kvm, kvm->ft_sock, kvm->ft_dlist,
+        kvm->start_dirty, kvm->start_dirty+1, kvm->ft_trans_index, kvm->ft_run_serial);
+
+		kvm->ft_len += len;
+
+		if(kvm->start_dirty+1 == kvm->ft_count) {
+			count++;
+		}
+   		vm_id = (vm_id+1) % total_vm; //select VM
+	}
+
+	kfree(kvm->ft_buf);
+	return 0;
+}
+
+
 static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_dirty_list *dlist, int start, int end,
     int trans_index, int run_serial)
@@ -3579,8 +3626,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     page_transfer_end_times_off = end;
 #endif
 
-    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
-    //buf = kvm->ft_buf;
+    //buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+    buf = kvm->ft_buf;
     if (!buf)
         return -ENOMEM;
 
@@ -3618,6 +3665,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
  //   kvmft_tcp_unnodelay(sock);
 //    kvmft_tcp_nodelay(sock);
 
+//	len = kvm->ft_sublen;
 
 //	spin_lock(&ft_m_trans.ft_lock);
     for (i = start; i < end; ++i) {
@@ -3633,17 +3681,17 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
-        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+        kvm->ft_sublen += kvmft_diff_to_buf(kvm, gfn, i, buf + kvm->ft_sublen,
             trans_index, run_serial);
 
-		if (len >= 64 * 1024) {
-            ret = ktcp_send(sock, buf, len);
+		if (kvm->ft_sublen >= 64 * 1024) {
+            ret = ktcp_send(sock, buf, kvm->ft_sublen);
 //			int rate = len/(etime-stime);
 //			printk("cocotion test rate = %d\n", rate);
             if (ret < 0)
                 goto free;
-            total += len;
-            len = 0;
+            total += kvm->ft_sublen;
+            kvm->ft_sublen = 0;
         }
 
         //len = kvmft_diff_to_buf(kvm, gfn, i, buf + kvm->ft_buf_tail,
@@ -3779,8 +3827,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	spin_lock(&transfer_lock);
 
 //	spin_lock(&ft_m_trans.ft_lock);
-    if (len > 0) {
-        ret = ktcp_send(sock, buf, len);
+    if ((kvm->ft_sublen > 0) && (kvm->start_dirty+1 == kvm->ft_count )) {
+        ret = ktcp_send(sock, buf, kvm->ft_sublen);
 //		int newlen = 60;
  //       ret = ktcp_send(sock, buf, newlen);
 		//unsigned int random;
@@ -3789,7 +3837,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         //ret = ktcp_send(sock, buf, newlen);
         if (ret < 0)
             goto free;
-        total += len;
+        total += kvm->ft_sublen;
+		kvm->ft_sublen = 0;
   //      total += newlen;
 //		printk("cocotion test now trans total bytes = %d\n", total);
     }
@@ -4023,7 +4072,7 @@ nextStage:
  //    kvmft_tcp_nodelay(sock);
 //     kvmft_tcp_unnodelay(sock);
 
-	ret = total;
+	//ret = total;
 
 //free:
     //total = 0;
@@ -4065,7 +4114,7 @@ nextStage:
     ft_total_len = 0;
 
 free:
-    kfree(buf);
+    //kfree(buf);
 	return ret;
 }
 
@@ -4437,6 +4486,7 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
                 //udelay(200);
                 continue;
             }
+		}
 //			struct task_struct *current_backup, *kvm_task;
  //       	kvm_task = kvm_p->vcpus[0]->task;
 
@@ -4453,20 +4503,29 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans before len = %d, kvm_task = %p\n", i, len, kvm_task);
 
 
-			len = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
-        		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial);
+			kvmft_transfer(kvm, kvm->ft_sock, kvm->ft_dlist,
+        		0, kvm->ft_count, kvm->ft_trans_index, kvm->ft_run_serial);
+
+
+//			len = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
+ //       		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial);
 
 
 //			if(i == 1) {
 //				__this_cpu_write(current_task, current_backup);
  //       		put_cpu_var(current_task);
 //			}
+    	for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
+            struct kvm *kvm_p = ft_m_trans.global_kvm[i];
 
+			dirty_sum += kvm_p->ft_len;
+
+		}
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d, kvm_task = %p\n", i, len, kvm_task);
 //			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d\n", i, len);
-			kvm_p->ft_len = len;
-			dirty_sum+=len;
-		}
+//			kvm_p->ft_len = len;
+//			dirty_sum+=len;
+		//}
 		int index = ft_m_trans.index;
 		ft_m_trans.ft_trans_dirty[index] = dirty_sum;
 		ft_m_trans.index = (index+1) % 2;
@@ -4531,7 +4590,7 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 
 
 	len = kvm->ft_len;
-    kvm->ft_len = -1;
+    kvm->ft_len = 0;
 //	printk("vmid = %d, trans len = %d, time = %d after sync\n", kvm->ft_vm_id, len, time_in_us());
 
 	return len;

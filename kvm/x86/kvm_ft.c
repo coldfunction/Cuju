@@ -3575,7 +3575,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     int len = 0, total = 0, offset = 0, blocklen = 0;
     int last_trans_rate = 700;
 
-    uint8_t *buf;
+//    uint8_t *buf;
     unsigned int *gfns = dlist->pages;
 
 #ifdef PAGE_TRANSFER_TIME_MEASURE
@@ -3583,10 +3583,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     page_transfer_end_times_off = end;
 #endif
 
-    buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
+ //   buf = kmalloc(64 * 1024 + 8192, GFP_KERNEL);
     //buf = kvm->ft_buf;
-    if (!buf)
-        return -ENOMEM;
+  //  if (!buf)
+   //     return -ENOMEM;
 
 	global_start_time = time_in_us();
 	global_send_size = 0;
@@ -3622,7 +3622,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
  //   kvmft_tcp_unnodelay(sock);
 //    kvmft_tcp_nodelay(sock);
 
-
+	 int blockid = 0;
 //	spin_lock(&ft_m_trans.ft_lock);
     for (i = start; i < end; ++i) {
 //	spin_lock(&ft_m_trans.ft_lock);
@@ -3637,8 +3637,35 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
-        len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
+        len += kvmft_diff_to_buf(kvm, gfn, i, kvm->ft_data[blockid].ft_buf + len,
             trans_index, run_serial);
+
+
+		if (len >= 64 * 1024) {
+			kvm->ft_data[blockid].size = len;
+			blockid++;
+			total += len;
+			len = 0;
+		}
+	}
+
+    if (len > 0) {
+        kvm->ft_data[blockid].size = len;
+        blockid++;
+
+        total += len;
+    }
+
+
+    for(i = 0; i < blockid; i++) {
+        int len = kvm->ft_data[i].size;
+        ret = ktcp_send(sock, kvm->ft_data[i].ft_buf, len);
+        if (ret < 0)
+            goto free;
+	}
+
+
+/*
 
 		if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
@@ -3649,7 +3676,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             total += len;
             len = 0;
         }
-
+*/
         //len = kvmft_diff_to_buf(kvm, gfn, i, buf + kvm->ft_buf_tail,
          //   trans_index, run_serial);
          //
@@ -3731,7 +3758,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 */
 //	spin_unlock(&ft_m_trans.ft_lock);
 
-    }
+ //   }
 //	spin_unlock(&ft_m_trans.ft_lock);
 
 /*
@@ -3779,24 +3806,14 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 
 
-
-//	spin_lock(&transfer_lock);
-
-//	spin_lock(&ft_m_trans.ft_lock);
+/*
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
-//		int newlen = 60;
- //       ret = ktcp_send(sock, buf, newlen);
-		//unsigned int random;
-		//get_random_bytes(&random, sizeof(unsigned int));
-		//int newlen = random % (len - 100) + 90;
-        //ret = ktcp_send(sock, buf, newlen);
         if (ret < 0)
             goto free;
         total += len;
-  //      total += newlen;
-//		printk("cocotion test now trans total bytes = %d\n", total);
     }
+*/
 //	spin_unlock(&ft_m_trans.ft_lock);
 
 //	spin_unlock(&transfer_lock);
@@ -4069,7 +4086,7 @@ nextStage:
     ft_total_len = 0;
 
 free:
-    kfree(buf);
+//    kfree(buf);
 	return ret;
 }
 
@@ -4404,16 +4421,6 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
     ctx->diff_req_list[trans_index]->off = 0;
     notify_diff_req_list_change(kvm, trans_index);
 #endif
-/*
-	struct dirtyinfo ft_info;
-	ft_info.kvm = kvm;
-	ft_info.sock = psock;
-	ft_info.dlist = dlist;
-	ft_info.start = 0;
-	ft_info.end = count;
-	ft_info.trans_index = trans_index;
-	ft_info.run_serial = run_serial;
-*/
 
 	kvm->ft_sock = psock;
 	kvm->ft_count = count;
@@ -4421,112 +4428,26 @@ static int diff_and_transfer_all(struct kvm *kvm, int trans_index, int max_conn)
 	kvm->ft_run_serial = run_serial;
 	kvm->ft_dlist = dlist;
 
-/*
-	if(!kvmft_bd_sync_check(kvm, 1)) {
-		while(!kvmft_bd_sync_sig(kvm, 1)) {
-			udelay(200);
-		}
-	}
-*/
 
 	if(kvm->ft_vm_id == 0) {
-	//if(kvm->ft_vm_id != 0) {
-//		wait_event_interruptible(ft_m_trans.timeout_wq, kvm->ft_len != -1);
-//	} else {
 		int dirty_sum = 0;
     	for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
             struct kvm *kvm_p = ft_m_trans.global_kvm[i];
             if(kvm_p->ft_dlist == NULL) {
                 i--;
-                //udelay(200);
                 continue;
             }
-//			struct task_struct *current_backup, *kvm_task;
- //       	kvm_task = kvm_p->vcpus[0]->task;
-
-//			if(i == 1) {
-
- //       		current_backup = get_cpu_var(current_task);
-  //      		kvm_task = kvm_p->vcpus[0]->task;
-//				if(current_backup != kvm_task) {
-//					__this_cpu_write(current_task, kvm_task);
-//				}
-
-//			}
-
-//			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans before len = %d, kvm_task = %p\n", i, len, kvm_task);
-
 
 			len = kvmft_transfer_list(kvm_p, kvm_p->ft_sock, kvm_p->ft_dlist,
         		0, kvm_p->ft_count, kvm_p->ft_trans_index, kvm_p->ft_run_serial);
 
-
-//			if(i == 1) {
-//				__this_cpu_write(current_task, current_backup);
- //       		put_cpu_var(current_task);
-//			}
-
-//			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d, kvm_task = %p\n", i, len, kvm_task);
-//			printk("@@@@@@@@@@@@@@@@@@@@@@@@@ i = %d, trans after len = %d\n", i, len);
 			kvm_p->ft_len = len;
 			dirty_sum+=len;
 		}
 		int index = ft_m_trans.index;
 		ft_m_trans.ft_trans_dirty[index] = dirty_sum;
 		ft_m_trans.index = (index+1) % 2;
-
-//        wake_up_interruptible(&ft_m_trans.timeout_wq);
-//        wake_up(&ft_m_trans.timeout_wq);
     }
-//    else {
-
-  //      wait_event_interruptible(ft_m_trans.timeout_wq, kvm->ft_len != -1);
- //       wait_event(ft_m_trans.timeout_wq);
- //   }
-
-//		spin_lock(&ft_m_trans.ft_lock);
-//	printk("vmid = %d, trans len = %d, time = %d before sync\n", kvm->ft_vm_id, len, time_in_us());
-		////////////////////coccotion test/////////////////////////////////
-		//	len = kvmft_transfer_list(kvm, psock, dlist,
-        //		0, count, trans_index, run_serial);
-//		spin_unlock(&ft_m_trans.ft_lock);
-
-//			kvm->ft_len = len;
-//			len = kvm->ft_len;
-/////////////////////////////////////////////////////////////////////
-//	printk("##### vmid = %d, before trans sync len = %d\n", kvm->ft_vm_id, len);
-
-/*
-	if(atomic_inc_return(&ft_m_trans.sync_ok4) == 1) {
-		////////////////////coccotion test/////////////////////////////////
-
-		int dirty_sum = 0;
-		for(i = 0; i < atomic_read(&ft_m_trans.ft_mode_vm_count); i++) {
-            struct kvm *kvm_p = ft_m_trans.global_kvm[i];
-			dirty_sum+=kvm_p->ft_len;
-		}
-		int index = ft_m_trans.index;
-		ft_m_trans.ft_trans_dirty[index] = dirty_sum;
-		ft_m_trans.index = (index+1) % atomic_read(&ft_m_trans.ft_mode_vm_count);
-
-		/////////////////////////////////////////////////////
-
-		while(atomic_read(&ft_m_trans.sync_ok4) == 1) {
-			udelay(100);
-		}
-		atomic_set(&ft_m_trans.sync_ok4, 0);
-	}
-*/
-
-
-/*
-	if(!kvmft_bd_sync_check(kvm, 1)) {
-		while(!kvmft_bd_sync_sig(kvm, 1)) {
-//			udelay(500);
-//			printk("vmid = %d, wait\n", kvm->ft_vm_id);
-		}
-	}
-*/
 
 
 	kvmft_bd_sync_check(kvm, 1);

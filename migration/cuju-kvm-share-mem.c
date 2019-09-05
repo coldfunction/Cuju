@@ -1073,10 +1073,11 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-    cpu_set_t cpuset;
+/*    cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(4, &cpuset);
+    CPU_SET(6, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+*/
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)

@@ -99,6 +99,7 @@ struct ft_multi_trans_h {
     wait_queue_head_t timeout_wq3;
 	spinlock_t ft_lock;
 	spinlock_t ft_lock2;
+	spinlock_t ft_lock3;
     struct socket *sock[128];
     struct kvm *global_kvm[128];
 };
@@ -1539,6 +1540,7 @@ int kvm_shm_enable(struct kvm *kvm)
     spin_lock_init(&kvm->ft_lock);
     spin_lock_init(&ft_m_trans.ft_lock);
     spin_lock_init(&ft_m_trans.ft_lock2);
+    spin_lock_init(&ft_m_trans.ft_lock3);
 
     kvm->virtualTime = 1;
     kvm->start_time = time_in_us();
@@ -1606,8 +1608,8 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
     kvm->start_time = time_in_us();
- //   atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
-	atomic_set(&ft_m_trans.ft_mode_vm_count, 2); //cocotion nfucking test
+    atomic_inc_return(&ft_m_trans.ft_mode_vm_count);
+//	atomic_set(&ft_m_trans.ft_mode_vm_count, 3); //cocotion nfucking test
 
 
 	init_waitqueue_head(&kvm->calc_event); // VM 0 awake
@@ -1618,7 +1620,8 @@ int kvm_shm_enable(struct kvm *kvm)
 		ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id] = NULL;
 		return 0;
 	}
-    kthread_bind(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id], 7-kvm->ft_vm_id);
+//    kthread_bind(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id], 7-kvm->ft_vm_id);
+    kthread_bind(ft_m_trans.ft_cmp_tsk[kvm->ft_vm_id], 7);
 
 
 
@@ -2555,7 +2558,8 @@ static inline int memcmp_avx_32(uint8_t *a, uint8_t *b)
 
     //kernel_fpu_begin();
 
-    asm volatile("vmovdqa %0,%%ymm0" : : "m" (a[0]));
+
+	asm volatile("vmovdqa %0,%%ymm0" : : "m" (a[0]));
     asm volatile("vmovdqa %0,%%ymm1" : : "m" (b[0]));
 
     asm volatile("vxorpd %ymm0,%ymm1,%ymm2");
@@ -6549,6 +6553,35 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->wait = 0;
 }
 
+static __inline__ int slow_memcmp(const void *cs, const void *ct, size_t count)
+{
+    const unsigned char *su1, *su2;
+    int res = 0;
+    for (su1 = cs, su2 = ct; 0 < count; ++su1, ++su2, count--)
+        if ((res = *su1 - *su2) != 0)
+            break;
+    return res;
+}
+
+static __inline__ int slow_memcmp2(void *s1, void *s2, size_t n)
+{
+    size_t num = n / 8;
+    register int res;
+    __asm__ __volatile__
+    (
+     "testq %q3,%q3\n\t"
+     "repe; cmpsq\n\t"
+     "je        1f\n\t"
+     "sbbq      %q0,%q0\n\t"
+     "orq       $1,%q0\n"
+     "1:"
+     : "=&a" (res), "+&S" (s1), "+&D" (s2), "+&c" (num)
+     : "0" (0)
+     : "cc");
+    return res;
+}
+
+
 
 int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {
@@ -6561,8 +6594,8 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
     int total_zero_len = 0;
     int invalid_count = 0;
 
-  //  int n = 7;
-   // int p = 2;
+//    int n = 7;
+ //   int p = 2;
    // 12,2
     int n = 12;
     int p = 2;
@@ -6599,7 +6632,6 @@ char *page = __va(PFN_PHYS(page_to_pfn(page2)));
 char *backup = __va(PFN_PHYS(page_to_pfn(page1)));
 
 
-
 //        char *page = kmap_atomic(page2);
  //       char *backup = kmap_atomic(page1) ;
 
@@ -6607,10 +6639,12 @@ char *backup = __va(PFN_PHYS(page_to_pfn(page1)));
 
         kernel_fpu_begin();
         for (j = 0; j < 4096; j += 32) {
+//        for (j = 0; j < 2048; j += 32) {
             len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+//            len += 32 * (!!slow_memcmp2(backup + j, page + j, 32));
         }
         kernel_fpu_end();
-
+//		len = len*2;
 
   //      kunmap_atomic(page);
    //     kunmap_atomic(backup);

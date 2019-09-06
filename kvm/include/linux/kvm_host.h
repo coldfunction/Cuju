@@ -540,6 +540,11 @@ struct kvm {
 
     DECLARE_KFIFO(trans_queue, int, KVM_MAX_MIGRATION_DESC);
     wait_queue_head_t trans_queue_event;
+
+    int ft_kick;
+    wait_queue_head_t calc_event;
+    struct task_struct *ft_cmp_tsk;
+
 };
 
 #define kvm_err(fmt, ...) \

@@ -46,7 +46,7 @@ static int page_transfer_offsets_off = 0;
 int global_internal_time = 300;
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
-static int bd_predic_stop3(struct kvm_vcpu *vcpu);
+static int bd_predic_stop3(void *arg);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
@@ -254,21 +254,34 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 	hrtimer_cancel(&vcpu->hrtimer);
 }
 
-static int bd_predic_stop3(struct kvm_vcpu *vcpu)
+static int bd_predic_stop3(void *arg)
 {
-	static unsigned long long total_count = 0;
-	static unsigned long long time = 0;
-	static unsigned long long dodo = 0;
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) arg;
 
-	struct kvm_vcpu *rvcpu;
+	while(!kthread_should_stop()) {
 
-	rvcpu = bd_predic_stop2(vcpu);
+		wait_event_interruptible(vcpu->kvm->calc_event, vcpu->kvm->ft_kick
+				|| kthread_should_stop());
 
-	if(rvcpu) {
-    	ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
-    	hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+
+		if(kthread_should_stop())
+			break;
+
+		static unsigned long long total_count = 0;
+		static unsigned long long time = 0;
+		static unsigned long long dodo = 0;
+
+		struct kvm_vcpu *rvcpu;
+
+		rvcpu = bd_predic_stop2(vcpu);
+
+		vcpu->kvm->ft_kick = 0;
+		if(rvcpu) {
+    		ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
+    		hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+		}
+
 	}
-
 	return 0;
 }
 
@@ -337,25 +350,17 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 	struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
 
-//    int self = abs(atomic_inc_return(&ft_timer.end))%128;
+	struct kvm *kvm = vcpu->kvm;
 
- //   ft_timer.timer[self] = timer;
-/*
-	printk("cocotion herer in call back start #########################\n");
-	printk("cocotion test self = %d\n", self);
-	printk("cocotion test vcpu = %p\n", vcpu);
-	printk("cocotion test time = %ld\n", ktime_get());
-	printk("cocotion test @@@@@@process current pid= %d\n", current->pid);
-	printk("cocotion herer in call back end ###########################\n");
-*/
+	if(kvm->ft_cmp_tsk) {
+		wake_up_process(kvm->ft_cmp_tsk);
+	}
+	wake_up(&kvm->calc_event);
+	kvm->ft_kick = 1;
 
-//	tasklet_schedule(&calc_dirty_tasklet2);
-//    smp_call_function_single((self%2)+6, bd_predic_stop3, 0, false);
 
-	//if(vcpu == global_vcpu)
-		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
-	//else
-	//	smp_call_function_single(3, bd_predic_stop3, vcpu, false);
+
+//		smp_call_function_single(7, bd_predic_stop3, vcpu, false);
 
     return HRTIMER_NORESTART;
 }
@@ -936,6 +941,17 @@ int kvm_shm_enable(struct kvm *kvm)
     struct kvmft_context *ctx = &kvm->ft_context;
     ctx->shm_enabled = !ctx->shm_enabled;
     printk("%s shm_enabled %d\n", __func__, ctx->shm_enabled);
+
+
+	init_waitqueue_head(&kvm->calc_event);
+	kvm->ft_cmp_tsk = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
+	if(IS_ERR(kvm->ft_cmp_tsk)) {
+		kvm->ft_cmp_tsk = NULL;
+		return 0;
+	}
+
+	kthread_bind(kvm->ft_cmp_tsk, 7);
+
     return 0;
 }
 

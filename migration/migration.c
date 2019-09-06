@@ -2309,6 +2309,12 @@ static void kvmft_flush_output(MigrationState *s)
  //   int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
 
+
+
+	double difftime_k = (double) cuju_sync_local_VMs_runstage(7) / 1000000;
+	difftime_k *= 1000000;
+	double k_rate = s->ram_len/difftime_k;
+
 //	int real_transfer_time = (int)((s->transfer_real_finish_time - s->transfer_real_start_time) * 1000000);
 
 //	int trans_rate = s->ram_len/trans_us;
@@ -2319,6 +2325,8 @@ static void kvmft_flush_output(MigrationState *s)
  //   printf("cocotion test trans us = %d\n", trans_us);
 
 
+	int dirty_count = cuju_sync_local_VMs_runstage(8);
+	dirty_count--;
 	//int trans_rate = total_dirty/trans_us;
 
 //	int times = 0;
@@ -2538,6 +2546,7 @@ static void kvmft_flush_output(MigrationState *s)
 //	mybdupdate.last_trans_rate = 700;
 
 
+	cuju_sync_local_VMs_runstage(latency_us+10);
 
    FILE *pFile;
    char pbuf[200];
@@ -2554,10 +2563,14 @@ static void kvmft_flush_output(MigrationState *s)
        // fputs(pbuf, pFile);
 //        sprintf(pbuf, "%d   %d\n", real_trans_rate, trans_rate);
 //        sprintf(pbuf, "%d\n", trans_rate);
-        sprintf(pbuf, "%d %d %d %lf %lf %lf %d %d\n", \
+        sprintf(pbuf, "%d %d %d %lf %lf %lf %d %d %lf %lf %d %lf %lf\n", \
 				migrate_get_index(s), trans_rate, \
 				total_dirty, s->run_real_start_time, \
-				s->recv_ack1_time, s->snapshot_start_time, s->ram_len, latency_us);
+				s->recv_ack1_time, s->snapshot_start_time, \
+				s->ram_len, latency_us, difftime_k, \
+				trans_us-difftime_k, dirty_count,\
+				k_rate, \
+			   	(dirty_count*4096)/(trans_us-difftime_k));
  //       fputs(pbuf, pFile);
 //	     sprintf(pbuf, "%d\n", real_trans_rate);
         fputs(pbuf, pFile);
@@ -2897,10 +2910,11 @@ static int migrate_ft_trans_get_ready(void *opaque)
 //        printf("cocotion give me hop curindex = %d\n", migrate_get_index(s));
 //		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(1) / 1000000;
 //	    qemu_mutex_unlock(&ft_sync_mutex);
-//		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
+		s->recv_ack1_time = (double) cuju_sync_local_VMs_runstage(3) / 1000000;
 	//	printf("ack time = %lf len = %d\n", s->recv_ack1_time, s->ram_len);
 
 		//s->recv_ack1_time = time_in_double();
+
 
         FTPRINTF("%s slave ack1 time %lf\n", __func__,
             time_in_double() - s->transfer_finish_time);

@@ -1150,7 +1150,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
 
             qemu_bh_schedule(s->bh);
 	//		kvm_shmem_trans_ram_bh(s);
-			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
+//			s->recv_ack1_time = (double) cuju_sync_local_VM_ok(3) / 1000000;
 
 
 		}

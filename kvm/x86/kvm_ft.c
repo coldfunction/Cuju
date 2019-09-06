@@ -54,7 +54,11 @@ volatile int global_vm_id = 0;
 
 
 s64 global_start_time;
+s64 global_mark_time;
 int global_send_size;
+int global_dirty_count;
+int global_load_rate = 3800;
+
 
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
@@ -628,6 +632,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
     int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
+	int current_dirty_count = dlist->put_off;
+	int load_mem_bytes = current_dirty_count*4096;
+
 
 	ktime_t now = ktime_get();
 	ktime_t diff = ktime_sub(now, vcpu->mark_start_time);
@@ -648,6 +655,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
     beta = current_dirty_byte/ctx->last_trans_rate[ctx->cur_index] + epoch_run_time;
+
+
 //    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 /*
 	printk("==================================\n");
@@ -692,6 +701,15 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     }
 	//beta = total_dirty_byte/ctx->last_trans_rate[ctx->cur_index] + epoch_run_time;
 	beta = total_dirty_byte/kvm->current_transfer_rate + epoch_run_time;
+
+	kvm->x0 = current_dirty_byte/global_load_rate;
+	kvm->x1 = load_mem_bytes/global_load_rate;
+	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
+	beta/= 1000;
+	beta += epoch_run_time;
+
+	printk("beta = %d, w0 = %d, w1 = %d, x0 = %d, x1 = %d\n", \
+				beta, kvm->w0, kvm->w1, kvm->x0, kvm->x1);
 	//beta = total_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 	//int snum = atomic_read(&ft_m_trans.ft_snapshot_num);
 
@@ -699,7 +717,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     //if(snum || epoch_run_time > (target_latency_us-target_latency_us/20) || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ ) {
 //	spin_lock(&ft_m_trans.ft_lock);
 //    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/ - /*ctx->bd_alpha*/ 800 )) {
-    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us )) {
+//    if(epoch_run_time > (target_latency_us-target_latency_us/20) || (beta/*+ctx->bd_alpha*/ >= target_latency_us-1000 )) {
+    if(epoch_run_time >= target_latency_us-1000 || (beta/*+ctx->bd_alpha*/ >= target_latency_us-1000 )) {
 //	if(current_dirty_byte > 1000000 || beta/*+ctx->bd_alpha*/ >= target_latency_us/*ctx->bd_alpha*/) {
 //		if (hrtimer_cancel(&vcpu->hrtimer)) {
 //			return NULL;
@@ -1562,6 +1581,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->wait = 0;
     kvm->ft_dlist = NULL;
     kvm->ft_len = -1;
+	kvm->w0 = 1000;
+	kvm->w1 = 1000;
+
 
 //	atomic_inc(&ft_m_trans.ft_synced_num);
 //	atomic_inc(&ft_m_trans.ft_synced_num2);
@@ -3567,6 +3589,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     static unsigned long long trans_count = 0;
 
 
+	global_dirty_count = end;
 //    kvm->ft_sock = sock;
 //	printk("cocotion test in old sock = %p\n", sock);
 //	wake_up(&kvm->ft_trans_thread_event);
@@ -3657,12 +3680,26 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 
 
+	s64 issue_end = time_in_us();
+	s64 diff = issue_end - issue_start;
+	int load_mem_bytes = end*4096;
+	if(diff > 0)
+		global_load_rate = load_mem_bytes/diff;
+//	printk("global rate = %d\n", global_load_rate);
+
+	if(global_load_rate < 2000)
+		global_load_rate = 2000;
+
+
+	global_mark_time = time_in_us();
+
     for(i = 0; i < blockid; i++) {
         int len = kvm->ft_data[i].size;
         ret = ktcp_send(sock, kvm->ft_data[i].ft_buf, len);
         if (ret < 0)
             goto free;
 	}
+
 
 
 /*
@@ -6390,9 +6427,37 @@ return time_in_us();
             printk("run stage ok wakeup vmid = %d\n", kvm->ft_vm_id);
         }
 		return 1;
-
-
     }
+	else if (stage == 7) {
+		return time_in_us()-global_mark_time;
+	}
+	else if (stage == 8) {
+		return global_dirty_count+1;
+	}
+	else if(stage >= 10) {
+		int latency_us = stage-10;
+		printk(" =====>>>>>>>>>>>>>latency_us = %d, w0 = %d, w1 = %d, x0 = %d, x1 = %d\n", \
+				latency_us, kvm->w0, kvm->w1, kvm->x0, kvm->x1);
+
+		if (latency_us > target_latency_us + 1000) {
+			kvm->w0 = kvm->w0 + (800*kvm->x0*(1))/1000;
+			kvm->w1 = kvm->w1 + (800*kvm->x1*(1))/1000;
+			if(kvm->w0 <=1000 ) kvm->w0 = 1000;
+			if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+		} else if (latency_us < target_latency_us - 1000) {
+			kvm->w0 = kvm->w0 + (800*kvm->x0*(-1))/1000;
+			kvm->w1 = kvm->w1 + (800*kvm->x1*(-1))/1000;
+			if(kvm->w0 <=1000 ) kvm->w0 = 1000;
+			if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+		}
+
+
+
+
+		return 111;
+	}
+
+
 
 }
 
@@ -6515,11 +6580,11 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
     int total_zero_len = 0;
     int invalid_count = 0;
 
-//    int n = 7;
- //   int p = 2;
-   // 12,2
-    int n = 12;
+    int n = 7;
     int p = 2;
+   // 12,2
+//    int n = 12;
+ //   int p = 2;
     int k = 0;
     int real_count = 0;
 

@@ -544,6 +544,11 @@ struct kvm {
     int ft_kick;
     wait_queue_head_t calc_event;
     struct task_struct *ft_cmp_tsk;
+    int w0;
+    int w1;
+    int x0;
+    int x1;
+    int load_mem_rate;
 
 };
 

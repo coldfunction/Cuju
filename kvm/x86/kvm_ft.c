@@ -305,6 +305,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
     int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
 
+	int load_mem_bytes = dlist->put_off*4096;
+
+
 	ktime_t now = ktime_get();
 	ktime_t diff = ktime_sub(now, vcpu->mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
@@ -321,8 +324,19 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 	int extra_dirty = (dirty_diff_rate * difftime2) /*+ (newcount-oldcount)*4096*/;
 
-    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
+//    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 
+
+	kvm->x0 = current_dirty_byte / kvm->load_mem_rate;
+	kvm->x1 = load_mem_bytes / kvm->load_mem_rate;
+	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
+	beta/= 1000;
+	beta += epoch_run_time;
+
+	//printk("epoch_run_time = %d, beta = %d, w0 = %d, w1 = %d, x0 = %d, x1 = %d mem_rate = %d, current_dirty_byte = %d, load_mem_bytes = %d\n", \
+	//		epoch_run_time, beta, kvm->w0, kvm->w1, kvm->x0, kvm->x1, kvm->load_mem_rate, current_dirty_byte, load_mem_bytes);
+
+//    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-1000) {
 
     	vcpu->hrtimer_pending = true;
@@ -942,6 +956,10 @@ int kvm_shm_enable(struct kvm *kvm)
     ctx->shm_enabled = !ctx->shm_enabled;
     printk("%s shm_enabled %d\n", __func__, ctx->shm_enabled);
 
+
+	kvm->load_mem_rate = 3800;
+	kvm->w0 = 1000;
+	kvm->w1 = 1000;
 
 	init_waitqueue_head(&kvm->calc_event);
 	kvm->ft_cmp_tsk = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
@@ -2808,6 +2826,10 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     kvmft_tcp_unnodelay(sock);
     //kvmft_tcp_nodelay(sock);
 
+	int cmp_t = 0;
+	int send_t = 0;
+	s64 istart;
+
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -2820,12 +2842,17 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             continue;
 #endif
 
+		istart = time_in_us();
+
         len += kvmft_diff_to_buf(kvm, gfn, i, buf + len,
             trans_index, run_serial);
+
+		cmp_t+=time_in_us()-istart;
 
 		//preempt_disable();
 //		spin_lock(&transfer_lock);
 
+		istart = time_in_us();
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
             if (ret < 0)
@@ -2833,6 +2860,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             total += len;
             len = 0;
         }
+		send_t += time_in_us()-istart;
 //		spin_unlock(&transfer_lock);
 		//preempt_enable(); //cocotion fucking think
 		//sched_yield();
@@ -2841,12 +2869,14 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 //	spin_lock(&transfer_lock);
 
+	istart = time_in_us();
     if (len > 0) {
         ret = ktcp_send(sock, buf, len);
         if (ret < 0)
             goto free;
         total += len;
     }
+	send_t += time_in_us()-istart;
 
 //	spin_unlock(&transfer_lock);
 
@@ -2875,6 +2905,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     ret = total;
 free:
     kfree(buf);
+
+	if(cmp_t > 0)
+		kvm->load_mem_rate = end*4096/cmp_t;
+//	printk("compress time = %d, load_mem_rate = %d\n", cmp_t, kvm->load_mem_rate);
+//	printk("send time = %d\n", send_t);
 
 
 
@@ -3932,6 +3967,25 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     __bd_average_update(ctx);
 
     ctx->bd_average_put_off = (put_off + 1) % BD_HISTORY_MAX;
+
+	int latency_us = update->latency_us;
+
+//	printk(" =====>>>>>>>>>>>>>latency_us = %d, w0 = %d, w1 = %d, x0 = %d, x1 = %d\n", \
+			latency_us, kvm->w0, kvm->w1, kvm->x0, kvm->x1);
+
+
+	if (latency_us > target_latency_us + 1000) {
+		kvm->w0 = kvm->w0 + (800*kvm->x0*(1))/1000;
+		kvm->w1 = kvm->w1 + (800*kvm->x1*(1))/1000;
+		if(kvm->w0 <=1000 ) kvm->w0 = 1000;
+		if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+	} else if (latency_us < target_latency_us - 1000) {
+		kvm->w0 = kvm->w0 + (800*kvm->x0*(-1))/1000;
+		kvm->w1 = kvm->w1 + (800*kvm->x1*(-1))/1000;
+		if(kvm->w0 <=1000 ) kvm->w0 = 1000;
+		if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+	}
+
 }
 
 

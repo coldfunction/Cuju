@@ -256,140 +256,29 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
 
 static int bd_predic_stop3(struct kvm_vcpu *vcpu)
 {
-    //smp_call_function_single(7, bd_predic_stop2, NULL, false);
-	//
+	static unsigned long long total_count = 0;
+	static unsigned long long time = 0;
+	static unsigned long long dodo = 0;
 
+	struct kvm_vcpu *rvcpu;
 
-		static unsigned long long total_count = 0;
-		static unsigned long long time = 0;
-		static unsigned long long dodo = 0;
+	rvcpu = bd_predic_stop2(vcpu);
 
-		struct kvm_vcpu *rvcpu;
-
-		/*if(global_vcpu == vcpu) {
-    	ktime_t start = ktime_get();
-		rvcpu = bd_predic_stop2(vcpu);
-    	ktime_t diff2 = ktime_sub(ktime_get(), start);
-   		int difftime2 = ktime_to_us(diff2);
-		time+=difftime2;
-		total_count++;
-		printk("!!!!@@ difftime when dirty calc is %d\n", difftime2); //cocotion fucking
-		printk("!!!!~~~~cocotion test fucking great count = %d, averagedifftime = %d\n", total_count, time/total_count); //cocotion fucking
-		if(rvcpu)
-		printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT); //cocotion fucking
-		}
-		else*/
-			rvcpu = bd_predic_stop2(vcpu);
-
-
-
-		/*
-		if(global_vcpu == vcpu) {
-    	ktime_t start = ktime_get();
-
-		int i = 0;
-		for(i = 0; i < 1000000; i++) {
-			dodo+=i;
-		}
-
-//		if(self %2 == 0) {
-		//if(global_vcpu == vcpu) {
-    	ktime_t diff2 = ktime_sub(ktime_get(), start);
-   		int difftime2 = ktime_to_us(diff2);
-		time+=difftime2;
-		total_count++;
-		printk("!!!!@@ difftime when dirty calc is %d\n", difftime2);
-		printk("!!!!~~~~cocotion test fucking great count = %d, averagedifftime = %d\n", total_count, time/total_count);
-		//printk("cocotion test process current pid= %d\n", current->pid);
-//		}
-		}
-*/
-
-		if(rvcpu) {
-			if(rvcpu->nextT < 50) {
-				bd_predic_stop3(vcpu);
-				return 0;
-			}
-			//printk("cocotion test fucking oh ya\n");
-    	//	hrtimer_cancel(&vcpu->hrtimer);
-    		ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
-//			printk("cocotion test fucking oh ya@@ vcpu->nextT = %d\n", vcpu->nextT); //cocotion fucking
-    		hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
-    		//hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL_PINNED);
-			//smp_call_function_single(7, timer_init, &rvcpu->hrtimer, true);
-			//printk("cocotion test okokokokokokok\n");
-		}
+	if(rvcpu) {
+    	ktime_t ktime = ktime_set(0, rvcpu->nextT * 1000);
+    	hrtimer_start(&rvcpu->hrtimer, ktime, HRTIMER_MODE_REL);
+	}
 
 	return 0;
 }
 
-static struct kvm_vcpu* bd_predic_stop4(struct kvm *kvm)
-{
-    ktime_t start = ktime_get();
-
-	struct kvm_vcpu *vcpu = kvm->vcpus[0];
-
-    struct kvmft_context *ctx;
-    ctx = &kvm->ft_context;
-
-    struct kvmft_dirty_list *dlist;
-    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
-
-    int beta;
-    int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
-
-    ktime_t diff = ktime_sub(ktime_get(), vcpu->mark_start_time);
-    int epoch_run_time = ktime_to_us(diff);
-
-    int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
-	vcpu->old_dirty_count = current_dirty_byte;
-	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime);
-	vcpu->old_runtime = epoch_run_time;
-    ktime_t diff2 = ktime_sub(ktime_get(), start);
-   	int difftime2 = ktime_to_us(diff2);
-	int extra_dirty = (dirty_diff_rate * difftime2)*2/3 /*+ (newcount-oldcount)*4096*/;
-    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
-
-    if(beta/*+ctx->bd_alpha*/ >= target_latency_us ) {
-
-//        hrtimer_cancel(&vcpu->hrtimer);
-
-        vcpu->hrtimer_pending = true;
-        vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-        kvm_vcpu_kick(vcpu);
-        return NULL;
-	}
-    diff = ktime_sub(ktime_get(), start);
-    int difftime = ktime_to_us(diff);
-    int t = global_internal_time - difftime;
-//    if(t < 20) {
- //       return bd_predic_stop4(kvm);
-        //return 1;
-  //  }
-
-	vcpu->nextT = t;
-	return vcpu;
-/*
-    hrtimer_cancel(&vcpu->hrtimer);
-    ktime_t ktime = ktime_set(0, t * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
-
-    return 1;
-	*/
-}
 
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 {
 
     ktime_t start = ktime_get();
-
-//    int self  = abs(atomic_inc_return(&ft_timer.start))%128;
-
- //   struct hrtimer *timer = ft_timer.timer[self];
-  //  struct kvm_vcpu *vcpu = hrtimer_to_vcpu(timer);
     struct kvm *kvm = vcpu->kvm;
 
-	//goto jump;
 
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
@@ -407,7 +296,6 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	ktime_t diff = ktime_sub(now, vcpu->mark_start_time);
     int epoch_run_time = ktime_to_us(diff);
 
-//	goto jump;
 
 	int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
 	vcpu->old_dirty_count = current_dirty_byte;
@@ -421,35 +309,13 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int extra_dirty = (dirty_diff_rate * difftime2) /*+ (newcount-oldcount)*4096*/;
 
     beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
-/*
-	printk("==================================\n");
-	printk("cocotion test self = %d\n", self);
-	printk("test current_dirty_byte = %d\n", current_dirty_byte);
-	printk("test vcpu->last_trans_rate = %d\n", vcpu->last_trans_rate);
-	printk("test epoch_run_time = %d\n", epoch_run_time);
-	printk("test beta = %d\n", beta);
-	printk("==================================\n");
-*/
-	if(beta/*+ctx->bd_alpha*/ >= target_latency_us - 500/*ctx->bd_alpha*/) {
-//jump:
-//			p_dirty_bytes = current_dirty_byte;
-/*
-			printk("@@@@@!!!!!!!================= start \n");
-			printk("cocotion test vcpu = %p\n", vcpu);
-			printk("cocotion test mark start time = %ld\n", vcpu->mark_start_time);
-			printk("cocotion test now time = %ld\n", now);
-			printk("cocotion test at begin of thisfun = %ld\n", start);
-			printk("cocotion test epoch run time = %d\n", epoch_run_time);
-			printk("@@@@@!!!!!!!================= end \n");
-*/
-//        	hrtimer_cancel(&vcpu->hrtimer);
 
-            vcpu->hrtimer_pending = true;
-            vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
-            kvm_vcpu_kick(vcpu);
-            //return 1;
-            //return self;
-			return NULL;
+	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-1000) {
+
+    	vcpu->hrtimer_pending = true;
+        vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
+        kvm_vcpu_kick(vcpu);
+		return NULL;
     }
 
     diff = ktime_sub(ktime_get(), start);
@@ -458,18 +324,11 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     int t = global_internal_time - difftime;
 
 	if(t < 20) {
-    	return bd_predic_stop4(kvm);
-        //return 1;
+    	return bd_predic_stop2(vcpu);
     }
 	vcpu->nextT = t;
 
 	return vcpu;
-/*
-    hrtimer_cancel(&vcpu->hrtimer);
-    ktime_t ktime = ktime_set(0, t * 1000);
-    hrtimer_start(&vcpu->hrtimer, ktime, HRTIMER_MODE_REL);
-    return 1;
-*/
 }
 
 static enum hrtimer_restart kvm_shm_vcpu_timer_callback(

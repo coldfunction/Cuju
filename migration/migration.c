@@ -2260,181 +2260,42 @@ extern int bd_alpha;
 
 static void kvmft_flush_output(MigrationState *s)
 {
-	/* TODO blk server
-    if (kvm_blk_session)
-        kvm_blk_epoch_commit(kvm_blk_session);
-	*/
-
-
-//	s->flush_start_time = time_in_double();
-
-//    static unsigned long count   = 0;
- //   static unsigned long exceeds = 0;
-  //  static unsigned long latency_sum_us = 0;
-
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
-//    int latency_us = (int)((s->flush_start_time - s->run_real_start_time) * 1000000);
-    //int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-    //int trans_us = (int)((s->recv_ack1_time - s->transfer_start_time) * 1000000);
+    int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
     int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
 
-//	int real_transfer_time = (int)((s->transfer_real_finish_time - s->transfer_real_start_time) * 1000000);
-
 	int trans_rate = s->ram_len/trans_us;
-/*	int t = 0;
 
-	if(trans_rate > 600) {
-		t = (s->ram_len/600) - trans_us;
-//		printf("cocotion test wait t = %d", t);
-		if(t>0)
-		usleep(t);
-		s->recv_ack1_time = time_in_double();
-		trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
-		trans_rate = s->ram_len/trans_us;
 
-		//s->recv_ack1_time = time_in_double();
-	}
 
-   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-
-	s->flush_start_time = time_in_double();
-*/
-//fucking
-
-//if(latency_us > target_latency + 1000) {
-//if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000) {
-/*   FILE *pFile;
+	   FILE *pFile;
    char pbuf[200];
 
     pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
-        sprintf(pbuf, "%d\n", runtime_us);
+/*        sprintf(pbuf, "%d\n", runtime_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", latency_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", s->ram_len);
-        fputs(pbuf, pFile);
+        fputs(pbuf, pFile);*/
         sprintf(pbuf, "%d\n", trans_rate);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d\n", real_transfer_time);
         fputs(pbuf, pFile);
     }
     else
         printf("no profile\n");
     fclose(pFile);
-//}
-*/
 
 
-	if(trans_rate == 0) trans_rate = 1;
-/*    static unsigned long total_ram_trans = 0;
-    static unsigned long total_trans_t = 0;
 
-    static unsigned long total_epochs_count = 0;
-    static unsigned long total_run_stage_count = 0;
-    total_run_stage_count += runtime_us;
-	total_epochs_count++;
-
-    total_ram_trans += s->ram_len;
-    total_trans_t += trans_us;
-    if(total_ram_trans > 1024*1024*512) {
-        total_ram_trans = s->ram_len;
-        total_trans_t = trans_us;
-	}
-
-    unsigned int now_trans_r = total_ram_trans/total_trans_t;
-	if(now_trans_r < 400) now_trans_r = 400;
-
-    mybdupdate.predic_trans_rate = trans_rate + (trans_rate - mybdupdate.last_trans_rate);
-    if(mybdupdate.predic_trans_rate < 100) mybdupdate.predic_trans_rate = 100;
-*/
-//	static int trans_rate_h[5];
-//	static int trans_rate_h[100];
-//	static int trans_rate_h[100];
- //   static int trans_rate_c = 0;
-/*
-	printf("cocotion start ===========\n");
-	printf("cocotion test real trans_rate = %d\n", trans_rate);
-	printf("cocotion test guest trans_rate = %d\n", mybdupdate.last_trans_rate);
-	printf("cocotion end ===========\n");
-*/
-
-/*
-	static unsigned long int aacount = 0;
-	static unsigned long int totaltransdiff = 0;
-	static unsigned long int averagediff = 0;
-	aacount++;
-	totaltransdiff+=abs(trans_rate-mybdupdate.last_trans_rate);
-	averagediff = totaltransdiff/aacount;
-
-	if(count % 1000 == 0)
-		printf("now cocotion average diff trans = %ld\n", averagediff);
-*/
-//	static unsigned long int trans_rate_total = 0;
+	if(trans_rate == 0) trans_rate = 100;
     static unsigned long int mcount = 0;
-//	int trans_rate_average = 0;
     mcount++;
 
-//	trans_rate_total += trans_rate;
-//	trans_rate_average = trans_rate_total/mcount;
-
-  //  trans_rate_h[trans_rate_c++] = trans_rate;
-   // int i = 0;
-    //int all = 0;
-    //for(i = 0; i < trans_rate_c; i++) {
-     //   all += trans_rate_h[i];
-	//}
-
-	static int trans_oldest_head = 0;
-	static unsigned int all = 40000;
-	all-=trans_rate_h[trans_oldest_head];
-	all+=trans_rate;
-	trans_rate_h[trans_oldest_head] = trans_rate;
-	trans_oldest_head++;
-
-
-	int threshold = all/100 - bd_alpha;
-//    if(mybdupdate.last_trans_rate >= 0)
-        mybdupdate.last_trans_rate = threshold;
-//    if(trans_rate_c == 5) trans_rate_c = 0;
-//    if(trans_rate_c == 50) trans_rate_c = 0;
-    if(trans_oldest_head == 100) trans_oldest_head = 0; //88%
-
-
-
-	int t = 0;
-
-//	if(trans_rate > (mybdupdate.last_trans_rate-100) && mybdupdate.last_trans_rate > 400) {
-//		t = (s->ram_len/(mybdupdate.last_trans_rate-100)) - trans_us;
-
-	if(trans_rate > mybdupdate.last_trans_rate && mybdupdate.last_trans_rate > 100) {
-		t = (s->ram_len/mybdupdate.last_trans_rate) - trans_us;
-
-
-
-		//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//	if(trans_rate > /*mybdupdate.last_trans_rate*/ trans_rate_average) {
-//		t = (s->ram_len/trans_rate_average) - trans_us;
-//		printf("cocotion test wait t = %d", t);
-		if(t>0)
-			usleep(t);
-		s->recv_ack1_time = time_in_double();
-		trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
-		trans_rate = s->ram_len/trans_us;
-
-		//s->recv_ack1_time = time_in_double();
-	}
-
-	s->recv_ack1_time = time_in_double();
-
-   	int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-
-
-
-	mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
+	mybdupdate.last_trans_rate = trans_rate;
 
 
 /*
@@ -2464,79 +2325,12 @@ static void kvmft_flush_output(MigrationState *s)
 */
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	s->flush_start_time = time_in_double();
 
 
-
-
-
-
-
-
-
-
-
-
-	/*
-	if(count == 0) {
-        exceeds = 0;
-    }
-*/
     static unsigned long latency_exceed_count = 0;
     static unsigned long latency_less_count = 0;
-//    static unsigned long latency_exceed = 0;
- //   static unsigned long latency_less = 0;
-
-    //static unsigned long latency_exceed_current_count = 0;
-
-
     static unsigned long int ok = 0;
-    //static unsigned long int mcount = 0;
-
-    //static long ok_runtime = 0;
-	//static int ok_average_runtime = 0;
-/*
-    if(latency_us > target_latency + 1000) {
-        latency_exceed_count++;
-        latency_exceed_current_count++;
-        latency_exceed += latency_us;
-        exceeds++;
-        mybdupdate.ram_len = mybdupdate.ram_len -  (latency_us - target_latency - 1000);
-	}
-    else if(latency_us < target_latency-1000) {
-        latency_less_count++;
-        latency_less += latency_us;
-        mybdupdate.ram_len = mybdupdate.ram_len +  (target_latency-1000-latency_us);
-	} else {
-        ok_runtime+=runtime_us;
-        mybdupdate.ram_len = s->ram_len;
-        ok++;
-    }*/
-
-	//static unsigned long latency_sum = 0;
-    //latency_sum += latency_us;
 
 	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000)
 		ok++;
@@ -2548,128 +2342,23 @@ static void kvmft_flush_output(MigrationState *s)
 		latency_less_count++;
 	}
 
-
-    //mcount++;
-//	count++;
-
-
- //   static double last_ok_percen = 0;
-  //  static int down_count = 0;
-
-
     if(mcount == 0)
 	mcount = ok = 1;
 
-/*
-    if(mcount%800 == 0) {
-        double ok_percentage = (double)ok/mcount;
-        if(ok_percentage < last_ok_percen) {
-            down_count++;
-        }
-        else {
-            down_count--;
-            if(down_count < 0) down_count = 0;
-        }
-        last_ok_percen =  ok_percentage;
-	}
-*/
-//	int average_run = 0;
-//
-//
-
-
 	double exceed_percentage, less_percentage, ok_percentage;
-
-	if(mcount%1000 == 0) {
-//		exceed_percentage = (double) latency_exceed_count/mcount;
-//		less_percentage = (double) latency_less_count/mcount;
-		if(latency_exceed_count+latency_less_count > 20) {
-			exceed_percentage = (double) latency_exceed_count/1000;
-			less_percentage = (double) latency_less_count/1000;
-
-	//	printf("test exceed percentage is %lf\n", exceed_percentage);
-	//	printf("test less percentage is %lf\n", less_percentage);
-
-			if(exceed_percentage > less_percentage) {
-				if(exceed_percentage > 0.02) {
-					bd_alpha += (exceed_percentage-0.02) * 1000;
-				}
-			}
-			else {
-				if(less_percentage > 0.02) {
-					bd_alpha -= (less_percentage-0.02) * 1000;
-				}
-			}
-			if(bd_alpha > 200) bd_alpha = 200;
-			else if(bd_alpha < -200) bd_alpha = -200;
-			printf("test bd_alpha is %d\n", bd_alpha);
-		}
-		latency_exceed_count = latency_less_count = 0;
-	}
 
 
 
 
     if(mcount%500 == 0) {
+		exceed_percentage = (double) latency_exceed_count/mcount;
+		less_percentage = (double) latency_less_count/mcount;
     	ok_percentage = (double)ok/mcount;
 
-		//double exceed_percentage = (double) latency_exceed_count/mcount;
-		//double less_percentage = (double) latency_less_count/mcount;
-
 		printf("test ok percentage is %lf\n", ok_percentage);
-
-		printf("test my threshold is %d\n", threshold);
-
-//		printf("test exceed percentage is %lf\n", exceed_percentage);
-//		printf("test less percentage is %lf\n", less_percentage);
-//		printf("test bd_alpha is %d\n", bd_alpha);
-/*
-		if(exceed_percentage > less_percentage) {
-			if(exceed_percentage > 0.03) {
-				bd_alpha += (exceed_percentage-0.03) * 1000;
-			}
-		}
-		else {
-			if(less_percentage > 0.03) {
-				bd_alpha -= (less_percentage-0.03) * 1000;
-			}
-
-		}
-		printf("test bd_alpha is %d\n", bd_alpha);
-*/
-
-/*
- *
- *
-        ok_average_runtime = ok_runtime/500;
-        printf("test ok average runtime = %d\n", ok_average_runtime);
-        ok_runtime = 0;
-
-        average_run = total_run_stage_count/total_epochs_count;
-
-        printf("test average run stage time = %d\n", average_run);
-
-        latency_sum /= 500;
-        latency_sum = 0;*/
+		printf("test less percentage is %lf\n", less_percentage);
+		printf("test exceed percentage is %lf\n", exceed_percentage);
     }
-/*
-
-    latency_sum_us += latency_us;
-    if(latency_sum_us < latency_us) {
-        latency_sum_us = latency_us;
-        count = 1;
-        latency_exceed_count = latency_less_count = 0;
-    }
-    static int current_latency_sum_us = 0;
-    static int range_count = 0;
-
-    if(latency_us>=9000 && latency_us<=11000) {
-        range_count++;
-    }
-
-    current_latency_sum_us += latency_us;
-*/
-
 
     assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
 

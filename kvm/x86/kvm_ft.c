@@ -303,7 +303,24 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
     int beta;
 
+	s64 istart = time_in_us();
     int current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
+
+	int current_load_mem_rate = kvm->last_load_mem_rate;
+	int dt = time_in_us()-istart;
+//	printk("cocotion test dt = %d\n", dt);
+	if(dt > 0)
+		current_load_mem_rate = kvm->f_count*4096/dt;
+	kvm->load_mem_rate = kvm->last_load_mem_rate+current_load_mem_rate;
+	kvm->load_mem_rate/=2;
+//	kvm->load_mem_rate = 4*kvm->last_load_mem_rate+current_load_mem_rate;
+//	kvm->load_mem_rate/=5;
+	kvm->last_load_mem_rate = current_load_mem_rate;
+
+	if(kvm->load_mem_rate <= 0)
+		kvm->load_mem_rate = 100;
+
+//	printk("load_mem_rate = %d\n", kvm->load_mem_rate);
 
 	int load_mem_bytes = dlist->put_off*4096;
 
@@ -327,12 +344,15 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //    beta = current_dirty_byte/vcpu->last_trans_rate + epoch_run_time;
 
 
-	kvm->x0 = current_dirty_byte / kvm->load_mem_rate;
+//	kvm->x0 = current_dirty_byte / kvm->load_mem_rate;
+	kvm->x0 = (current_dirty_byte / kvm->load_mem_rate);
 	kvm->x1 = load_mem_bytes / kvm->load_mem_rate;
-	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
+//	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
+	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
 	beta/= 1000;
 	beta += epoch_run_time;
 
+//	beta += (current_dirty_byte/1000);
 	//printk("epoch_run_time = %d, beta = %d, w0 = %d, w1 = %d, x0 = %d, x1 = %d mem_rate = %d, current_dirty_byte = %d, load_mem_bytes = %d\n", \
 	//		epoch_run_time, beta, kvm->w0, kvm->w1, kvm->x0, kvm->x1, kvm->load_mem_rate, current_dirty_byte, load_mem_bytes);
 
@@ -958,8 +978,10 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
 	kvm->load_mem_rate = 3800;
+	kvm->last_load_mem_rate = 3800;
 	kvm->w0 = 1000;
 	kvm->w1 = 1000;
+	kvm->w2 = 1000;
 
 	init_waitqueue_head(&kvm->calc_event);
 	kvm->ft_cmp_tsk = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
@@ -2907,7 +2929,9 @@ free:
     kfree(buf);
 
 	if(cmp_t > 0)
-		kvm->load_mem_rate = end*4096/cmp_t;
+		kvm->last_load_mem_rate = end*4096/cmp_t;
+	if(kvm->last_load_mem_rate <= 0)
+		kvm->last_load_mem_rate = 100;
 //	printk("compress time = %d, load_mem_rate = %d\n", cmp_t, kvm->load_mem_rate);
 //	printk("send time = %d\n", send_t);
 
@@ -3977,13 +4001,18 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	if (latency_us > target_latency_us + 1000) {
 		kvm->w0 = kvm->w0 + (800*kvm->x0*(1))/1000;
 		kvm->w1 = kvm->w1 + (800*kvm->x1*(1))/1000;
-		if(kvm->w0 <=1000 ) kvm->w0 = 1000;
-		if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+		kvm->w2 = kvm->w2 + 10;
+//		if(kvm->w0 <=1000 ) kvm->w0 = 1000;
+//		if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+		if(kvm->w2 >= 500000) kvm->w2 = 500000;
+
 	} else if (latency_us < target_latency_us - 1000) {
 		kvm->w0 = kvm->w0 + (800*kvm->x0*(-1))/1000;
 		kvm->w1 = kvm->w1 + (800*kvm->x1*(-1))/1000;
+		kvm->w2 = kvm->w2 - 10;
 		if(kvm->w0 <=1000 ) kvm->w0 = 1000;
 		if(kvm->w1 <=1000 ) kvm->w1 = 1000;
+		if(kvm->w2 <= -500000) kvm->w2 = -500000;
 	}
 
 }
@@ -4057,6 +4086,7 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 	if(real_count != 0)
 	    total_dirty_bytes = (total_dirty_bytes/real_count)*count;
 
+	kvm->f_count = real_count;
 
     if (count > 0) {
         return total_dirty_bytes;

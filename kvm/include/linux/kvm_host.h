@@ -546,9 +546,12 @@ struct kvm {
     struct task_struct *ft_cmp_tsk;
     int w0;
     int w1;
+    int w2;
     int x0;
     int x1;
     int load_mem_rate;
+    int last_load_mem_rate;
+    int f_count;
 
 };
 

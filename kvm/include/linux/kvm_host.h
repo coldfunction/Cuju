@@ -551,6 +551,7 @@ struct kvm {
     int x1;
     int load_mem_rate;
     int last_load_mem_rate;
+    int last_send_rate;
     int f_count;
 
 };

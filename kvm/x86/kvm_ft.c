@@ -320,7 +320,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 	kvm->last_load_mem_rate = current_load_mem_rate;
 
-	if(kvm->load_mem_rate <= 0)
+	if(kvm->load_mem_rate < 100)
 		kvm->load_mem_rate = 100;
 
 //	printk("load_mem_rate = %d\n", kvm->load_mem_rate);
@@ -349,7 +349,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 //	kvm->x0 = current_dirty_byte / kvm->load_mem_rate;
 //	kvm->x0 = (current_dirty_byte / kvm->load_mem_rate);
-	kvm->x0 = (current_dirty_byte / kvm->last_send_rate);
+//	kvm->x0 = (current_dirty_byte / kvm->last_send_rate);
+	kvm->x0 = (current_dirty_byte / ((3*kvm->last_send_rate+kvm->current_send_rate)/4));
 	kvm->x1 = load_mem_bytes / kvm->load_mem_rate;
 //	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
 //	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
@@ -985,6 +986,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->load_mem_rate = 3800;
 	kvm->last_load_mem_rate = 3800;
 	kvm->last_send_rate = 3800;
+	kvm->current_send_rate = 100;
 	kvm->w0 = 1000;
 	kvm->w1 = 1000;
 	kvm->w2 = 1000;
@@ -996,7 +998,7 @@ int kvm_shm_enable(struct kvm *kvm)
 		return 0;
 	}
 
-	kthread_bind(kvm->ft_cmp_tsk, 7);
+	//kthread_bind(kvm->ft_cmp_tsk, 7);
 
     return 0;
 }
@@ -2906,6 +2908,12 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 	send_t += time_in_us()-istart;
 
+	int tmp_send_r;
+	if(send_t > 0)
+		tmp_send_r = total/send_t;
+	if(tmp_send_r > 100)
+		kvm->current_send_rate = tmp_send_r;
+
 //	spin_unlock(&transfer_lock);
 
     kvmft_tcp_nodelay(sock);
@@ -2938,9 +2946,9 @@ free:
 		kvm->last_load_mem_rate = end*4096/cmp_t;
 	if(send_t > 0)
 		kvm->last_send_rate = total/send_t;
-	if(kvm->last_load_mem_rate <= 0)
+	if(kvm->last_load_mem_rate < 100)
 		kvm->last_load_mem_rate = 100;
-	if(kvm->last_send_rate <= 0)
+	if(kvm->last_send_rate < 100)
 		kvm->last_send_rate = 100;
 //	printk("compress time = %d, load_mem_rate = %d\n", cmp_t, kvm->load_mem_rate);
 //	printk("send time = %d\n", send_t);

@@ -1075,9 +1075,10 @@ static void thread_set_realtime(void)
 /*
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(6, &cpuset);
+    CPU_SET(2, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 */
+
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)

@@ -554,6 +554,7 @@ struct kvm {
     int last_send_rate;
     int current_send_rate;
     int f_count;
+    int ft_id;
 
 };
 

@@ -547,8 +547,12 @@ struct kvm {
     int w0;
     int w1;
     int w2;
+    int w3;
     int x0;
     int x1;
+    unsigned long int wn;
+    unsigned long int wc;
+
     int load_mem_rate;
     int last_load_mem_rate;
     int last_send_rate;

@@ -412,6 +412,10 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     	vcpu->hrtimer_pending = true;
         vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
         kvm_vcpu_kick(vcpu);
+
+        kvm->x00 = kvm->x0;
+        kvm->x01 = kvm->x1;
+
 		return NULL;
     }
 
@@ -1037,7 +1041,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w3 = 1500000;
 	kvm->wc = 0;
 	kvm->wn = 0;
-
+    kvm->x00 = 0;
+    kvm->x01 = 0;
 
 	kvm->ft_id = atomic_read(&ft_m_trans.ft_vm_count);
 	atomic_inc_return(&ft_m_trans.ft_vm_count);
@@ -2944,6 +2949,12 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
             len = 0;
         }
 		send_t += time_in_us()-istart;
+
+        int tmp_send_r;
+	    if(send_t > 0)
+		    tmp_send_r = total/send_t;
+	    if(tmp_send_r > 200)
+		    kvm->current_send_rate = tmp_send_r;
 //		spin_unlock(&transfer_lock);
 		//preempt_enable(); //cocotion fucking think
 		//sched_yield();
@@ -4068,6 +4079,14 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	//printk(" =====>>>>>>>>>>>>>vmid = %d, latency_us = %d, w0 = %d, w1 = %d, w2 = %d, w3 = %d, x0 = %d, x1 = %d, dirty_page = %d\n", \
 			kvm->ft_id, latency_us, kvm->w0, kvm->w1, kvm->w2, kvm->w3, kvm->x0, kvm->x1, update->dirty_page);
 
+    update->w0 = kvm->w0;
+    update->w1 = kvm->w1;
+    update->w3 = kvm->w3;
+    update->x0 = kvm->x00;
+    update->x1 = kvm->x01;
+
+
+
 //	int learningR = 800;
 	int learningR = 600; //best
 //	int learningR = 100;
@@ -4085,7 +4104,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
             //kvm->w3 += 5000;
 //            kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
          //   kvm->wn += (latency_us-(target_latency_us+1000))*1000;
-            kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
+		 	kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
+
+            //kvm->w3 = (latency_us-(target_latency_us+1000))*1000;
 /*            kvm->wc++;
 	        kvm->w3 += kvm->wn/kvm->wc;
             if(kvm->wc > 100000)
@@ -4119,7 +4140,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
             //kvm->wn -= ((target_latency_us-1000)-latency_us)*1000;
             //
             //
+            //kvm->w3 = -1*((target_latency_us-1000)-latency_us)*1000;
             kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
+
             if(kvm->w3 < 0) kvm->w3 = 0;
             //if(kvm->wn < 0)
                 //kvm->wn = 0;

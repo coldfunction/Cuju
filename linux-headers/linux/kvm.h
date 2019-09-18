@@ -1432,6 +1432,12 @@ struct kvmft_update_latency {
 
     int compress_dirty_page_time;
 	int alpha;
+	int w0;
+	int w1;
+	int w3;
+	int x0;
+	int x1;
+
 };
 #define KVMFT_BD_UPDATE_LATENCY _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 

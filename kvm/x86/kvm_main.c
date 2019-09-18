@@ -3500,9 +3500,15 @@ out_free_irq_routing:
         r = -EFAULT;
         if (copy_from_user(&update, argp, sizeof update))
             goto out;
-        r = 0;
         kvmft_bd_update_latency(kvm, &update);
-        break;
+
+		if (copy_to_user(argp, &update, sizeof update))
+			goto out;
+
+
+        r = 0;
+
+		break;
 	}
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);

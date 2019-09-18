@@ -550,6 +550,8 @@ struct kvm {
     int w3;
     int x0;
     int x1;
+    int x00;
+    int x01;
     unsigned long int wn;
     unsigned long int wc;
 

@@ -38,7 +38,35 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	update.alpha = bd_alpha;
 
-    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
+//    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
+    int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
+/*
+	   FILE *pFile;
+   char pbuf[200];
+    pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    if(pFile != NULL){
+        sprintf(pbuf, "%d ", update.w0);
+        fputs(pbuf, pFile);
+        sprintf(pbuf, "%d ", update.w1);
+        fputs(pbuf, pFile);
+        sprintf(pbuf, "%d ", update.w3);
+        fputs(pbuf, pFile);
+        sprintf(pbuf, "%d ", update.x0);
+        fputs(pbuf, pFile);
+        sprintf(pbuf, "%d ", update.x1);
+        fputs(pbuf, pFile);
+        sprintf(pbuf, "%d ", trans_us);
+        fputs(pbuf, pFile);
+		int expect = update.x0*update.w0 + update.x1*update.w1+update.w3;
+		expect/=1000;
+        sprintf(pbuf, "%d\n", expect);
+        fputs(pbuf, pFile);
+    }
+    else
+        printf("no profile\n");
+    fclose(pFile);
+*/
+	return r;
 }
 
 

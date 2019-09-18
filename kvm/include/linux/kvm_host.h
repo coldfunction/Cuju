@@ -550,6 +550,14 @@ struct kvm {
     int w3;
     int x0;
     int x1;
+    int x00;
+    int x01;
+    int last_send_t;
+    int last_cmp_t;
+    int expect_dirty_byte;
+    int load_mem_bytes;
+    int real_load_mem_bytes;
+    int expect_load_mem_rate;
     unsigned long int wn;
     unsigned long int wc;
 

@@ -2267,27 +2267,27 @@ static void kvmft_flush_output(MigrationState *s)
 	int trans_rate = s->ram_len/trans_us;
 
 
-
+/*
 	   FILE *pFile;
    char pbuf[200];
 
     pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
-/*        sprintf(pbuf, "%d\n", runtime_us);
+        sprintf(pbuf, "%d\n", runtime_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", latency_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", s->ram_len);
-        fputs(pbuf, pFile);*/
+        fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", trans_rate);
         fputs(pbuf, pFile);
     }
     else
         printf("no profile\n");
     fclose(pFile);
-
+*/
 
 
 	if(trans_rate == 0) trans_rate = 100;

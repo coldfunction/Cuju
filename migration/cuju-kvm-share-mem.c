@@ -1072,12 +1072,13 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-/*
+	int id = get_vm_id();
+
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(2, &cpuset);
+    CPU_SET(6-id, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-*/
+
 
 }
 
@@ -1100,6 +1101,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
             qemu_mutex_unlock(&d->mutex);
             continue;
         }
+
 
         ret = dirty_pages_userspace_transfer(s->ram_fds[d->index]);
         assert(ret >= 0);

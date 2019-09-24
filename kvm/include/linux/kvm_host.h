@@ -548,8 +548,10 @@ struct kvm {
     int w1;
     int w2;
     int w3;
+    int w4;
     int x0;
     int x1;
+    int x2;
     int x00;
     int x01;
     unsigned long int wn;

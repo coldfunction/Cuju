@@ -1510,6 +1510,16 @@ int vm_stop(RunState state)
 
 bool ft_stopped_cpus;
 
+
+void query_vcpu_thread_id(void) {
+    CPUState *cpu;
+
+    CPU_FOREACH(cpu) {
+        printf("cocotion test vcpuid = %d\n", cpu->thread_id);
+    }
+}
+
+
 void vm_stop_mig(void)
 {
     ft_stopped_cpus = true;

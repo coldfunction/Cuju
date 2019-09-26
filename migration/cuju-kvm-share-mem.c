@@ -1072,12 +1072,13 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-/*
-    cpu_set_t cpuset;
+
+   	int id = get_vm_id();
+	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(2, &cpuset);
+    CPU_SET(6-id, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-*/
+
 
 }
 

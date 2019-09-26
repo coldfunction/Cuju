@@ -70,5 +70,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 }
 
 
+int get_vm_id(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_VM_ID, NULL);
+}
 
 

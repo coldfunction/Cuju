@@ -323,7 +323,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	    current_load_mem_rate = kvm->f_count*4096/dt;
     }
 
-	kvm->load_mem_rate = kvm->last_load_mem_rate+2*current_load_mem_rate;
+	kvm->load_mem_rate = kvm->last_load_mem_rate+2 * current_load_mem_rate;
 	kvm->load_mem_rate/=3;
 //
 //	kvm->load_mem_rate=current_load_mem_rate;
@@ -391,12 +391,12 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
 //	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
 
-//    if(current_dirty_byte == 0) {
- //       beta = kvm->w3;
-  //  } else {
-//        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
-        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
-   // }
+ //   if(current_dirty_byte == 0) {
+//        beta = kvm->w3;
+//    } else {
+        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
+  //      beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1;
+ //   }
 
     //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w2;
 	beta/= 1000;
@@ -4087,15 +4087,37 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
 
-//	int learningR = 800;
-	int learningR = 600; //best
-//	int learningR = 100;
+	static int learningR = 600; //best
+	static int last_loss = 0;
+
+	static int lc = 0;
+	static int miss = 0;
+	static int miss2 = 0;
+
+	lc++;
+	if(lc == 1000) {
+		lc = 0;
+ 		//learningR = (learningR*1000)/1010;
+		//if(miss >= 5)
+		//learningR = 1000;
+		learningR = 600;
+		miss = 0;
+		miss2 = 0;
+	}
+	if(miss >= 20) {
+		learningR = 600;
+		miss = 0;
+	}
 
 	if (latency_us > target_latency_us + 1000) {
+ 		//learningR = (learningR*1000)/1010;
         if(update->dirty_page != 0) {
-		    kvm->w0 = kvm->w0 + (learningR*kvm->x0*(1))/1000;
-		    kvm->w1 = kvm->w1 + (learningR*kvm->x1*(1))/1000;
-        }
+		    kvm->w0 = kvm->w0 + (learningR*kvm->x00*(1))/1000;
+		    kvm->w1 = kvm->w1 + (learningR*kvm->x01*(1))/1000;
+		} else {
+		 	kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
+		}
+
 		kvm->w2 = kvm->w2 + 50000;
 
         if(kvm->w2 >= 500000) kvm->w2 = 500000;
@@ -4104,7 +4126,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
             //kvm->w3 += 5000;
 //            kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
          //   kvm->wn += (latency_us-(target_latency_us+1000))*1000;
-		 	kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
+		// 	kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
 
             //kvm->w3 = (latency_us-(target_latency_us+1000))*1000;
 /*            kvm->wc++;
@@ -4114,11 +4136,29 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
                 kvm->wn = 0;
                 */
  //       }
+ //
+ 		int loss = latency_us - (target_latency_us + 1000);
+		if( loss > last_loss ) {
+			miss++;
+			miss2--;
+		} else {
+			miss2++;
+			if(miss2 == 10) {
+ 				learningR = (learningR*1000)/1010;
+				miss2 = 0;
+			}
+		}
+
+		last_loss = loss;
     } else if (latency_us < target_latency_us - 1000) {
+ 		//learningR = (learningR*1000)/1010;
         if(update->dirty_page != 0) {
-		    kvm->w0 = kvm->w0 + (learningR*kvm->x0*(-1))/1000;
-		    kvm->w1 = kvm->w1 + (learningR*kvm->x1*(-1))/1000;
-        }
+		    kvm->w0 = kvm->w0 + (learningR*kvm->x00*(-1))/1000;
+		    kvm->w1 = kvm->w1 + (learningR*kvm->x01*(-1))/1000;
+		} else {
+            kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
+            if(kvm->w3 < 0) kvm->w3 = 0;
+		}
 		kvm->w2 = kvm->w2 - 50000;
 		if(kvm->w0 < 1000 ) kvm->w0 = 1000;
 		if(kvm->w1 < 1000 ) kvm->w1 = 1000;
@@ -4141,9 +4181,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
             //
             //
             //kvm->w3 = -1*((target_latency_us-1000)-latency_us)*1000;
-            kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
-
-            if(kvm->w3 < 0) kvm->w3 = 0;
+        //    kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
+         //   if(kvm->w3 < 0) kvm->w3 = 0;
             //if(kvm->wn < 0)
                 //kvm->wn = 0;
 
@@ -4154,7 +4193,21 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
                 kvm->wn = 0;
             */
    //     }
-    }
+   		int loss = target_latency_us - 1000 - latency_us;
+		if( loss > last_loss ) {
+			miss++;
+			miss2--;
+		} else {
+			miss2++;
+			if(miss2 == 10) {
+ 				learningR = (learningR*1000)/1010;
+				miss2 = 0;
+			}
+		}
+		last_loss = loss;
+	} else {
+		last_loss = 0;
+	}
 }
 int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {

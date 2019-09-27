@@ -4046,6 +4046,31 @@ static void __bd_average_init(struct kvmft_context *ctx)
     __bd_average_update(ctx);
 }
 
+
+
+unsigned long int_sqrt(unsigned long x)
+{
+	unsigned long op, res, one;
+	op = x;
+	res = 0;
+	one = 1UL << (BITS_PER_LONG - 2);
+	while (one > op)
+		one >>= 2;
+
+ 	while (one != 0) {
+		if (op >= res + one) {
+   			op = op - (res + one);
+   			res = res +  2 * one;
+  		}
+		res /= 2;
+		one /= 4;
+	}
+ 	return res;
+}
+
+
+
+
 // latency = runtime + constant + dirty_page_number / rate
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
@@ -4089,31 +4114,69 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	static int learningR = 600; //best
 	static int last_loss = 0;
+	static int miss = 0;
 
 	static int lc = 0;
-	static int miss = 0;
-	static int miss2 = 0;
+	static int n0 = 0;
+	static int n1 = 0;
 
-	lc++;
-	if(lc == 1000) {
+	static int f0 = 1;
+	static int f1 = 1;
+
+	//lc++;
+	if(lc == 100) {
 		lc = 0;
  		//learningR = (learningR*1000)/1010;
 		//if(miss >= 5)
 		//learningR = 1000;
-		learningR = 600;
+		//learningR = 600;
+//		if(miss >= 5) {
+//			f0 = int_sqrt(n0+1);
+//			f0/=1000;
+//			if(f0 == 0) f0 = 1;
+//			n0 = n1 = 0;
+			//miss = 0;
+//		}
 		miss = 0;
-		miss2 = 0;
 	}
-	if(miss >= 20) {
-		learningR = 600;
+	//if(miss >= 20) {
+	//	learningR = 600;
+	//}
+	lc++;
+
+	if(miss >= 5) {
+		f0 = int_sqrt(n0+1);
+		f0/=1000;
+		if(f0 == 0) f0 = 1;
+		n0 = n1 = 0;
 		miss = 0;
 	}
 
+
 	if (latency_us > target_latency_us + 1000) {
+
+		int diff = latency_us - (target_latency_us+1000);
+		n0 += diff*diff;
+	//	f0 = int_sqrt(n0+1);
+	//	f0/=1000;
+	//	if(f0 == 0) f0 = 1;
+		miss++;
+		//lc++;
+	/*
+		if(lc%5 == 0) {
+			f0 = int_sqrt(n0+1);
+			f0/=1000;
+			if(f0 == 0) f0 = 1;
+			n0 = n1 = 0;
+		}
+*/
+		//printk("f0 = %d\n", f0);
+
+
  		//learningR = (learningR*1000)/1010;
         if(update->dirty_page != 0) {
-		    kvm->w0 = kvm->w0 + (learningR*kvm->x00*(1))/1000;
-		    kvm->w1 = kvm->w1 + (learningR*kvm->x01*(1))/1000;
+		    kvm->w0 = kvm->w0 + (learningR*(1/f0)*kvm->x00*(1))/1000;
+		    kvm->w1 = kvm->w1 + (learningR*(1/f0)*kvm->x01*(1))/1000;
 		} else {
 		 	kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
 		}
@@ -4137,7 +4200,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
                 */
  //       }
  //
- 		int loss = latency_us - (target_latency_us + 1000);
+ 	/*	int loss = latency_us - (target_latency_us + 1000);
 		if( loss > last_loss ) {
 			miss++;
 			miss2--;
@@ -4150,11 +4213,30 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		}
 
 		last_loss = loss;
+		*/
     } else if (latency_us < target_latency_us - 1000) {
  		//learningR = (learningR*1000)/1010;
+		int diff = (target_latency_us-1000) - latency_us;
+		n0 += diff*diff;
+	//	f0 = int_sqrt(n0+1);
+	//	f0/=1000;
+	//	if(f0 == 0) f0 = 1;
+		//lc++;
+		miss++;
+		/*
+		if(lc%5 == 0) {
+			f0 = int_sqrt(n0+1);
+			f0/=1000;
+			if(f0 == 0) f0 = 1;
+			n0 = n1 = 0;
+		}*/
+
+		//printk("f0 = %d\n", f0);
+
+
         if(update->dirty_page != 0) {
-		    kvm->w0 = kvm->w0 + (learningR*kvm->x00*(-1))/1000;
-		    kvm->w1 = kvm->w1 + (learningR*kvm->x01*(-1))/1000;
+		    kvm->w0 = kvm->w0 + (learningR*(1/f0)*kvm->x00*(-1))/1000;
+		    kvm->w1 = kvm->w1 + (learningR*(1/f0)*kvm->x01*(-1))/1000;
 		} else {
             kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
             if(kvm->w3 < 0) kvm->w3 = 0;
@@ -4193,6 +4275,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
                 kvm->wn = 0;
             */
    //     }
+/*
    		int loss = target_latency_us - 1000 - latency_us;
 		if( loss > last_loss ) {
 			miss++;
@@ -4205,9 +4288,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			}
 		}
 		last_loss = loss;
-	} else {
-		last_loss = 0;
-	}
+*/
+	} //else {
+	//	last_loss = 0;
+	//}
 }
 int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {

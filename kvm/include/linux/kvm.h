@@ -1407,9 +1407,22 @@ struct kvmft_update_latency {
     int x0;
     int x1;
 
+    int last_load_mem_rate;
+    int load_mem_rate;
+    int last_send_rate;
+    int current_send_rate;
+    int load_mem_bytes;
+    int real_load_mem_bytes;
+    int learningR;
+    int e_dirty_bytes;
+
+    int e_latency;
+    int e_runtime;
+    int e_trans;
 };
 #define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
-#define KVMFT_BD_GET_VM_ID         _IO(KVMIO, 0xd3)
+#define KVMFT_BD_CREATE_VM_ID         _IO(KVMIO, 0xd3)
+#define KVMFT_BD_GET_VM_ID         _IO(KVMIO, 0xd4)
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)

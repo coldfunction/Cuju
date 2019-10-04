@@ -40,36 +40,72 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
-/*
-	   FILE *pFile;
-   char pbuf[200];
-    pFile = fopen("runtime_latency_trans_rate.txt", "a");
-    if(pFile != NULL){
-        sprintf(pbuf, "%d ", update.w0);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d ", update.w1);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d ", update.w3);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d ", update.x0);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d ", update.x1);
-        fputs(pbuf, pFile);
-        sprintf(pbuf, "%d ", trans_us);
-        fputs(pbuf, pFile);
-		int expect = update.x0*update.w0 + update.x1*update.w1+update.w3;
-		expect/=1000;
-        sprintf(pbuf, "%d\n", expect);
-        fputs(pbuf, pFile);
-    }
-    else
-        printf("no profile\n");
-    fclose(pFile);
-*/
+
+	int id = get_vm_id();
+
+	if(id == 0) {
+		FILE *pFile;
+   		char pbuf[200];
+    	pFile = fopen("runtime_latency_trans_rate.txt", "a");
+    	if(pFile != NULL){
+        	sprintf(pbuf, "%d ", update.w0);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.w1);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.w3);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.x0);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.x1);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", runtime_us);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.e_runtime);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "%d ", trans_us);
+        	fputs(pbuf, pFile);
+//			int expect = update.x0*update.w0 + update.x1*update.w1;//+update.w3;
+//			expect/=1000;
+        	sprintf(pbuf, "%d ", update.e_trans);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", latency_us);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.e_latency);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.last_load_mem_rate);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.load_mem_rate);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.last_send_rate);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.current_send_rate);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.load_mem_bytes);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.real_load_mem_bytes);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", dirty_page);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.e_dirty_bytes);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d\n", update.learningR);
+        	fputs(pbuf, pFile);
+
+    	}
+    	else
+        	printf("no profile\n");
+
+		fclose(pFile);
+	}
 	return r;
 }
 
 
+int create_vm_id(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_CREATE_VM_ID, NULL);
+}
 int get_vm_id(void)
 {
 	return kvm_vm_ioctl(kvm_state, KVMFT_BD_GET_VM_ID, NULL);

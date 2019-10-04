@@ -26,6 +26,9 @@
 #include "qemu/cutils.h"
 #include "qemu/help_option.h"
 #include "qemu/uuid.h"
+#include <sys/types.h>
+#include <sys/syscall.h>
+
 
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
@@ -90,7 +93,7 @@ int main(int argc, char **argv)
 #include "audio/audio.h"
 #include "migration/migration.h"
 #include "migration/cuju-ft-trans-file.h"
-#include "migration/event-tap.h" 
+#include "migration/event-tap.h"
 #include "migration/cuju-kvm-share-mem.h"
 
 #include "sysemu/cpus.h"
@@ -3035,7 +3038,7 @@ int main(int argc, char **argv, char **envp)
     const char *qtest_log = NULL;
     const char *pid_file = NULL;
     const char *incoming = NULL;
-    
+
     bool defconfig = true;
     bool userconfig = true;
     bool nographic = false;
@@ -4712,6 +4715,9 @@ int main(int argc, char **argv, char **envp)
     kvm_slots_dump();
 #endif
     __migrate_init();
+
+    pid_t tid = syscall(__NR_gettid);
+    printf("main thread = %d\n", tid);
 
     trans_ram_init();
 

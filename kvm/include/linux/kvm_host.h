@@ -548,6 +548,7 @@ struct kvm {
     int w1;
     int w2;
     int w3;
+    int w4;
     int x0;
     int x1;
     int x00;
@@ -561,7 +562,15 @@ struct kvm {
     int current_send_rate;
     int f_count;
     int ft_id;
+    int load_pages;
 
+    int e_latency;
+    int load_mem_bytes;
+
+    int e_load_mem_rate;
+    int e_current_send_rate;
+    int e_trans_latency;
+    int e_epoch_runtime;
 };
 
 #define kvm_err(fmt, ...) \

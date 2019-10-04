@@ -1073,7 +1073,7 @@ static void thread_set_realtime(void)
     }
 //cocotion fucking test
 
-   	int id = get_vm_id();
+   	int id = create_vm_id();
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(6-id, &cpuset);

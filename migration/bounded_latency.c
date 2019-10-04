@@ -25,7 +25,7 @@ void bd_reset_epoch_timer(void)
 
 
 
-int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us)
+int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us, MigrationState *s)
 {
     struct kvmft_update_latency update;
 
@@ -42,6 +42,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 
 	int id = get_vm_id();
+	static int c0 = 0;
+	static int c01 = 0;
+	static int c1 = 0;
 
 	if(id == 0) {
 		FILE *pFile;
@@ -89,8 +92,60 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.e_dirty_bytes);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d\n", update.learningR);
+        	sprintf(pbuf, "%d ", update.learningR);
         	fputs(pbuf, pFile);
+
+
+			int runtime_bias = runtime_us - update.e_runtime;
+//			if(runtime_us > 10000)
+			//if(latency_us > 11000 && (latency_us - runtime_bias) <=11000)
+			//	c0++;
+
+			//sprintf(pbuf, "%d ", c0);
+        	//fputs(pbuf, pFile);
+			//if(runtime_us > 10000) {
+			if(latency_us > 11000 && (latency_us - runtime_bias) <=11000) {
+				c0++;
+
+				sprintf(pbuf, "@@@ %d ", runtime_us);
+        		fputs(pbuf, pFile);
+
+				int after_kvm_to_qemu_time = runtime_us - (int)((s->after_kick_vcpu_time - s->run_real_start_time) * 1000000);
+				sprintf(pbuf, "%d ", after_kvm_to_qemu_time);
+        		fputs(pbuf, pFile);
+
+				if (after_kvm_to_qemu_time < 10)
+					c01++;
+
+				int before_lock_iothread_time =  (int)((s->before_lock_iothread_time - s->after_kick_vcpu_time) * 1000000);
+
+				sprintf(pbuf, "%d ", before_lock_iothread_time);
+        		fputs(pbuf, pFile);
+
+				int lock_iothread_time =  (int)((s->snapshot_start_time-s->before_lock_iothread_time) * 1000000);
+				sprintf(pbuf, "%d ", lock_iothread_time);
+        		fputs(pbuf, pFile);
+
+			}
+			sprintf(pbuf, "%d ", c0);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "%d ", c01);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "%d ", c1);
+        	fputs(pbuf, pFile);
+			int snapshot_time =  (int)((s->snapshot_start_time-s->snapshot_finish_time) * 1000000);
+			if(snapshot_time > 1000) {
+				c1++;
+				sprintf(pbuf, "QQQ %d ", snapshot_time);
+        		fputs(pbuf, pFile);
+			}
+
+
+
+        		fputs("\n", pFile);
+
 
     	}
     	else

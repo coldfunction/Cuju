@@ -270,6 +270,10 @@ struct MigrationState
     double recv_ack1_time;
 
     double flush_start_time;
+
+    double before_lock_iothread_time;
+    double after_kick_vcpu_time;
+
 };
 
 struct dirty_page_tracking_log {

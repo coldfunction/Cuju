@@ -4131,8 +4131,11 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	update->e_runtime = kvm->e_epoch_runtime;
 	update->e_trans   = kvm->e_trans_latency/1000;
 
+	static int learningR = 1000;
 
-	if(update->runtime_us >= target_latency_us-1000) {
+	int runtime_bias = update->runtime_us - update->e_runtime;
+	if(latency_us > 11000 && (latency_us - runtime_bias) <= 11000) {
+		update->learningR = learningR;
 		return;
 	}
 
@@ -4154,7 +4157,6 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 //	int learningR = 800;
 	//static int learningR = 600; //best
-	static int learningR = 1000;
 //	int learningR = 100;
 	static int lc = 0;
 	static int miss = 0;
@@ -4198,8 +4200,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//}
 
 		learningR = (learningR * 1000) / 1200;
-		if(learningR < 0)
-			learningR = 0;
+		//if(learningR < 0)
+			//learningR = 0;
 
 		miss++;
 		//hit = 0;
@@ -4260,8 +4262,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
         //if(kvm->w3 < 0) kvm->w3 = 0;
 
 		learningR = (learningR * 1000) / 1200;
-		if(learningR < 0)
-			learningR = 0;
+		//if(learningR < 0)
+		//	learningR = 0;
 
 		miss++;
 	//	kvm->w2-=200;

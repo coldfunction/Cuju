@@ -2361,7 +2361,7 @@ static void kvmft_flush_output(MigrationState *s)
 		printf("test exceed percentage is %lf\n", exceed_percentage);
     }
 
-    assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us));
+    assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us, s));
 
 	//migrate_set_ft_state(s, CUJU_FT_TRANSACTION_PRE_RUN); //cocotion fucking crazy
     //migrate_run(s); //cocotion fucking crazy
@@ -3038,6 +3038,7 @@ static void migrate_timer(void *opaque)
 
     s->trans_serial = ++trans_serial;
 
+    s->before_lock_iothread_time = time_in_double();
     qemu_mutex_lock_iothread();
     s->snapshot_start_time = time_in_double();
     vm_stop_mig();
@@ -3104,6 +3105,7 @@ static void ft_tick_func(void)
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
     //s->snapshot_start_time = time_in_double();
 
+	s->after_kick_vcpu_time = time_in_double();
     migrate_timer(s);
 }
 

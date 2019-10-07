@@ -45,6 +45,28 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static int c0 = 0;
 	static int c01 = 0;
 	static int c1 = 0;
+	static int c2 = 0;
+	static int c3 = 0;
+	static int c4 = 0;
+	static int c5 = 0;
+
+	static int last_w0 = 0;
+	static int last_w1 = 0;
+	static int last_w3 = 0;
+
+	static unsigned int exceed_100;
+	static unsigned int exceed_200;
+	static unsigned int exceed_300;
+	static unsigned int exceed_400;
+	static unsigned int exceed_500;
+
+	static unsigned int less_100;
+	static unsigned int less_200;
+	static unsigned int less_300;
+	static unsigned int less_400;
+	static unsigned int less_500;
+
+
 
 	if(id == 0) {
 		FILE *pFile;
@@ -126,6 +148,13 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 				sprintf(pbuf, "%d ", lock_iothread_time);
         		fputs(pbuf, pFile);
 
+//			} else if (latency_us > 11000 && ( trans_us-update.e_trans > 8000)){
+			} else if (latency_us > 11000 && \
+					((update.trans_us - update.e_trans > 8000) || \
+					 update.trans_us > 8000)) {
+				sprintf(pbuf, "trans %d ", trans_us);
+        		fputs(pbuf, pFile);
+				c2++;
 			}
 			sprintf(pbuf, "%d ", c0);
         	fputs(pbuf, pFile);
@@ -142,6 +171,62 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         		fputs(pbuf, pFile);
 			}
 
+			sprintf(pbuf, "trans %d ", c2);
+        	fputs(pbuf, pFile);
+
+
+			if(last_w0 != update.w0 || last_w1 != update.w1 || last_w3 != update.w3) {
+				c3++;
+				c4++;
+			} else {
+				c4 = 0;
+			}
+
+			if(c4 >= 2) {
+				c5++;
+				c4 = 0;
+        		fputs("=======> ", pFile);
+			}
+
+			last_w0 = update.w0;
+			last_w1 = update.w1;
+			last_w3 = update.w3;
+
+			sprintf(pbuf, "diff %d ", c3);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, " %d ", c5);
+        	fputs(pbuf, pFile);
+
+
+//			if(latency_us > 11100)
+//				exceed_100++;
+//			if(latency_us > 11200)
+//				exceed_200++;
+//			if(latency_us > 11300)
+//				exceed_300++;
+//			if(latency_us > 11400)
+//				exceed_400++;
+//			if(latency_us > 11500)
+//				exceed_500++;
+
+//			if(latency_us < 8900)
+//				less_100++;
+//			if(latency_us < 8800)
+//				less_200++;
+//			if(latency_us < 8700)
+//				less_300++;
+//			if(latency_us < 8600)
+//				less_400++;
+//			if(latency_us < 8500)
+//				less_500++;
+
+/*			sprintf(pbuf, "xxxxx %d %d %d %d %d ", exceed_100, exceed_200, exceed_300, exceed_400, exceed_500);
+        	fputs(pbuf, pFile);
+			sprintf(pbuf, "xxxxx %d %d %d %d %d ", less_100, less_200, less_300, less_400, less_500);
+        	fputs(pbuf, pFile);
+
+*/
 
 
         		fputs("\n", pFile);

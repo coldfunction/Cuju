@@ -571,6 +571,10 @@ struct kvm {
     int e_current_send_rate;
     int e_trans_latency;
     int e_epoch_runtime;
+
+    int learningR;
+    int last_disspatch_time_smaller_count;
+    int latency_bias;
 };
 
 #define kvm_err(fmt, ...) \

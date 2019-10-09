@@ -558,7 +558,9 @@ struct kvm {
 
     int load_mem_rate;
     int last_load_mem_rate;
+    int last_load_mem_rate2;
     int last_send_rate;
+    int last_send_rate2;
     int current_send_rate;
     int f_count;
     int ft_id;
@@ -575,6 +577,9 @@ struct kvm {
     int learningR;
     int last_disspatch_time_smaller_count;
     int latency_bias;
+
+    int real_x0;
+    int real_x1;
 };
 
 #define kvm_err(fmt, ...) \

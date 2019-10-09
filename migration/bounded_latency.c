@@ -8,6 +8,8 @@
 struct kvmft_update_latency mybdupdate;
 int bd_alpha = 0;
 
+
+
 void bd_reset_epoch_timer(void)
 {
 
@@ -53,7 +55,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static int last_w0 = 0;
 	static int last_w1 = 0;
 	static int last_w3 = 0;
-
+/*
 	static unsigned int exceed_100;
 	static unsigned int exceed_200;
 	static unsigned int exceed_300;
@@ -65,6 +67,46 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static unsigned int less_300;
 	static unsigned int less_400;
 	static unsigned int less_500;
+*/
+//	static int last_load_mem_rate = 0;
+	static unsigned int total_a = 0;
+	static double total_diff_rate_a = 0;
+	static double total_diff_rate_aa = 0;
+	static unsigned int total_b = 0;
+	static double total_diff_rate_b = 0;
+	static double total_diff_rate_bb = 0;
+
+	static double total_diff_time_a = 0;
+	static double total_diff_time_aa = 0;
+//	static unsigned int total_a_time = 0;
+
+	static double total_diff_time_b = 0;
+	static double total_diff_time_bb = 0;
+//	static unsigned int total_b_time = 0;
+/*
+	if(last_load_mem_rate == 0) last_load_mem_rate = 1;
+	if(latency_us <= 11000 && latency_us >= 9000) {
+		if(last_load_mem_rate > update.last_load_mem_rate)
+			total_diff_rate_a += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
+		else
+			total_diff_rate_a += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
+
+		total_a++;
+
+	} else {
+		if(last_load_mem_rate > update.last_load_mem_rate)
+			total_diff_rate_b += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
+		else
+			total_diff_rate_b += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
+
+		total_b++;
+
+	}
+
+*/
+
+
+//	last_load_mem_rate = update.last_load_mem_rate;
 
 
 
@@ -73,6 +115,123 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
    		char pbuf[200];
     	pFile = fopen("runtime_latency_trans_rate.txt", "a");
     	if(pFile != NULL){
+
+	//int e_load_mem_rate = update.load_mem_rate;
+
+	//if(last_load_mem_rate == 0) last_load_mem_rate = 1;
+	//if(e_load_mem_rate == 0) e_load_mem_rate = 1;
+
+	if(latency_us <= 11000 && latency_us >= 9000) {
+/*		if(last_load_mem_rate > update.last_load_mem_rate) {
+			total_diff_rate_a += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
+		}
+		else {
+			total_diff_rate_a += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
+		}
+*/
+
+		int real_dispatch_time = update.real_x0;
+		int real_load_time = update.real_x1;
+		int x0 = update.x0;
+		int x1 = update.x1;
+		if(x0 == 0)	 x0 = 1;
+		if(x1 == 0)	 x1 = 1;
+		if(real_dispatch_time > x0) {
+			total_diff_time_a += (float)(real_dispatch_time-x0)/x0;
+		} else if(real_dispatch_time <= x0) {
+			total_diff_time_a += (float)(x0-real_dispatch_time)/x0;
+		}
+
+		if(real_load_time > x1) {
+			total_diff_time_aa += (float)(real_load_time-x1)/x1;
+		} else if(real_load_time <= x1) {
+			total_diff_time_aa += (float)(x1-real_load_time)/x1;
+		}
+
+
+
+		int e_load_mem_rate = update.load_mem_rate;
+		int e_send_rate = update.current_send_rate;
+		if(e_load_mem_rate == 0) e_load_mem_rate = 1;
+		if(e_send_rate == 0) e_send_rate = 1;
+
+
+		if(e_send_rate > update.last_send_rate) {
+			total_diff_rate_a += (float)(e_send_rate-update.last_send_rate)/e_send_rate;
+		}
+		else if(e_send_rate <= update.last_send_rate){
+			total_diff_rate_a += (float)(update.last_send_rate-e_send_rate)/e_send_rate;
+		}
+
+		if(e_load_mem_rate > update.last_load_mem_rate) {
+			total_diff_rate_aa += (float)(e_load_mem_rate-update.last_load_mem_rate)/e_load_mem_rate;
+		} else if (e_load_mem_rate <= update.last_load_mem_rate){
+			total_diff_rate_aa += (float)(update.last_load_mem_rate-e_load_mem_rate)/e_load_mem_rate;
+		}
+
+//		total_diff_rate_a += update.last_send_rate;
+//		total_diff_rate_aa += update.last_load_mem_rate;
+
+		total_a++;
+
+	} else {
+/*		if(last_load_mem_rate > update.last_load_mem_rate) {
+			total_diff_rate_b += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
+		}
+		else {
+			total_diff_rate_b += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
+		}
+*/
+		int real_dispatch_time = update.real_x0;
+		int real_load_time = update.real_x1;
+		int x0 = update.x0;
+		int x1 = update.x1;
+		if(x0 == 0)	 x0 = 1;
+		if(x1 == 0)	 x1 = 1;
+		if(real_dispatch_time > x0) {
+			total_diff_time_b += (float)(real_dispatch_time-x0)/x0;
+		} else if(real_dispatch_time <= x0) {
+			total_diff_time_b += (float)(x0-real_dispatch_time)/x0;
+		}
+
+		if(real_load_time > x1) {
+			total_diff_time_bb += (float)(real_load_time-x1)/x1;
+		} else if(real_load_time <= x1) {
+			total_diff_time_bb += (float)(x1-real_load_time)/x1;
+		}
+
+		int e_load_mem_rate = update.load_mem_rate;
+		int e_send_rate = update.current_send_rate;
+		if(e_load_mem_rate == 0) e_load_mem_rate = 1;
+		if(e_send_rate == 0) e_send_rate = 1;
+
+
+		if(e_send_rate > update.last_send_rate) {
+			total_diff_rate_b += (float)(e_send_rate-update.last_send_rate)/e_send_rate;
+		}
+		else if(e_send_rate <= update.last_send_rate){
+			total_diff_rate_b += (float)(update.last_send_rate-e_send_rate)/e_send_rate;
+		}
+
+		if(e_load_mem_rate > update.last_load_mem_rate) {
+			total_diff_rate_bb += (float)(e_load_mem_rate-update.last_load_mem_rate)/e_load_mem_rate;
+		} else if (e_load_mem_rate <= update.last_load_mem_rate){
+			total_diff_rate_bb += (float)(update.last_load_mem_rate-e_load_mem_rate)/e_load_mem_rate;
+		}
+//		total_diff_rate_b += update.last_send_rate;
+//		total_diff_rate_bb += update.last_load_mem_rate;
+
+		total_b++;
+
+	}
+
+
+
+
+
+
+	//last_load_mem_rate = update.last_load_mem_rate;
+
         	sprintf(pbuf, "%d ", update.w0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.w1);
@@ -82,6 +241,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	sprintf(pbuf, "%d ", update.x0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.x1);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.real_x0);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.real_x1);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", runtime_us);
         	fputs(pbuf, pFile);
@@ -114,7 +277,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.e_dirty_bytes);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", update.learningR);
+			int waitacktime = (int)((s->recv_ack1_time - s->send_commit1_time) * 1000000);
+			sprintf(pbuf, "%d ", waitacktime);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "%d ", update.learningR);
         	fputs(pbuf, pFile);
 
 
@@ -198,28 +365,79 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			sprintf(pbuf, " %d ", c5);
         	fputs(pbuf, pFile);
 
+			static unsigned int exceed;
+			static unsigned int exceed_500;
+			static unsigned int exceed_1000;
+			static unsigned int exceed_1500;
+			static unsigned int exceed_2000;
+			static unsigned int exceed_2500;
+			static unsigned int exceed_3000;
+			static unsigned int exceed_3500;
+			static unsigned int exceed_4000;
 
-//			if(latency_us > 11100)
-//				exceed_100++;
-//			if(latency_us > 11200)
-//				exceed_200++;
-//			if(latency_us > 11300)
-//				exceed_300++;
-//			if(latency_us > 11400)
-//				exceed_400++;
-//			if(latency_us > 11500)
-//				exceed_500++;
+			static unsigned int less;
+			static unsigned int less_500;
+			static unsigned int less_1000;
+			static unsigned int less_1500;
+			static unsigned int less_2000;
+			static unsigned int less_2500;
+			static unsigned int less_3000;
+			static unsigned int less_3500;
+			static unsigned int less_4000;
 
-//			if(latency_us < 8900)
-//				less_100++;
-//			if(latency_us < 8800)
-//				less_200++;
-//			if(latency_us < 8700)
-//				less_300++;
-//			if(latency_us < 8600)
-//				less_400++;
-//			if(latency_us < 8500)
-//				less_500++;
+			static unsigned int m_9000_9500;
+			static unsigned int m_9500_10000;
+			static unsigned int m_10000_10500;
+			static unsigned int m_10500_11000;
+
+			if(latency_us <= 9000 && latency_us < 9500)
+				m_9000_9500++;
+			if(latency_us <= 9500 && latency_us < 10000)
+				m_9500_10000++;
+			if(latency_us <= 10000 && latency_us < 10500)
+				m_10000_10500++;
+			if(latency_us <= 10500 && latency_us < 11000)
+				m_10500_11000++;
+
+
+
+			if(latency_us > 11000)
+				exceed++;
+			if(latency_us > 11500)
+				exceed_500++;
+			if(latency_us > 12000)
+				exceed_1000++;
+			if(latency_us > 12500)
+				exceed_1500++;
+			if(latency_us > 13000)
+				exceed_2000++;
+			if(latency_us > 13500)
+				exceed_2500++;
+			if(latency_us > 14000)
+				exceed_3000++;
+			if(latency_us > 14500)
+				exceed_3500++;
+			if(latency_us > 15000)
+				exceed_4000++;
+
+			if(latency_us < 9000)
+				less++;
+			if(latency_us < 8500)
+				less_500++;
+			if(latency_us < 8000)
+				less_1000++;
+			if(latency_us < 7500)
+				less_1500++;
+			if(latency_us < 7000)
+				less_2000++;
+			if(latency_us < 6500)
+				less_2500++;
+			if(latency_us < 6000)
+				less_3000++;
+			if(latency_us < 5500)
+				less_3500++;
+			if(latency_us < 5000)
+				less_4000++;
 
 /*			sprintf(pbuf, "xxxxx %d %d %d %d %d ", exceed_100, exceed_200, exceed_300, exceed_400, exceed_500);
         	fputs(pbuf, pFile);
@@ -228,6 +446,37 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 */
 
+			if(total_a) {
+				sprintf(pbuf, "__a %f %f %f %f %d ", total_diff_rate_a/total_a, total_diff_rate_aa/total_a, total_diff_time_a/total_a, total_diff_time_aa/total_a, total_a);
+		//		sprintf(pbuf, "__a %f %f %d ", total_diff_time_a/total_a, total_diff_time_aa/total_a, total_a);
+//				sprintf(pbuf, "__a %f ", total_diff_rate_a);
+        		fputs(pbuf, pFile);
+
+			}
+			if(total_b) {
+				sprintf(pbuf, "__b %f %f %f %f %d ", total_diff_rate_b/total_b, total_diff_rate_bb/total_b, total_diff_time_b/total_b, total_diff_time_bb/total_b, total_b);
+//				sprintf(pbuf, "__b %f %f %d ",  total_diff_time_b/total_b, total_diff_time_bb/total_b, total_b);
+//				sprintf(pbuf, "__b %f ", total_diff_rate_b);
+        		fputs(pbuf, pFile);
+			}
+
+			sprintf(pbuf, "latency_dis (E): %d %d %d %d %d %d %d %d %d ", \
+					exceed, exceed-exceed_500, \
+					exceed_500-exceed_1000, exceed_1000-exceed_1500, \
+					exceed_1500-exceed_2000, exceed_2000-exceed_2500, \
+					exceed_2500-exceed_3000, exceed_3000-exceed_3500, \
+					exceed_3500-exceed_4000);
+        	fputs(pbuf, pFile);
+			sprintf(pbuf, "latency_dis (L): %d %d %d %d %d %d %d %d %d ", \
+					less, less-less_500, \
+					less_500-less_1000, less_1000-less_1500, \
+					less_1500-less_2000, less_2000-less_2500, \
+					less_2500-less_3000, less_3000-less_3500, \
+					less_3500-less_4000);
+        	fputs(pbuf, pFile);
+			sprintf(pbuf, "latency_dis (M): %d %d %d %d ", \
+					m_9000_9500, m_9500_10000, m_10000_10500, m_10500_11000);
+        	fputs(pbuf, pFile);
 
         		fputs("\n", pFile);
 

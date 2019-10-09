@@ -1072,11 +1072,13 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
+//   create_vm_id();
 
    	int id = create_vm_id();
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(6-id, &cpuset);
+    //CPU_SET(6-id, &cpuset);
+    CPU_SET(4+id, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
@@ -1119,6 +1121,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
             s->dirty_pfns = NULL;
 #endif
 
+			s->send_commit1_time = time_in_double();
             qemu_bh_schedule(s->bh);
         }
     }

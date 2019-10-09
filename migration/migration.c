@@ -166,6 +166,9 @@ static MigrationState *migrate_token_owner;
 static QemuMutex ft_mutex;
 static QemuCond ft_cond;
 
+//pthread_mutex_t mylock;
+
+
 static MigrationState **migration_states;
 int migration_states_count = 0;
 int migrate_get_index(MigrationState *s);
@@ -2361,7 +2364,9 @@ static void kvmft_flush_output(MigrationState *s)
 		printf("test exceed percentage is %lf\n", exceed_percentage);
     }
 
+//	pthread_mutex_lock(&mylock);
     assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us, s));
+//	pthread_mutex_unlock(&mylock);
 
 	//migrate_set_ft_state(s, CUJU_FT_TRANSACTION_PRE_RUN); //cocotion fucking crazy
     //migrate_run(s); //cocotion fucking crazy
@@ -2702,6 +2707,9 @@ static void *migration_thread(void *opaque)
         qemu_cond_init(&ft_cond);
         cuju_ft_trans_init_buf_desc(&ft_mutex, &ft_cond);
         cuju_ft_trans_set_buffer_mode(1);
+
+//		pthread_mutex_init(&mylock, NULL);
+
 
 		//TODO blk_server support
         //if (kvm_blk_session)

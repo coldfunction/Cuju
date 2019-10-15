@@ -2,6 +2,7 @@
 #include "migration/migration.h"
 #include "migration/cuju-kvm-share-mem.h"
 #include "sysemu/kvm.h"
+#include <math.h>
 #include <linux/kvm.h>
 #include "qmp-commands.h"
 
@@ -82,6 +83,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	static double total_diff_time_b = 0;
 	static double total_diff_time_bb = 0;
+
+	static unsigned long int stdev_count_exceed = 0;
+	static unsigned long int stdev_count_less = 0;
+	static unsigned long int stdev_total = 0;
 //	static unsigned int total_b_time = 0;
 /*
 	if(last_load_mem_rate == 0) last_load_mem_rate = 1;
@@ -110,7 +115,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
 
-	if(id == 0) {
+	if(id == 10) {
 		FILE *pFile;
    		char pbuf[200];
     	pFile = fopen("runtime_latency_trans_rate.txt", "a");
@@ -257,7 +262,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			expect/=1000;
         	sprintf(pbuf, "%d ", update.e_trans);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", latency_us);
+        	sprintf(pbuf, "%d ", update.f_trans);
+        	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "%d ", latency_us);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.e_latency);
         	fputs(pbuf, pFile);
@@ -477,6 +485,52 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			sprintf(pbuf, "latency_dis (M): %d %d %d %d ", \
 					m_9000_9500, m_9500_10000, m_10000_10500, m_10500_11000);
         	fputs(pbuf, pFile);
+
+			int count = update.load_mem_rate_rec_index;
+			int i;
+			sprintf(pbuf, "REC(%d, %d) ", update.log_index, count);
+        	fputs(pbuf, pFile);
+			unsigned long totalx = 0;
+			for (i = count-1; i <= count && i >= 0; i++) {
+				sprintf(pbuf, "%d ", update.load_mem_rate_rec[i]);
+        		fputs(pbuf, pFile);
+			}
+
+			unsigned long int sum = 0;
+			if(count > 2) {
+				for (i = count-3; i < count; i++) {
+				//sprintf(pbuf, "%d ", update.load_mem_rate_rec[i]);
+        		//fputs(pbuf, pFile);
+ 					totalx += update.load_mem_rate_rec[i];
+				}
+
+//				int x = totalx/(count);
+				int x = totalx/3;
+				//for (i = 0; i <= count-1 && i>=0; i++) {
+				for (i = count-3; i < count; i++) {
+ 					sum+=(x-update.load_mem_rate_rec[i])*(x-update.load_mem_rate_rec[i]);
+				}
+			}
+			//if(count > 1)
+				//sum = sum/count-1;
+			if(count > 2)
+				sum = sum/2;
+			else sum = 1;
+
+			unsigned long int stdev = sqrt(sum);
+			if(stdev > 10000) stdev = 1;
+			stdev_total+=stdev;
+
+			if( (latency_us < 9000 || latency_us > 11000) && stdev >= 1500) {
+				stdev_count_exceed++;
+			}
+			if( (latency_us < 9000 || latency_us > 11000) && stdev < 1500) {
+				stdev_count_less++;
+			}
+
+			sprintf(pbuf, "|||||!!| %ld %f %f %ld ", stdev, (float)stdev_count_exceed/(exceed+less), (float)stdev_count_less/(exceed+less), stdev_total);
+ 			fputs(pbuf, pFile);
+
 
         		fputs("\n", pFile);
 

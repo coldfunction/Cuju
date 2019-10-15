@@ -553,6 +553,7 @@ struct kvm {
     int x1;
     int x00;
     int x01;
+    int x02;
     unsigned long int wn;
     unsigned long int wc;
 
@@ -580,6 +581,14 @@ struct kvm {
 
     int real_x0;
     int real_x1;
+
+    int load_mem_rate_rec[2][200];
+    int load_mem_rate_rec_index[2];
+    int current_log_input_index;
+    int current_log_output_index;
+
+    int last_load_rate;
+    s64 last_load_time;
 };
 
 #define kvm_err(fmt, ...) \

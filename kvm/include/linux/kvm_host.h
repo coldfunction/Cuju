@@ -589,6 +589,10 @@ struct kvm {
 
     int last_load_rate;
     s64 last_load_time;
+    int p0;
+    int last_dirty_bytes;
+    int max_dirty_pages;
+    int qmax_on;
 };
 
 #define kvm_err(fmt, ...) \

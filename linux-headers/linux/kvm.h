@@ -1458,6 +1458,8 @@ struct kvmft_update_latency {
 	int load_mem_rate_rec_index;
 	int load_mem_rate_rec[200];
 	int log_index;
+	int p0;
+	int current_send_bytes;
 };
 #define KVMFT_BD_UPDATE_LATENCY _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 #define KVMFT_BD_CREATE_VM_ID         _IO(KVMIO, 0xd3)

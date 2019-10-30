@@ -28,6 +28,7 @@
 #include <smmintrin.h>
 #include <immintrin.h>
 #include <malloc.h>
+#include <sys/syscall.h>
 
 #define TIMEVAL_TO_DOUBLE(tv)   ((tv).tv_sec + \
 								((double)(tv).tv_usec) / 1000000)
@@ -1072,16 +1073,19 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 //cocotion fucking test
-//   create_vm_id();
+ //  create_vm_id();
 
    	int id = create_vm_id();
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     //CPU_SET(6-id, &cpuset);
     CPU_SET(4+id, &cpuset);
+//    CPU_SET(4, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
+	pid_t tid = syscall(__NR_gettid);
+	printf("trans thread = %d\n", tid);
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)

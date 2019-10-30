@@ -42,7 +42,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	update.alpha = bd_alpha;
 
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
-    int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
+	int p0 = 1000;
+	static double totaly = 0;
+	static unsigned long int total_c= 0;
+	total_c++;
+	p0 = (totaly/total_c)*1000;
+	update.p0 = p0;
+
+
+	int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 
 	int id = get_vm_id();
 	static int c0 = 0;
@@ -52,6 +60,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static int c3 = 0;
 	static int c4 = 0;
 	static int c5 = 0;
+
+	static int pre_factor = 0;
+	static unsigned int efa = 0;
+	static unsigned int efb = 0;
 
 	static int last_w0 = 0;
 	static int last_w1 = 0;
@@ -84,9 +96,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static double total_diff_time_b = 0;
 	static double total_diff_time_bb = 0;
 
-	static unsigned long int stdev_count_exceed = 0;
-	static unsigned long int stdev_count_less = 0;
+	//static unsigned long int stdev_count_exceed = 0;
+	//static unsigned long int stdev_count_less = 0;
 	static unsigned long int stdev_total = 0;
+
 //	static unsigned int total_b_time = 0;
 /*
 	if(last_load_mem_rate == 0) last_load_mem_rate = 1;
@@ -115,7 +128,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
 
-	if(id == 10) {
+	if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
     	pFile = fopen("runtime_latency_trans_rate.txt", "a");
@@ -251,6 +264,26 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.real_x1);
         	fputs(pbuf, pFile);
+
+			float factor = (float)update.real_x0/(update.w3+1);
+        	sprintf(pbuf, "(%f) ", factor);
+        	fputs(pbuf, pFile);
+
+			int factor_diff = abs(factor-pre_factor);
+			if(latency_us > 11000 || latency_us < 9000) {
+					efa+=factor_diff;
+			} else {
+					efb+=factor_diff;
+			}
+			pre_factor = factor;
+
+			float fb = (float)efa/total_b; //exceed
+			float fa = (float)efb/total_a;
+
+			sprintf(pbuf, "(%f, %f) ", fb, fa);
+        	fputs(pbuf, pFile);
+
+
         	sprintf(pbuf, "%d ", runtime_us);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.e_runtime);
@@ -265,9 +298,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	sprintf(pbuf, "%d ", update.f_trans);
         	fputs(pbuf, pFile);
 
-			sprintf(pbuf, "%d ", latency_us);
+			sprintf(pbuf, "(%d ", latency_us);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", update.e_latency);
+        	sprintf(pbuf, "%d) ", update.e_latency);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.last_load_mem_rate);
         	fputs(pbuf, pFile);
@@ -275,15 +308,19 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.last_send_rate);
         	fputs(pbuf, pFile);
+        	sprintf(pbuf, "CSB: %d ", update.current_send_bytes);
+        	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.current_send_rate);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "CSB-t: %d ", 100*update.current_send_bytes/update.current_send_rate);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.load_mem_bytes);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.real_load_mem_bytes);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", dirty_page);
+        	sprintf(pbuf, "(%d ", dirty_page);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", update.e_dirty_bytes);
+        	sprintf(pbuf, "%d) ", update.e_dirty_bytes);
         	fputs(pbuf, pFile);
 			int waitacktime = (int)((s->recv_ack1_time - s->send_commit1_time) * 1000000);
 			sprintf(pbuf, "%d ", waitacktime);
@@ -496,23 +533,34 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         		fputs(pbuf, pFile);
 			}
 
-			unsigned long int sum = 0;
+			//unsigned long int sum = 0;
 			if(count > 2) {
 				for (i = count-3; i < count; i++) {
 				//sprintf(pbuf, "%d ", update.load_mem_rate_rec[i]);
         		//fputs(pbuf, pFile);
- 					totalx += update.load_mem_rate_rec[i];
+ 					totalx += abs(update.load_mem_rate_rec[i]);
 				}
 
 //				int x = totalx/(count);
-				int x = totalx/3;
+				//int x = totalx/3;
 				//for (i = 0; i <= count-1 && i>=0; i++) {
-				for (i = count-3; i < count; i++) {
- 					sum+=(x-update.load_mem_rate_rec[i])*(x-update.load_mem_rate_rec[i]);
-				}
+				//for (i = count-3; i < count-1; i++) {
+ 					//sum+=(x-update.load_mem_rate_rec[i])*(x-update.load_mem_rate_rec[i]);
+					//update.load_mem_rate_rec[i+1]-update.load_mem_rate_rec[i]
+				//}
 			}
 			//if(count > 1)
 				//sum = sum/count-1;
+
+			if(update.load_mem_rate > 0)
+				totaly += (float)update.last_load_mem_rate/update.load_mem_rate;
+			stdev_total+=totalx;
+			sprintf(pbuf, "|||||!! %f %f", (float)stdev_total/total_c, totaly/total_c);
+ 			fputs(pbuf, pFile);
+
+			//update.p0 = (totaly/total_c)*1000;
+
+/*
 			if(count > 2)
 				sum = sum/2;
 			else sum = 1;
@@ -530,7 +578,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 			sprintf(pbuf, "|||||!!| %ld %f %f %ld ", stdev, (float)stdev_count_exceed/(exceed+less), (float)stdev_count_less/(exceed+less), stdev_total);
  			fputs(pbuf, pFile);
-
+*/
 
         		fputs("\n", pFile);
 

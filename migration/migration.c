@@ -2266,7 +2266,8 @@ static void kvmft_flush_output(MigrationState *s)
 {
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-    int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+//    int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+    int trans_us = (int)((s->recv_ack1_time - s->transfer_real_start_time) * 1000000);
 
 	int trans_rate = s->ram_len/trans_us;
 
@@ -3003,8 +3004,9 @@ static void migrate_run(MigrationState *s)
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_RUN);
     s->run_serial = ++run_serial;
 
-    kvmft_reset_put_off(s);
+    //kvmft_reset_put_off(s);
     assert(!kvm_shmem_flip_sharing(s->cur_off));
+    kvmft_reset_put_off(s);
 
     migrate_schedule(s);
 

@@ -477,8 +477,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //    if(tmp0 == 0) tmp0 = current_dirty_byte ;
  //   if(tmp1 == 0) tmp1 = load_mem_bytes ;
 
-    if(tmp0 < 50) tmp0 = 50 ;
-    if(tmp1 < 50) tmp1 = 50;
+    //if(tmp0 < 50) tmp0 = 50 ;
+    //if(tmp1 < 50) tmp1 = 50;
 
     //if(tmp0 > 0)
         kvm->x0 = tmp0;
@@ -4357,7 +4357,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//kvm->w3 = update->trans_us * 1000;
 		int w3 = kvm->w3 + (update->trans_us - update->e_trans) * 1000;
 		if (w3 < 0)
-			kvm->w3 = 0;
+			w3 = 0;
+		kvm->w3 = w3;
 	}
 
 	if(latency_us > 11000 && (((update->trans_us - update->e_trans) > 8000) || (update->trans_us > 8000))) {
@@ -4465,7 +4466,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //		}
 
 		//if(kvm->w0 == 1000 && kvm->w1 == 1000 && update->dirty_page != 0) {
-		//	kvm->w3 += ((update->trans_us - 1000) - e_trans_us );
+//			kvm->w3 += ((update->trans_us - 1000) - e_trans_us );
 		//}
 //		kvm->w3 = kvm->w3 + (learningR*kvm->w3*(1))/1000 + update->trans_us - e_trans_us;
 
@@ -4503,13 +4504,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
         	//kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
         //	kvm->w3 -= ((update->trans_us-1000)-e_trans_us)*1000;
 		//	if(kvm->w3 < 0) kvm->w3 = 0;
-		//	int w3 = kvm->w3 - (e_trans_us - update->trans_us)*1000;
-		//	if(w3 < 0) kvm->w3 = 0;
+//			int w3 = kvm->w3 - (e_trans_us - update->trans_us)*1000;
+//			if(w3 < 0) kvm->w3 = 0;
 		//}
 		if(kvm->w0 < 1000 ) kvm->w0 = 1000;
 		if(kvm->w1 < 1000 ) kvm->w1 = 1000;
 
-		if(kvm->w4 < 0 ) kvm->w1 = 0;
+		if(kvm->w4 < 0 ) kvm->w4 = 0;
 
 //		int w3 = kvm->w3 + (learningR*kvm->w3*(-1))/1000 - (e_trans_us - update->trans_us);
 //		if(w3 < 0) w3 = 0;

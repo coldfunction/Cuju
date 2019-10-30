@@ -4361,11 +4361,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->w3 = w3;
 	}
 
+
 	if(latency_us > 11000 && (((update->trans_us - update->e_trans) > 8000) || (update->trans_us > 8000))) {
 		update->learningR = learningR;
 		kvm->learningR = learningR;
 		return;
 	}
+
 /*
 	if(kvm->w3 > 0) {
 		int d = kvm->e_epoch_runtime - update->runtime_us;
@@ -4416,8 +4418,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
 //	if(latency_us <= target_latency_us + 400 && latency_us >= target_latency_us -400) {
 //	if(latency_us <= target_latency_us + 1100 && latency_us >= target_latency_us -1100) {
-	if(latency_us <= target_latency_us + 700 && latency_us >= target_latency_us -700) {
+//	if(latency_us <= target_latency_us + 700 && latency_us >= target_latency_us -700) {
 //	if(latency_us <= target_latency_us + 500 && latency_us >= target_latency_us -500) {
+	if(latency_us <= target_latency_us + 600 && latency_us >= target_latency_us -600) {
 		update->learningR = learningR;
 		kvm->learningR = learningR;
 		return;

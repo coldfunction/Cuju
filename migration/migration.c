@@ -2266,7 +2266,8 @@ static void kvmft_flush_output(MigrationState *s)
 {
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-    int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+    //int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+    int trans_us = (int)((s->recv_ack1_time - s->transfer_real_start_time) * 1000000);
 
 	int trans_rate = s->ram_len/trans_us;
 

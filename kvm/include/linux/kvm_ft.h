@@ -124,6 +124,7 @@ struct kvmft_context {
     int bd_last_average_dirty_bytes;
     int bd_alpha;
 
+    int others_dirty[2];
 };
 
 int kvm_shm_init(struct kvm *kvm, struct kvm_shmem_init *info);

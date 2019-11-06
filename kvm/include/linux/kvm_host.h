@@ -551,11 +551,15 @@ struct kvm {
     int w4;
     int x0;
     int x1;
-    int x00;
-    int x01;
+    int x2;
+    int x00[2];
+    int x01[2];
     int x02;
     unsigned long int wn;
     unsigned long int wc;
+
+    int last_f;
+    int f0;
 
     int load_mem_rate;
     int last_load_mem_rate;
@@ -579,8 +583,14 @@ struct kvm {
     int last_disspatch_time_smaller_count;
     int latency_bias;
 
-    int real_x0;
-    int real_x1;
+    int real_x0[2];
+    int real_x1[2];
+    int cur_virtual_trans_time;
+    int average_vt;
+    int average_e;
+    int average_l;
+    int average_de;
+    int average_dl;
 
     int load_mem_rate_rec[2][200];
     int load_mem_rate_rec_index[2];

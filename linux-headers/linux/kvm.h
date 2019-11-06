@@ -1435,6 +1435,7 @@ struct kvmft_update_latency {
 	int w0;
 	int w1;
 	int w3;
+	int w4;
 	int x0;
 	int x1;
 
@@ -1446,6 +1447,17 @@ struct kvmft_update_latency {
 	int real_load_mem_bytes;
 	int learningR;
 	int e_dirty_bytes;
+
+	int last_f;
+	int others_dirty0;
+	int others_dirty1;
+	int cur_index;
+	int dirty_rate0;
+	int dirty_rate1;
+	int average_e;
+	int average_l;
+	int average_de;
+	int average_dl;
 
 	int e_latency;
 	int e_runtime;

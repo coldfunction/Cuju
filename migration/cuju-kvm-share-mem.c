@@ -1006,7 +1006,7 @@ int kvm_shmem_mark_page_dirty(void *ptr, unsigned long gfn)
 static int kvm_start_kernel_transfer(int trans_index, int ram_fd, int conn_index, int max_conn)
 {
     struct kvm_shmem_start_kernel_transfer req;
-    int ret;
+    int ret = 0;
     int64_t start, end, tmp = 0;
     MigrationState *s = migrate_by_index(trans_index);
 
@@ -1019,6 +1019,8 @@ static int kvm_start_kernel_transfer(int trans_index, int ram_fd, int conn_index
     req.conn_index = conn_index;
     req.max_conn = max_conn;
 
+//	int id = get_vm_id();
+//	if(id == 0) {
     do {
         end = time_in_us();
         {
@@ -1037,6 +1039,8 @@ static int kvm_start_kernel_transfer(int trans_index, int ram_fd, int conn_index
             }
         }
     } while (ret == -EINTR);
+//	}
+
     s->transfer_real_finish_time = time_in_double();
 
     return ret;
@@ -1107,6 +1111,7 @@ static void* trans_ram_conn_thread_func(void *opaque)
         ret = dirty_pages_userspace_transfer(s->ram_fds[d->index]);
         assert(ret >= 0);
         s->ram_len += ret;
+
 
         ret = kvm_start_kernel_transfer(s->cur_off, s->ram_fds[d->index], d->index, ft_ram_conn_count);
         //sched_yield();

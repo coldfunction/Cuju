@@ -32,6 +32,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 {
     struct kvmft_update_latency update;
 
+	update.cur_index = s->cur_off;
     update.dirty_page = dirty_page;
     update.runtime_us = runtime_us;
     update.trans_us = trans_us;
@@ -40,6 +41,17 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     update.last_trans_rate = mybdupdate.last_trans_rate;
 
 	update.alpha = bd_alpha;
+
+	static float average_e = 0.99;
+	static float average_l = 0.69;
+
+	static int average_de = 263;
+	static int average_dl = 154;
+
+	update.average_e = average_e*1000;
+	update.average_l = average_l*1000;
+	update.average_de = average_de;
+	update.average_dl = average_dl;
 
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
@@ -115,10 +127,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
 
-	if(id == 10) {
+	if(id >= 0) {
 		FILE *pFile;
    		char pbuf[200];
-    	pFile = fopen("runtime_latency_trans_rate.txt", "a");
+		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
+    	pFile = fopen(pbuf, "a");
     	if(pFile != NULL){
 
 	//int e_load_mem_rate = update.load_mem_rate;
@@ -243,31 +256,49 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.w3);
         	fputs(pbuf, pFile);
+        	sprintf(pbuf, "$%d ", update.others_dirty0);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d$ ", update.others_dirty1);
+        	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.x0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.x1);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", update.real_x0);
+        	sprintf(pbuf, "(%d ", update.real_x0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.real_x1);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", runtime_us);
+
+        	sprintf(pbuf, "%f) ", (float)update.real_x1/(update.real_x0+1));
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "D(%d ", update.dirty_rate0);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d, ", update.dirty_rate1);
+        	fputs(pbuf, pFile);
+
+			float e_trans_f = (float)update.real_x1/update.e_trans;
+
+        	sprintf(pbuf, "%f ) ", e_trans_f);
+        	fputs(pbuf, pFile);
+
+
+			sprintf(pbuf, "%d ", runtime_us);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.e_runtime);
         	fputs(pbuf, pFile);
 
-			sprintf(pbuf, "%d ", trans_us);
+			sprintf(pbuf, "(%d ", trans_us);
         	fputs(pbuf, pFile);
 //			int expect = update.x0*update.w0 + update.x1*update.w1;//+update.w3;
 //			expect/=1000;
-        	sprintf(pbuf, "%d ", update.e_trans);
+        	sprintf(pbuf, "%d) ", update.e_trans);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.f_trans);
         	fputs(pbuf, pFile);
 
-			sprintf(pbuf, "%d ", latency_us);
+			sprintf(pbuf, "(%d ", latency_us);
         	fputs(pbuf, pFile);
-        	sprintf(pbuf, "%d ", update.e_latency);
+        	sprintf(pbuf, "%d) ", update.e_latency);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.last_load_mem_rate);
         	fputs(pbuf, pFile);
@@ -398,6 +429,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			static unsigned int m_10000_10500;
 			static unsigned int m_10500_11000;
 
+			static double sum_e_trans_f_exceed = 0;
+			static double sum_e_trans_f_less = 0;
+			static unsigned long int sum_dirty_rate1_exceed = 0;
+			static unsigned long int sum_dirty_rate1_less = 0;
+
+
 			if(latency_us <= 9000 && latency_us < 9500)
 				m_9000_9500++;
 			if(latency_us <= 9500 && latency_us < 10000)
@@ -409,8 +446,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
 
-			if(latency_us > 11000)
+			if(latency_us > 11000) {
+				if(exceed % 5000 == 0) {
+					sum_e_trans_f_exceed = average_e;
+					sum_dirty_rate1_exceed = average_de;
+				}
 				exceed++;
+				sum_e_trans_f_exceed += e_trans_f;
+				sum_dirty_rate1_exceed += update.dirty_rate1;
+			}
 			if(latency_us > 11500)
 				exceed_500++;
 			if(latency_us > 12000)
@@ -428,8 +472,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			if(latency_us > 15000)
 				exceed_4000++;
 
-			if(latency_us < 9000)
+			if(latency_us < 9000) {
+				if(less % 5000 == 0) {
+					sum_e_trans_f_less = average_l;
+					sum_dirty_rate1_less = average_dl;
+				}
 				less++;
+				sum_e_trans_f_less += e_trans_f;
+				sum_dirty_rate1_less += update.dirty_rate1;
+			}
 			if(latency_us < 8500)
 				less_500++;
 			if(latency_us < 8000)
@@ -453,6 +504,22 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
 
 */
+			if(exceed && less) {
+				float average_e = (float)sum_e_trans_f_exceed/(exceed%5000+1);
+				float average_l = (float)sum_e_trans_f_less/(less%5000+1);
+
+				sprintf(pbuf, "@@ffff@@@==> (%f, %f) ", average_l, average_e);
+        		fputs(pbuf, pFile);
+
+				float average_de = (float)sum_dirty_rate1_exceed/(exceed%5000+1);
+				float average_dl = (float)sum_dirty_rate1_less/(less%5000+1);
+
+				sprintf(pbuf, "@@ddddd@@@==> (%f, %f) ", average_dl, average_de);
+        		fputs(pbuf, pFile);
+
+
+			}
+
 
 			if(total_a) {
 				sprintf(pbuf, "__a %f %f %f %f %d ", total_diff_rate_a/total_a, total_diff_rate_aa/total_a, total_diff_time_a/total_a, total_diff_time_aa/total_a, total_a);

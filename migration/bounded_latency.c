@@ -127,7 +127,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
 
-	if(id >= 0) {
+	if(id >= 10) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -256,6 +256,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.w3);
         	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.w4);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.w5);
+        	fputs(pbuf, pFile);
         	sprintf(pbuf, "$%d ", update.others_dirty0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d$ ", update.others_dirty1);
@@ -264,10 +268,20 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.x1);
         	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.x2);
+        	fputs(pbuf, pFile);
+        	sprintf(pbuf, "%d ", update.x3);
+        	fputs(pbuf, pFile);
         	sprintf(pbuf, "(%d ", update.real_x0);
         	fputs(pbuf, pFile);
         	sprintf(pbuf, "%d ", update.real_x1);
         	fputs(pbuf, pFile);
+
+			sprintf(pbuf, "factor(%d, %d)", update.last_f, update.x2*100/(trans_us+1));
+        	fputs(pbuf, pFile);
+
+
+
 
         	sprintf(pbuf, "%f) ", (float)update.real_x1/(update.real_x0+1));
         	fputs(pbuf, pFile);

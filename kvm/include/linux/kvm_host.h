@@ -549,17 +549,19 @@ struct kvm {
     int w2;
     int w3;
     int w4;
+    int w5;
     int x0;
     int x1;
     int x2;
     int x00[2];
     int x01[2];
-    int x02;
+    int x02[2];
+    int x03[2];
     unsigned long int wn;
     unsigned long int wc;
 
     int last_f;
-    int f0;
+    int f0[2];
 
     int load_mem_rate;
     int last_load_mem_rate;
@@ -599,6 +601,13 @@ struct kvm {
 
     int last_load_rate;
     s64 last_load_time;
+
+    int dirty_bytes_rate;
+    int dirty_pages_rate;
+
+    int old_dirty_count;
+    int old_pages_count;
+    int last_sh_load_mem_rate;
 };
 
 #define kvm_err(fmt, ...) \

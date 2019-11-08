@@ -80,9 +80,10 @@ struct ft_multi_trans_h {
 	int predict_trans_time[2][4];
 	s64 trans_start_time[4];
 	int current_dirty_rate[4];
+	int trans_cur_id[4];
 };
 
-struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(-1), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
+struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
 
 
 
@@ -388,7 +389,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	if(kvm->load_mem_rate < 300)
 	kvm->load_mem_rate = 300;
 
-	ft_m_trans.current_load_mem_rate = kvm->load_mem_rate;
+	//ft_m_trans.current_load_mem_rate = kvm->load_mem_rate;
 //
 //	kvm->load_mem_rate=current_load_mem_rate;
 
@@ -409,10 +410,19 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     int epoch_run_time = ktime_to_us(diff);
 
 
-	int dirty_diff = current_dirty_byte - vcpu->old_dirty_count;
-	vcpu->old_dirty_count = current_dirty_byte;
+	int dirty_diff = current_dirty_byte - kvm->old_dirty_count;
+	kvm->old_dirty_count = current_dirty_byte;
 	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime);
 	ft_m_trans.current_dirty_rate[kvm->ft_id] = dirty_diff_rate;
+
+
+	int pages_diff = dlist->put_off - kvm->old_pages_count;
+	kvm->old_pages_count = dlist->put_off;
+	int dirty_pages_rate = pages_diff/(epoch_run_time - vcpu->old_runtime);
+
+
+	kvm->dirty_bytes_rate = dirty_diff_rate;
+	kvm->dirty_pages_rate = dirty_pages_rate;
 
 	vcpu->old_runtime = epoch_run_time;
 
@@ -461,7 +471,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	kvm->load_mem_rate = current_load_mem_rate;
 //	int tmp1 = load_mem_bytes / kvm->load_mem_rate;
 
-	int current_load_mem_rate = ft_m_trans.current_load_mem_rate;
+//	int current_load_mem_rate = ft_m_trans.current_load_mem_rate;
+	int current_load_mem_rate = kvm->load_mem_rate;
 
 	int c = kvm->current_log_input_index;
 	int p = kvm->load_mem_rate_rec_index[c];
@@ -559,42 +570,57 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 	int otherft_id = (kvm->ft_id+1)%2;
-	int t0 = ft_m_trans.trans_time[0][otherft_id];
-	int t1 = ft_m_trans.trans_time[1][otherft_id];
-	if(t0 > t1) {
-		t0 -= (time_in_us() - ft_m_trans.trans_start_time[otherft_id]);
-	} else {
-		t1 -= (time_in_us() - ft_m_trans.trans_start_time[otherft_id]);
-	}
-	if(t0 < 0) t0 = 0;
-	if(t1 < 0) t1 = 0;
+	int other_trans_index = ft_m_trans.trans_cur_id[otherft_id];
+	int t0 = ft_m_trans.trans_time[other_trans_index][otherft_id];
+	int t1 = ft_m_trans.trans_time[(other_trans_index+1)%2][otherft_id]; //predict trans current
+	int tt0 = t0;
+	tt0 -= (time_in_us() - ft_m_trans.trans_start_time[otherft_id]);
+
+	if(tt0 >= 0) t0 = tt0;
 //	ctx->others_dirty[ctx->cur_index] = t0+t1;
 
 	int x2 = t0+t1+1;
 	//int x02 = ctx->others_dirty[(ctx->cur_index+1)%2];
-	int x02 = kvm->cur_virtual_trans_time;
+//	int x02 = kvm->cur_virtual_trans_time;
+	int x02 = beta2/1000;
 
 	//int det = x2*10/(kvm->x02+1);
 	//int det2 = (kvm->x02)*10/(x2*10+1);
-	int det = x2*10/(x02+1);
-	int det2 = (x02)*10/x2;
+	int det = x2*100/(x02+1);
+	static int last_t_f = 100;
+	int factor = last_t_f/(det+1);
+
+	factor = det;
+
+
+
+	int x3 = ft_m_trans.current_dirty_rate[(kvm->ft_id+1)%2];
+
+
+	//int det2 = (x02)*10/x2;
 	int f0 = 0;
 	int w0 = kvm->w0;
 	int w1 = kvm->w1;
 
 	//if(x2 > 2*x02 /*|| x02*2 > x2*/) {
 /*
-	if (x2 > kvm->average_vt+1000 || x2 > 2*x02 ) {
-		w0 = kvm->w0 + (500*kvm->x0*(1))/1000;
-		w1 = kvm->w1 + (500*kvm->x1*(1))/1000;
+	if (factor > 2 ) {
+//		w0 = kvm->w0 + (kvm->learningR*kvm->x0*(1))/1000;
+//		w1 = kvm->w1 + (kvm->learningR*kvm->x1*(1))/1000;
+		//w0 = kvm->w0 + (1000*kvm->x0*(1))/1000;
+		//w1 = kvm->w1 + (1000*kvm->x1*(1))/1000;
 		//if(w0 > 3400) w0 = 3400;
 		//if(w1 > 2300) w1 = 2300;
-	} else if (x2 < kvm->average_vt - 1000) {
-		w0 = kvm->w0 + (500*kvm->x0*(-1))/1000;
-		w1 = kvm->w1 + (500*kvm->x1*(-1))/1000;
-		if(w0 < 1000) w0 = 1000;
-		if(w1 < 1000) w1 = 1000;
+		beta2+=500000;
+	} else if (det < 50) {
+//		w0 = kvm->w0 + (kvm->learningR*kvm->x0*(-1))/1000;
+//		w1 = kvm->w1 + (kvm->learningR*kvm->x1*(-1))/1000;
+		//w0 = kvm->w0 + (1000*kvm->x0*(-1))/1000;
+		//w1 = kvm->w1 + (1000*kvm->x1*(-1))/1000;
+		//if(w0 < 1000) w0 = 1000;
+		//if(w1 < 1000) w1 = 1000;
 
+//		beta2-=500000;
 	}
 */
 
@@ -646,50 +672,56 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	}*/
 	//beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + f0;
 //	beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 ;
-	beta = kvm->x0*w0 + kvm->x1*w1 + kvm->w3 ;
+	beta = kvm->x0*w0 + kvm->x1*w1 + kvm->w3 + kvm->w4*factor; //+ kvm->w5*x3;
+	//beta2 = beta;
 
 	kvm->x2 = x2;
 
 	ctx->others_dirty[ctx->cur_index] = x2;
 
 	//beta2+=kvm->w4*kvm->x2;
-	//beta = beta2;
+//	beta = beta2;
 
 	//beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 
-	beta2 = beta;
+//	beta2 = beta;
 
 	beta/= 1000;
 	beta += epoch_run_time;
 
 
-	int fc;
-	fc = x2*1000/(beta2+1);
-	if(/*kvm->ft_id == 0 && */ fc > kvm->average_e && ft_m_trans.current_dirty_rate[(kvm->ft_id+1)%2] > kvm->average_de) {
+	//int fc;
+	//fc = x2*1000/(beta2+1);
+	//if(/*kvm->ft_id == 0 && */ fc > kvm->average_e && ft_m_trans.current_dirty_rate[(kvm->ft_id+1)%2] > kvm->average_de ) {
 	//	beta+=800;
-
 		//int w0 = kvm->w0 + (600*kvm->x0*(1))/1000;
 		//int w1 = kvm->w1 + (600*kvm->x1*(1))/1000;
-		int w0 = kvm->w0 + (kvm->learningR*kvm->x0*(1))/1000;
-		int w1 = kvm->w1 + (kvm->learningR*kvm->x1*(1))/1000;
-	}
-	else if(/*kvm->ft_id == 0 && */epoch_run_time < target_latency_us-1000 && fc < kvm->average_l && ft_m_trans.current_dirty_rate[(kvm->ft_id+1)%2] < kvm->average_dl) {
+//		w0 = kvm->w0 + (kvm->learningR*kvm->x0*(1))/1000;
+//		w1 = kvm->w1 + (kvm->learningR*kvm->x1*(1))/1000;
+//		w0 = kvm->w0 + (1000*kvm->x0*(1))/1000;
+//		w1 = kvm->w1 + (1000*kvm->x1*(1))/1000;
+	//}
+	//else if(/*kvm->ft_id == 0 && */epoch_run_time < target_latency_us-1000 && fc < kvm->average_l && ft_m_trans.current_dirty_rate[(kvm->ft_id+1)%2] < kvm->average_dl) {
 	//	beta-=200;
-
 		//int w0 = kvm->w0 + (600*kvm->x0*(-1))/1000;
 		//int w1 = kvm->w1 + (600*kvm->x1*(-1))/1000;
-		int w0 = kvm->w0 + (kvm->learningR*kvm->x0*(-1))/1000;
-		int w1 = kvm->w1 + (kvm->learningR*kvm->x1*(-1))/1000;
-		if(w0 < 1000) w0 = 1000;
-		if(w1 < 1000) w1 = 1000;
-	}
+//		w0 = kvm->w0 + (kvm->learningR*kvm->x0*(-1))/1000;
+//		w1 = kvm->w1 + (kvm->learningR*kvm->x1*(-1))/1000;
+//		w0 = kvm->w0 + (1000*kvm->x0*(-1))/1000;
+//		w1 = kvm->w1 + (1000*kvm->x1*(-1))/1000;
+//		if(w0 < 1000) w0 = 1000;
+//		if(w1 < 1000) w1 = 1000;
+	//}
+
+
+/*	int etrans = beta2/1000;
 
 
 	beta = kvm->x0*w0 + kvm->x1*w1 + kvm->w3 ;
 	beta2 = beta;
 	beta/= 1000;
 	beta += epoch_run_time;
-
+*/
 
 
 
@@ -704,7 +736,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us - kvm->latency_bias) { //this one is good
 //	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-kvm->w2) {
 takesnapshot:
-
+			last_t_f = det;
 //			if(kvm->ft_id == 0 && epoch_run_time < target_latency_us-1000 && fc < kvm->average_l && ft_m_trans.current_dirty_rate[1] < kvm->average_dl)
 //				goto notakesnapshot;
 
@@ -712,8 +744,10 @@ takesnapshot:
 			last_epoch_runtime = 0;
 
 
-			kvm->w0 = w0;
-			kvm->w1 = w1;
+//			kvm->w0 = w0;
+//			kvm->w1 = w1;
+			ft_m_trans.trans_cur_id[kvm->ft_id] = ctx->cur_index;
+//			ft_m_trans.trans_start_time[kvm->ft_id] = time_in_us();
 
         	kvm->x00[ctx->cur_index] = kvm->x0;
         	kvm->x01[ctx->cur_index] = kvm->x1;
@@ -725,14 +759,21 @@ takesnapshot:
 			kvm->e_current_send_rate = current_send_rate;
 			kvm->e_epoch_runtime = epoch_run_time;
 
+
+			kvm->old_dirty_count = 0;
+			kvm->old_pages_count = 0;
+			kvm->last_sh_load_mem_rate = current_load_mem_rate;
+
 /*			if(kvm->ft_id == 0) {
 			printk("old w0 = %d, old w1 = %d, new w0 = %d, new w1 = %d\n", kvm->w0, kvm->w1, w0, w1);
 			printk("x0= %d, x1 = %d, w3 = %d\n", kvm->x0, kvm->x1, kvm->w3);
 			printk("e_trans_time = %d\n", beta2);
 			}*/
 			//kvm->x02 = x02;
-			kvm->x02 = x2;
-			kvm->f0 = f0;
+			//kvm->x02 = x2;
+			kvm->x02[ctx->cur_index] = factor;
+			kvm->x03[ctx->cur_index] = x3;
+			kvm->f0[ctx->cur_index] = factor;
 
 //			ft_m_trans.trans_time[ctx->cur_index][kvm->ft_id] = beta2/1000;
 
@@ -1398,20 +1439,28 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w0 = 1000;
 	kvm->w1 = 1000;
 	kvm->w2 = 1000;
-	kvm->w3 = 1500000;
+	kvm->w3 = 1070000;
 //	kvm->w3 = 1000000;
-	kvm->w4 = 100;
+	kvm->w4 = 1000;
+	kvm->w5 = 1000;
 	kvm->wc = 0;
 	kvm->wn = 0;
     kvm->x00[0] = 0;
     kvm->x01[0] = 0;
     kvm->x00[1] = 0;
     kvm->x01[1] = 0;
+    kvm->x02[0] = 1;
+    kvm->x02[1] = 1;
+    kvm->x03[0] = 1;
+    kvm->x03[1] = 1;
+
+	kvm->old_dirty_count = 0;
+	kvm->old_pages_count = 0;
+	kvm->last_sh_load_mem_rate = 3800;
 
 	kvm->average_vt = 0;
 	kvm->cur_virtual_trans_time = 0;
 	kvm->x2 = 0;
-	kvm->x02 = 1;
 	kvm->last_f = 0;
 
 	ctx->others_dirty[0] = 0;
@@ -1426,7 +1475,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	ft_m_trans.trans_start_time[0] = 0;
 	ft_m_trans.trans_start_time[1] = 0;
 
-	ft_m_trans.current_dirty_rate[kvm->ft_id];
+	ft_m_trans.current_dirty_rate[kvm->ft_id] = 1;
+	ft_m_trans.trans_cur_id[kvm->ft_id] = 0;
+
 
 
 	kvm->latency_bias = 0;
@@ -1434,7 +1485,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->load_mem_rate_rec_index[0] = 0;
 	kvm->load_mem_rate_rec_index[1] = 0;
 //	kvm->ft_id = atomic_read(&ft_m_trans.ft_vm_count);
-//	atomic_inc_return(&ft_m_trans.ft_vm_count);
+
+	atomic_inc_return(&ft_m_trans.ft_vm_count);
+
 	kvm->current_log_input_index = 0;
 	kvm->current_log_output_index = 0;
 
@@ -3336,6 +3389,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 	//if(kvm->ft_id == 0)
 	//printk("cocotion test ctxid = %d, @@-> %d, ", ctx->cur_index, ctx->others_dirty[ctx->cur_index]);
 
+
+
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -4575,8 +4630,11 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     update->w1 = kvm->w1;
     update->w3 = kvm->w3;
     update->w4 = kvm->w4;
+    update->w5 = kvm->w5;
     update->x0 = kvm->x00[cur_index];
     update->x1 = kvm->x01[cur_index];
+    update->x2 = kvm->x02[cur_index];
+    update->x3 = kvm->x03[cur_index];
 
 	update->last_load_mem_rate = kvm->last_load_mem_rate;
 	update->load_mem_rate      = kvm->e_load_mem_rate;
@@ -4629,7 +4687,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	last_real_x1 = update->real_x1;
 
 	//update->last_f = (kvm->last_f*kvm->x02)/1000;
-	update->last_f = kvm->f0;
+	update->last_f = kvm->f0[cur_index];
 	update->others_dirty0 = ctx->others_dirty[cur_index] ;
 //	update->others_dirty1 = ctx->others_dirty[(cur_index+1)%2] ;
 	update->others_dirty1 = kvm->cur_virtual_trans_time ;
@@ -4655,7 +4713,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //		retrain = 1;
 //	}
 
-	kvm->last_f = (update->trans_us - update->e_trans)*1000/(kvm->x02+1);
+	kvm->last_f = (update->trans_us - update->e_trans)*1000/(kvm->x02[cur_index]+1);
 //	vaFactor = 1000*update->real_x1/(update->real_x0+1);
 
 	static int learningR = 600;
@@ -4667,8 +4725,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		return;
 	}
 */
+
+
 	if(kvm->x00[cur_index] == 0 || kvm->x01[cur_index] == 0 || (kvm->w0 == 1000 && kvm->w1 == 1000) ) {
-		//kvm->w3 = update->trans_us * 1000;
 		int w3 = kvm->w3 + (update->trans_us - update->e_trans) * 1000;
 		if (w3 < 0)
 			w3 = 0;
@@ -4729,12 +4788,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	int trans_bias = 500;
 
 
-//	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
+	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
 //	if(latency_us <= target_latency_us + 400 && latency_us >= target_latency_us -400) {
 //	if(latency_us <= target_latency_us + 1100 && latency_us >= target_latency_us -1100) {
 //	if(latency_us <= target_latency_us + 700 && latency_us >= target_latency_us -700) {
 //	if(latency_us <= target_latency_us + 500 && latency_us >= target_latency_us -500) {
-	if(/*!retrain && */latency_us <= target_latency_us + 600 && latency_us >= target_latency_us -600) {
+//	if(/*!retrain && */latency_us <= target_latency_us + 600 && latency_us >= target_latency_us -600) {
 		update->learningR = learningR;
 		kvm->learningR = learningR;
 
@@ -4780,7 +4839,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    kvm->w0 = kvm->w0 + (learningR*kvm->x00[cur_index]*(1))/1000;
 		    kvm->w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(1))/1000;
 
-			kvm->w4 = kvm->w4 + (learningR*kvm->x02*(1))/1000;
+			kvm->w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(1))/1000;
+			//int w5 = kvm->w5 + (learningR*kvm->x03[cur_index]*(1))/1000;
+			//if(w5 < 0 ) w5 = 0;
+			//kvm->w5 = w5;
         }
 	//	else {
 			//kvm->w3 += (latency_us-(target_latency_us+1000))*1000;
@@ -4823,9 +4885,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    kvm->w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(-1))/1000;
 
 			//kvm->w4 = kvm->w4 + (learningR*kvm->x02*(-1))/1000;
-			int w4 = kvm->w4 + (learningR*kvm->x02*(-1))/1000;
+			int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(-1))/1000;
 			if(w4 < 0 ) w4 = 0;
 			kvm->w4 = w4;
+
+			//int w5 = kvm->w5 + (learningR*kvm->x03[cur_index]*(-1))/1000;
+			//if(w5 < 0 ) w5 = 0;
+			//kvm->w5 = w5;
 		} //else {
         	//kvm->w3 -= ((target_latency_us-1000)-latency_us)*1000;
         //	kvm->w3 -= ((update->trans_us-1000)-e_trans_us)*1000;

@@ -608,6 +608,16 @@ struct kvm {
     int old_dirty_count;
     int old_pages_count;
     int last_sh_load_mem_rate;
+    int less_f;
+    int exceed_f;
+    int normal_f;
+    int last_w0;
+    int last_w1;
+    int max_factor;
+    int min_factor;
+    int last_ok;
+    int last_factor;
+
 };
 
 #define kvm_err(fmt, ...) \

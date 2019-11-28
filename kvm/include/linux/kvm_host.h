@@ -615,9 +615,30 @@ struct kvm {
     int last_w1;
     int max_factor;
     int min_factor;
+    int max_factor2;
+    int min_factor2;
+    int max_factor3;
+    int min_factor3;
     int last_ok;
     int last_factor;
 
+    int pages_less;
+    int pages_ok;
+    int pages_exceed;
+    int dirty_bytes_diff;
+    int dirty_bytes_diff_l;
+    int dirty_bytes_diff_e;
+
+    int diffbytes_exceed;
+    int diffbytes_less;
+    int is_updateW;
+    int current_runtime;
+    int last_refactor;
+    int last_dirty;
+    int trans_start;
+    s64 trans_start_time;
+    int p_when_take_snapshot;
+    s64 last_runtime;
 };
 
 #define kvm_err(fmt, ...) \

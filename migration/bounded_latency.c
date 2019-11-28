@@ -57,7 +57,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 
 	int id = get_vm_id();
-	static int c0 = 0;
+/*	static int c0 = 0;
 	static int c01 = 0;
 	static int c1 = 0;
 	static int c2 = 0;
@@ -68,20 +68,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static int last_w0 = 0;
 	static int last_w1 = 0;
 	static int last_w3 = 0;
-/*
-	static unsigned int exceed_100;
-	static unsigned int exceed_200;
-	static unsigned int exceed_300;
-	static unsigned int exceed_400;
-	static unsigned int exceed_500;
 
-	static unsigned int less_100;
-	static unsigned int less_200;
-	static unsigned int less_300;
-	static unsigned int less_400;
-	static unsigned int less_500;
-*/
-//	static int last_load_mem_rate = 0;
 	static unsigned int total_a = 0;
 	static double total_diff_rate_a = 0;
 	static double total_diff_rate_aa = 0;
@@ -98,34 +85,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	static unsigned long int stdev_count_exceed = 0;
 	static unsigned long int stdev_count_less = 0;
-	static unsigned long int stdev_total = 0;
-//	static unsigned int total_b_time = 0;
-/*
-	if(last_load_mem_rate == 0) last_load_mem_rate = 1;
-	if(latency_us <= 11000 && latency_us >= 9000) {
-		if(last_load_mem_rate > update.last_load_mem_rate)
-			total_diff_rate_a += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
-		else
-			total_diff_rate_a += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
-
-		total_a++;
-
-	} else {
-		if(last_load_mem_rate > update.last_load_mem_rate)
-			total_diff_rate_b += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
-		else
-			total_diff_rate_b += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
-
-		total_b++;
-
-	}
-
-*/
-
-
-//	last_load_mem_rate = update.last_load_mem_rate;
-
-
+	static unsigned long int stdev_total = 0; */
 
 	if(id >= 10) {
 		FILE *pFile;
@@ -134,19 +94,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     	pFile = fopen(pbuf, "a");
     	if(pFile != NULL){
 
-	//int e_load_mem_rate = update.load_mem_rate;
 
-	//if(last_load_mem_rate == 0) last_load_mem_rate = 1;
-	//if(e_load_mem_rate == 0) e_load_mem_rate = 1;
+		sprintf(pbuf, "%d %d %d %d %d\n", latency_us, update.diffbytes, runtime_us, trans_us, latency_us - runtime_us - trans_us);
+        fputs(pbuf, pFile);
+/*
 
 	if(latency_us <= 11000 && latency_us >= 9000) {
-/*		if(last_load_mem_rate > update.last_load_mem_rate) {
-			total_diff_rate_a += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
-		}
-		else {
-			total_diff_rate_a += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
-		}
-*/
 
 		int real_dispatch_time = update.real_x0;
 		int real_load_time = update.real_x1;
@@ -187,19 +140,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			total_diff_rate_aa += (float)(update.last_load_mem_rate-e_load_mem_rate)/e_load_mem_rate;
 		}
 
-//		total_diff_rate_a += update.last_send_rate;
-//		total_diff_rate_aa += update.last_load_mem_rate;
-
 		total_a++;
 
 	} else {
-/*		if(last_load_mem_rate > update.last_load_mem_rate) {
-			total_diff_rate_b += (float)(last_load_mem_rate-update.last_load_mem_rate)/last_load_mem_rate;
-		}
-		else {
-			total_diff_rate_b += (float)(update.last_load_mem_rate-last_load_mem_rate)/last_load_mem_rate;
-		}
-*/
 		int real_dispatch_time = update.real_x0;
 		int real_load_time = update.real_x1;
 		int x0 = update.x0;
@@ -236,19 +179,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 		} else if (e_load_mem_rate <= update.last_load_mem_rate){
 			total_diff_rate_bb += (float)(update.last_load_mem_rate-e_load_mem_rate)/e_load_mem_rate;
 		}
-//		total_diff_rate_b += update.last_send_rate;
-//		total_diff_rate_bb += update.last_load_mem_rate;
 
 		total_b++;
 
 	}
-
-
-
-
-
-
-	//last_load_mem_rate = update.last_load_mem_rate;
 
         	sprintf(pbuf, "%d ", update.w0);
         	fputs(pbuf, pFile);
@@ -512,12 +446,6 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			if(latency_us < 5000)
 				less_4000++;
 
-/*			sprintf(pbuf, "xxxxx %d %d %d %d %d ", exceed_100, exceed_200, exceed_300, exceed_400, exceed_500);
-        	fputs(pbuf, pFile);
-			sprintf(pbuf, "xxxxx %d %d %d %d %d ", less_100, less_200, less_300, less_400, less_500);
-        	fputs(pbuf, pFile);
-
-*/
 			if(exceed && less) {
 				float average_e = (float)sum_e_trans_f_exceed/(exceed%5000+1);
 				float average_l = (float)sum_e_trans_f_less/(less%5000+1);
@@ -614,7 +542,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 
         		fputs("\n", pFile);
-
+*/
 
     	}
     	else

@@ -2998,8 +2998,14 @@ static void migrate_run(MigrationState *s)
     if (migrate_token_owner != s || s->ft_state != CUJU_FT_TRANSACTION_PRE_RUN) {
         FTPRINTF("%s cant run own != s ? %d ft_state == %d\n", __func__,
             migrate_token_owner != s, s->ft_state);
+
+//		printf("cocotion damn must return!!@@\n");
+       // printf("%s cant run own != s ? %d ft_state == %d, curoff= %d\n", __func__,
+        //    migrate_token_owner != s, s->ft_state, s->cur_off);
         return;
     }
+//    printf("%s %d\n", __func__, s->cur_off);
+//	printf("cocotion ok runrun1 - %d @@\n", s->cur_off);
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_RUN);
     s->run_serial = ++run_serial;
@@ -3016,6 +3022,7 @@ static void migrate_run(MigrationState *s)
 
     qemu_iohandler_ft_pause(false);
     vm_start_mig();
+//	printf("cocotion ok runrun2 after start- %d @@\n", s->cur_off);
 
     s->run_real_start_time = time_in_double();
 
@@ -3024,6 +3031,7 @@ static void migrate_run(MigrationState *s)
 #else
 	bd_reset_epoch_timer();
     kvm_shmem_start_timer();
+//	printf("cocotion ok runrun3 after starttimer - %d @@\n", s->cur_off);
 #endif
 }
 
@@ -3048,6 +3056,7 @@ static void migrate_timer(void *opaque)
     s->trans_serial = ++trans_serial;
 
     s->before_lock_iothread_time = time_in_double();
+//	printf("cocotion before enter qemu_mutex_lock_iothread\n");
     qemu_mutex_lock_iothread();
     s->snapshot_start_time = time_in_double();
     vm_stop_mig();
@@ -3060,6 +3069,8 @@ static void migrate_timer(void *opaque)
     s->transfer_start_time = time_in_double();
     s->ram_len = 0;
     kvm_shmem_send_dirty_kernel(s);
+
+//	printf("cocotion after dispatch dirty pages, curindex = %d\n", s->cur_off);
 
     dirty_page_tracking_logs_start_transfer(s);
 
@@ -3110,6 +3121,7 @@ static void ft_tick_func(void)
     s = migrate_token_owner;
     if (s->ft_state != CUJU_FT_TRANSACTION_RUN)
         return;
+
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_SNAPSHOT);
     //s->snapshot_start_time = time_in_double();

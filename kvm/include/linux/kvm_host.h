@@ -639,6 +639,8 @@ struct kvm {
     s64 trans_start_time;
     int p_when_take_snapshot;
     s64 last_runtime;
+    int last_epoch_runtime;
+    int dirty_density;
 };
 
 #define kvm_err(fmt, ...) \

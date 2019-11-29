@@ -637,6 +637,7 @@ struct kvm {
     int last_dirty;
     int trans_start;
     s64 trans_start_time;
+    s64 trans_stop_time;
     int p_when_take_snapshot;
     s64 last_runtime;
     int last_epoch_runtime;

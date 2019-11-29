@@ -359,7 +359,8 @@ int other_when_take_snapshot(struct kvm *kvm, int target_latency_us)
 	int dirty_pages_rate = D/runtime;
 
 	int i;
-	for(i = 0; i < try_t; i += 300) {
+//	for(i = 0; i < try_t; i += 300) {
+	for(i = 0; i < try_t; i ++) {
 		runtime += i;
 
 		int dirty_bytes = (i)*dirty_bytes_rate + d;
@@ -725,7 +726,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 		struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
 		int RT = time_in_us() - otherkvm->trans_start_time;
 //		IF = (last_d1 - (last_d1/(10000-kvm->e_epoch_runtime+1)*RT))*100/(current_dirty_byte+1);
-		IF = (last_d1 - (last_d1/(kvm->e_trans_latency+1)*RT))*100/(current_dirty_byte+1);
+		IF = (last_d1 - (last_d1/(kvm->e_trans_latency/1000+1)*RT))*100/(current_dirty_byte+1);
 		if(IF < 0)	IF = 0;
 //////////////////////////////////////////////////
 
@@ -1733,6 +1734,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->last_w1 = -1;
 	kvm->last_factor = 1;
 	kvm->trans_start = 0;
+	//kvm->trans_stop = 0;
 	kvm->p_when_take_snapshot = 1000;
 	kvm->last_runtime = 0;
 	kvm->last_epoch_runtime = 0;
@@ -4819,6 +4821,8 @@ static void __bd_average_init(struct kvmft_context *ctx)
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
 	kvm->trans_start = 0;
+
+
 	struct kvmft_context *ctx;
     int i, put_off;
 
@@ -5291,6 +5295,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	int trans_bias = 500;
 
 
+	//if(e_trans_us < update->trans_us ) {
+
+	//}
+
+
+
 	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
 //	if(latency_us <= target_latency_us + 400 && latency_us >= target_latency_us -400) {
 //	if(latency_us <= target_latency_us + 1100 && latency_us >= target_latency_us -1100) {
@@ -5342,7 +5352,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//		if(w4 < 0 ) w4 = 0;
 //				if(w4 < 500 ) w4 = 500;
 //				kvm->w4 = w4;
-				if(w4 < 1000 ) w4 = 1000;
+//				if(w4 < 1000 ) w4 = 1000;
 				kvm->w4 = w4;
  //    	   }
 		}
@@ -5363,9 +5373,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //				int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(-1))/1000;
 //			if(kvm->last_ok) {
 				int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(-1))/1000;
-		//		if(w4 < 0 ) w4 = 0;
+				if(w4 < 0 ) w4 = 0;
 //				if(w4 < 500 ) w4 = 500;
-				if(w4 < 1000 ) w4 = 1000;
+//				if(w4 < 1000 ) w4 = 1000;
 				kvm->w4 = w4;
 			//}
 //			}

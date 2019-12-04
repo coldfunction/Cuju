@@ -642,6 +642,8 @@ struct kvm {
     s64 last_runtime;
     int last_epoch_runtime;
     int dirty_density;
+    int real_f;
+    int last_F;
 };
 
 #define kvm_err(fmt, ...) \

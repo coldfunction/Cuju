@@ -789,7 +789,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
-	int IF = find_IF(kvm, 0, 0);
+	int IF = find_IF(kvm, 0, 0); //this ok
+//
 //	int IF2 = find_IF(otherkvm, 0, IF);
 //	IF = find_IF(kvm, IF, IF2);
 
@@ -5556,8 +5557,11 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	if(e_trans_us < update->trans_us ) {
         if(update->dirty_page != 0) {
+
+			//if(real_f == 0) {
 		    kvm->w0 = kvm->w0 + (learningR*kvm->x00[cur_index]*(1))/1000;
 		    kvm->w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(1))/1000;
+			//}
 
 			//int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(-1))/1000;
 			//	if(w4 < 0 ) w4 = 0;
@@ -5579,7 +5583,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				} else {
 					d = kvm->x02[cur_index] - real_f;
 				}
-				if(d < 20)
+				if(d < 30)
 					kvm->w4 = w4;
  //    	   }
 		}
@@ -5592,9 +5596,14 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //    } else if (e_trans_us > update->trans_us + trans_bias) {
     } else if (e_trans_us > update->trans_us) {
         if(update->dirty_page != 0) {
+			//if(real_f == 0) {
 		    int w0 = kvm->w0 + (learningR*kvm->x00[cur_index]*(-1))/1000;
 		    int w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(-1))/1000;
-
+			if(w0 < 1000 ) w0 = 1000;
+			if(w1 < 1000 ) w1 = 1000;
+			kvm->w0 = w0;
+			kvm->w1 = w1;
+			//}
 			//if(kvm->last_w0 != -1 && kvm->last_w1 != -1) {
 //				kvm->w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(1))/1000;
 //				int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(-1))/1000;
@@ -5610,14 +5619,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				} else {
 					d = kvm->x02[cur_index] - real_f;
 				}
-				if(d < 20)
+				if(d < 30)
 					kvm->w4 = w4;
 			//}
 //			}
-			if(w0 < 1000 ) w0 = 1000;
-			if(w1 < 1000 ) w1 = 1000;
-			kvm->w0 = w0;
-			kvm->w1 = w1;
 
 		}
 

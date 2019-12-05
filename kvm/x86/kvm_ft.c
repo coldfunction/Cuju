@@ -43,7 +43,8 @@ static int page_transfer_offsets_off = 0;
 #endif
 
 
-int global_internal_time = 200;
+//int global_internal_time = 200;
+int global_internal_time = 100;
 //static int bd_predic_stop2(void);
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
 static int bd_predic_stop3(void *arg);
@@ -720,13 +721,13 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 	int dirty_diff = current_dirty_byte - kvm->old_dirty_count;
 	kvm->old_dirty_count = current_dirty_byte;
-	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime);
+	int dirty_diff_rate = dirty_diff/(epoch_run_time - vcpu->old_runtime+1);
 	ft_m_trans.current_dirty_rate[kvm->ft_id] = dirty_diff_rate;
 
 
 	int pages_diff = dlist->put_off - kvm->old_pages_count;
 	kvm->old_pages_count = dlist->put_off;
-	int dirty_pages_rate = pages_diff/(epoch_run_time - vcpu->old_runtime);
+	int dirty_pages_rate = pages_diff/(epoch_run_time - vcpu->old_runtime+1);
 
 
 	kvm->dirty_bytes_rate = dirty_diff_rate;
@@ -5681,21 +5682,21 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 
     int total_zero_len = 0;
     int invalid_count = 0;
-	int n,p;
+//	int n,p;
     //(7,2)
-    //int n = 7;
-    //int p = 2;
+    int n = 7;
+    int p = 2;
     //int n = 7;
     //int p = 1;
 
-	if(kvm->ft_id == 0) {
+/*	if(kvm->ft_id == 0) {
     	n = 7;
     	p = 2;
 	} else {
     	n = 7;
     	p = 1;
 	}
-
+*/
 
 //    int n = 2;
  //   int p = 1;

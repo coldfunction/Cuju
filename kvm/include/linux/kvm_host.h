@@ -644,6 +644,7 @@ struct kvm {
     int dirty_density;
     int real_f;
     int last_F;
+    int IF;
 };
 
 #define kvm_err(fmt, ...) \

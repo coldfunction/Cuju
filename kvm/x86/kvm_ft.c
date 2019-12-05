@@ -370,9 +370,9 @@ int other_update_IF(struct kvm *kvm, int target_latency_us, int beta) {
 	return IF;
 }
 
-int other_when_take_snapshot(struct kvm *kvm, int target_latency_us, int IF)
+int other_when_take_snapshot(struct kvm *kvm, struct kvm *otherkvm, int target_latency_us, int IF)
 {
-	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
+//	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
 
 	int load_mem_rate = 0;
 	if(kvm->old_dirty_count > otherkvm->old_dirty_count) {
@@ -627,7 +627,7 @@ int other_trans_t(struct kvm *kvm)
 //	return (t1+t0)/vm_counts;
 }
 
-int find_IF(struct kvm *kvm, int IFP, int IFP2)
+int find_IF(struct kvm *kvm, struct kvm *otherkvm, int IFP, int IFP2)
 {
 	int last_d1 = 0;
 	int d1 = 0;
@@ -635,14 +635,14 @@ int find_IF(struct kvm *kvm, int IFP, int IFP2)
 	int IF = 0;
 
 	last_d1 = other_last_dirty(kvm);
-	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
+//	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
 	int RT = time_in_us() - otherkvm->trans_start_time;
 	IF = (last_d1 - (last_d1/(kvm->e_trans_latency/1000+1)*RT));
 	if(IF < 0)	IF = 0;
 //	int IF1 = IF;
 
 	d1 = otherkvm->old_dirty_count;
-	int st = other_when_take_snapshot(kvm, target_latency_us, IFP2);
+	int st = other_when_take_snapshot(kvm, otherkvm, target_latency_us, IFP2);
 
 	int other_last_runtime = otherkvm->last_runtime;
 	if(other_last_runtime != 0) {
@@ -789,8 +789,35 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
-	int IF = find_IF(kvm, 0, 0); //this ok
-//
+
+	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
+	int IF = 0;
+	int IF2 = 0;
+	int i, j, k;
+
+//	spin_lock(&transfer_lock);
+//	for(k = 0; k < 2; k++)
+//	for(j = 0; j < vm_counts; j++) {
+		struct kvm *thiskvm = ft_m_trans.kvm[j];
+//		struct kvm *thiskvm = kvm;
+		j = kvm->ft_id;
+		for(i = 0; i < vm_counts; i++)	{
+			if(i != j) {
+				struct kvm *otherkvm = ft_m_trans.kvm[i];
+				IF = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
+//				IF = find_IF(thiskvm, otherkvm, IF, IF2); //this ok
+				thiskvm->IF = IF;
+			}
+		}
+
+//	}
+	IF = kvm->IF;
+/*	for(j = 0; j < vm_counts; j++) {
+		struct kvm *thiskvm = ft_m_trans.kvm[j];
+		thiskvm->IF = 0;
+	}
+	spin_unlock(&transfer_lock);*/
+		//
 //	int IF2 = find_IF(otherkvm, 0, IF);
 //	IF = find_IF(kvm, IF, IF2);
 
@@ -1153,7 +1180,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	}
 	kvm->last_runtime = 0;
 	kvm->last_epoch_runtime = 0;
-
+	kvm->IF = 0;
 	kvm->last_F = IF1;
 		//if (trans_g > 2500 && diff_fac < 1 && kvm->last_ok && refactor < -500 && done) {
 /*		if (beta2/1000 > 2500 && kvm->last_ok && refactor < -500 && done && epoch_run_time < 8000) {
@@ -1876,6 +1903,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->diffbytes_less = 300000;
 	kvm->last_refactor = 0;
 	kvm->last_dirty = 0;
+	kvm->IF = 0;
 
 	kvm->real_f = 100;
 	kvm->last_ok = 0;
@@ -1965,7 +1993,10 @@ int kvm_shm_enable(struct kvm *kvm)
 	}
 
 //	kthread_bind(kvm->ft_cmp_tsk, kvm->ft_id);
+	if(kvm->ft_id == 0)
 	kthread_bind(kvm->ft_cmp_tsk, 7);
+	else
+	kthread_bind(kvm->ft_cmp_tsk, 3);
 
     return 0;
 }
@@ -4973,7 +5004,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->trans_start = 0;
 	kvm->trans_stop_time = time_in_us();
 
-	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
+	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
+	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+vm_counts-1)%vm_counts];
 
 	long long real_f = 0;
 	long long tmp = 0;
@@ -5649,10 +5681,22 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 
     int total_zero_len = 0;
     int invalid_count = 0;
-
+	int n,p;
     //(7,2)
-    int n = 7;
-    int p = 2;
+    //int n = 7;
+    //int p = 2;
+    //int n = 7;
+    //int p = 1;
+
+	if(kvm->ft_id == 0) {
+    	n = 7;
+    	p = 2;
+	} else {
+    	n = 7;
+    	p = 1;
+	}
+
+
 //    int n = 2;
  //   int p = 1;
 

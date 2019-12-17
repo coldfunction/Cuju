@@ -1445,6 +1445,7 @@ struct kvmft_update_latency {
     int log_index;
     int diffbytes;
 
+    int runtime_inKernel;
 };
 #define KVMFT_BD_UPDATE_LATENCY           _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 #define KVMFT_BD_CREATE_VM_ID         _IO(KVMIO, 0xd3)

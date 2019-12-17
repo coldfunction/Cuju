@@ -95,8 +95,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     	if(pFile != NULL){
 
 
-		sprintf(pbuf, "%d %d %d %d %d\n", latency_us, update.diffbytes, runtime_us, trans_us, latency_us - runtime_us - trans_us);
-        fputs(pbuf, pFile);
+		//sprintf(pbuf, "%d %d %d %d %d\n", latency_us, update.diffbytes, runtime_us, trans_us, latency_us - runtime_us - trans_us);
+
+			if( latency_us > 11000 && (update.e_runtime+trans_us < 11000)) {
+				sprintf(pbuf, "%d, %d\n", update.e_runtime, runtime_us );
+        		fputs(pbuf, pFile);
+			}
+
+
+        //fputs(pbuf, pFile);
 /*
 
 	if(latency_us <= 11000 && latency_us >= 9000) {

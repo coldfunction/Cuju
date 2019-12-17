@@ -645,6 +645,10 @@ struct kvm {
     int real_f;
     int last_F;
     int IF;
+
+    int measureRecord0[2][5];
+    int measureRecord[2][5];
+    int measureRecord_tail;
 };
 
 #define kvm_err(fmt, ...) \

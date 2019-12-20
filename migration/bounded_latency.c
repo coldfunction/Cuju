@@ -86,7 +86,10 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static unsigned long int stdev_count_exceed = 0;
 	static unsigned long int stdev_count_less = 0;
 	static unsigned long int stdev_total = 0; */
+	static unsigned long int total = 0;
+	static unsigned long int abrupt = 0;
 
+	total++;
 	if(id >= 10) {
 		FILE *pFile;
    		char pbuf[200];
@@ -98,9 +101,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 		//sprintf(pbuf, "%d %d %d %d %d\n", latency_us, update.diffbytes, runtime_us, trans_us, latency_us - runtime_us - trans_us);
 
 			if( latency_us > 11000 && (update.e_runtime+trans_us < 11000)) {
-				sprintf(pbuf, "%d, %d\n", update.e_runtime, runtime_us );
-        		fputs(pbuf, pFile);
+//				sprintf(pbuf, "%d, %d\n", update.e_runtime, runtime_us );
+ //       		fputs(pbuf, pFile);
+ 				abrupt++;
 			}
+			sprintf(pbuf, "%f\n", (float)abrupt/total );
+        	fputs(pbuf, pFile);
 
 
         //fputs(pbuf, pFile);

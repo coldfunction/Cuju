@@ -817,24 +817,29 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
 	int IF = 0;
 	int IF2 = 0;
+	int IFF = 0;
 	int i, j, k;
 
-
+//	spin_lock(&transfer_lock);
 		j = kvm->ft_id;
 		struct kvm *thiskvm = ft_m_trans.kvm[j];
+		if(thiskvm->IF == 200) thiskvm->IF = 0;
 		for(i = 0; i < vm_counts; i++)	{
 			if(i != j) {
 				struct kvm *otherkvm = ft_m_trans.kvm[i];
 				//IF = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
-//				IF += find_IF(thiskvm, otherkvm, IF, IF2); //this ok
-				//IF += find_IF(thiskvm, otherkvm, IF, IF2); //this ok
 				IF += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
+			//	IF = find_IF(thiskvm, otherkvm, IF, IF2); //this ok
+				//IF += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
 				//thiskvm->IF = IF;
 			}
 		}
+		thiskvm->IF = IF;
 
 		//IF = 100*IF/(kvm->old_dirty_count+1);
-		if(IF > 200) IF = 200;
+		//if(IF > 200) IF = 200;
+		//thiskvm->IF = 0;
+//	spin_unlock(&transfer_lock);
 
 
 //		IF = IF/2;
@@ -848,27 +853,33 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	j = kvm->ft_id;
 				struct kvm *thiskvm = ft_m_trans.kvm[(j+1)%vm_counts];
 				struct kvm *otherkvm = ft_m_trans.kvm[(j+2)%vm_counts];
-				int IF_0 = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
 
-				int IF_1 = find_IF(otherkvm, thiskvm, otherkvm->IF, thiskvm->IF); //this ok
+			//	IF = find_IF(kvm, thiskvm, 0, 0);
+				int IF_0 = 0;
+				int IF_1 = 0;
 
 
-//				thiskvm->IF = IF_0;
-//				otherkvm->IF = IF_1;
+//				IF += find_IF(kvm, thiskvm, IF, IF_0);
+				IF_0 = find_IF(thiskvm, kvm, 0, 0);
+				IF_0 += find_IF(thiskvm, otherkvm, 0, 0);
 
-//				IF = find_IF(kvm, otherkvm, kvm->IF, otherkvm->IF); //this ok
-				IF += find_IF(kvm, otherkvm, IF, IF_1); //this ok
-				//kvm->IF = IF;
+				IF_1 = find_IF(otherkvm, kvm, 0, 0);
+				IF_1 += find_IF(otherkvm, thiskvm, 0, 0);
 
-				//IF = find_IF(kvm, thiskvm, kvm->IF, thiskvm->IF); //this ok
-				IF += find_IF(kvm, thiskvm, IF/(kvm->old_dirty_count+1), IF_0); //this ok
-				//kvm->IF = IF;
-				//IF = IF/2;
-				IF = 100*IF/(kvm->old_dirty_count+1);
-				if(IF > 200) IF = 200;
 
-	kvm->IF = 0;
+				IF += find_IF(kvm, otherkvm, 0, IF_1);
+				IF += find_IF(kvm, thiskvm, 0, IF_0);
 */
+				/*int IF_0 = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF);
+				IF_0 += find_IF(thiskvm, kvm, IF_0, kvm->IF); //this ok
+				int IF_1 = find_IF(otherkvm, thiskvm, 0, 0); //this ok
+				IF_1 += find_IF(otherkvm, kvm, IF_1, kvm->IF); //this ok
+				IF = find_IF(kvm, thiskvm, kvm->IF, IF_0); //this ok
+				IF += find_IF(kvm, otherkvm, IF, IF_1); //this ok
+				*/
+
+//	kvm->IF = 0;
+
 //	spin_unlock(&transfer_lock);
 
 

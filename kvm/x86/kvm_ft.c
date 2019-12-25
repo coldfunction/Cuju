@@ -5127,16 +5127,17 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->trans_start = 0;
 	kvm->trans_stop_time = time_in_us();
 
-	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
+//	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+vm_counts-1)%vm_counts];
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%vm_counts];
 
 	long long real_f = 0;
-
+/*
 	int i;
 	for(i = 1; i < vm_counts; i++) {
 
 	long long tmp = 0;
+
 
 	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+i)%vm_counts];
 
@@ -5177,7 +5178,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	}
 
-
+*/
 	kvm->real_f = real_f;
 
 
@@ -5305,7 +5306,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	last_current_dirty_byte = current_dirty_byte;
 
-
+/*
 	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
 		count_ok++;
 		diffbytes_sum_ok += diffbytes;
@@ -5363,7 +5364,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		diffbytes_sum = diffbytes_sum_ok = diffbytes_sum_less = diffbytes_sum_exceed = 0;
 		count_all = count_ok = count_exceed = count_less = 0;
 	}
-
+*/
 
 
 

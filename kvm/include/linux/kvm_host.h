@@ -649,6 +649,7 @@ struct kvm {
     int measureRecord0[2][5];
     int measureRecord[2][5];
     int measureRecord_tail;
+    int current_ok_IF;
 };
 
 #define kvm_err(fmt, ...) \

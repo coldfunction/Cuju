@@ -668,7 +668,9 @@ int find_IF(struct kvm *kvm, struct kvm *otherkvm, int IFP, int IFP2)
 	int rp = d1/(RT+1);
 	int r = d0/(beta/1000+1);
 
-	if(d1+(rp*st) < d0 - r*st) {
+	if(d0-r*st <= 0) {
+		//IF += 0;
+	}else if(d1+(rp*st) < d0 - r*st) {
 		IF += (d1+(rp*st));
 	} else {
 		int nd = d0-(r*st);
@@ -680,7 +682,6 @@ int find_IF(struct kvm *kvm, struct kvm *otherkvm, int IFP, int IFP2)
 	if(IF > 100) IF = 100;
 //	if(IIF > 100) IIF = d0;
 //	else IIF =  IF;
-
 
 	return IF;
 	//return IIF;
@@ -821,19 +822,29 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int i, j, k;
 
 //	spin_lock(&transfer_lock);
+
 		j = kvm->ft_id;
 		struct kvm *thiskvm = ft_m_trans.kvm[j];
-		if(thiskvm->IF == 200) thiskvm->IF = 0;
+		//if(thiskvm->IF == 200) thiskvm->IF = 0;
+		//if(thiskvm->IF > 200) thiskvm->IF = 200;
 		for(i = 0; i < vm_counts; i++)	{
 			if(i != j) {
 				struct kvm *otherkvm = ft_m_trans.kvm[i];
 				//IF = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
-				IF += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
+			//	if(thiskvm->IF > 200) {
+					//thiskvm->IF = 0;
+			//		IF += find_IF(thiskvm, otherkvm, 0, 0); //this ok
+			//	} else {
+					IF += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF);
+			 //  	}	//this ok
 			//	IF = find_IF(thiskvm, otherkvm, IF, IF2); //this ok
 				//IF += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF); //this ok
-				//thiskvm->IF = IF;
+				//thiskvm->IF += IF;
 			}
 		}
+		//if(thiskvm->IF += IF > 200) { thiskvm->IF = 0; }
+		//else
+		//	thiskvm->IF += IF;
 		thiskvm->IF = IF;
 
 		//IF = 100*IF/(kvm->old_dirty_count+1);
@@ -860,15 +871,23 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 //				IF += find_IF(kvm, thiskvm, IF, IF_0);
-				IF_0 = find_IF(thiskvm, kvm, 0, 0);
-				IF_0 += find_IF(thiskvm, otherkvm, 0, 0);
+				//IF_0 = find_IF(thiskvm, kvm, thiskvm->IF, kvm->IF);
+				IF_0 += find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF);
 
-				IF_1 = find_IF(otherkvm, kvm, 0, 0);
-				IF_1 += find_IF(otherkvm, thiskvm, 0, 0);
+				//thiskvm->IF = IF_0;
 
+				//IF_1 = find_IF(otherkvm, kvm, otherkvm->IF, kvm->IF);
+				IF_1 += find_IF(otherkvm, thiskvm, otherkvm->IF, thiskvm->IF);
 
-				IF += find_IF(kvm, otherkvm, 0, IF_1);
-				IF += find_IF(kvm, thiskvm, 0, IF_0);
+				//otherkvm->IF = IF_1;
+
+				IF = find_IF(kvm, otherkvm, kvm->IF, IF_1);
+				IF += find_IF(kvm, thiskvm, IF, IF_0);
+
+				//thiskvm->IF = IF_0;
+				//otherkvm->IF = IF_1;
+				kvm->IF = IF;
+
 */
 				/*int IF_0 = find_IF(thiskvm, otherkvm, thiskvm->IF, otherkvm->IF);
 				IF_0 += find_IF(thiskvm, kvm, IF_0, kvm->IF); //this ok
@@ -885,6 +904,21 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 	//	}
+				int w4 = kvm->w4;
+				if(IF > kvm->current_ok_IF+50 ) {
+					int w4 = ft_m_trans.w4 + (kvm->learningR*IF*(1))/1000;
+					//kvm->w4 = w4;
+					//w4 = kvm->w4 + (kvm->learningR*IF*(-1))/1000;
+					//if(w4 < 1000 ) w4 = 1000;
+				//	kvm->w4 = w4;
+				} else if(IF < kvm->current_ok_IF-50) {
+					int w4 = ft_m_trans.w4 + (kvm->learningR*IF*(-1))/1000;
+					if(w4 < 1000 ) w4 = 1000;
+				//	kvm->w4 = w4;
+					//w4 = kvm->w4 + (kvm->learningR*IF*(1))/1000;
+				//	kvm->w4 = w4;
+				}
+
 
 //	kvm->IF = 0;
 /*	for(j = 0; j < vm_counts; j++) {
@@ -1046,6 +1080,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 		//refactor = IF*beta/1000/100;
 //		if(kvm->real_f == 0) IF = 0;
+		//refactor = thiskvm->IF;
 		refactor = IF;
 
 		//refactor = newfactor;
@@ -1067,7 +1102,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
        //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 //       beta = kvm->x0*w0 + kvm->x1*w1 + kvm->w3;
 //       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*kvm->w4;
-       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*ft_m_trans.w4;
+       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*w4;
+//       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*ft_m_trans.w4;
 
 
 /*
@@ -1259,7 +1295,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	}
 	kvm->last_runtime = 0;
 	kvm->last_epoch_runtime = 0;
-	kvm->IF = 0;
+//	kvm->IF = 0;
 	kvm->last_F = IF1;
 		//if (trans_g > 2500 && diff_fac < 1 && kvm->last_ok && refactor < -500 && done) {
 /*		if (beta2/1000 > 2500 && kvm->last_ok && refactor < -500 && done && epoch_run_time < 8000) {
@@ -1968,6 +2004,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	//kvm->w4 = 3829; //ok
 	kvm->w4 = 5500; //ok
 	ft_m_trans.w4 = 3800;
+
+	kvm->current_ok_IF = 0;
 
 	kvm->w5 = 1000;
 	kvm->wc = 0;
@@ -5325,6 +5363,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		diffbytes_sum = diffbytes_sum_ok = diffbytes_sum_less = diffbytes_sum_exceed = 0;
 		count_all = count_ok = count_exceed = count_less = 0;
 	}
+
+
+
+
 /*
 	static int last_real_x0 = 1;
 	static int last_real_x1 = 1;
@@ -5563,12 +5605,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	static int learningR = 600;
 
 
-	if(kvm->ft_id == 0) {
+/*	if(kvm->ft_id == 0) {
 		printk("before: x0:%d x1:%d x2:%d real_f: %d, R:%d latency = %d, real_trans = %d, expect_trans = %d\n", kvm->x00[cur_index], kvm->x01[cur_index], kvm->x02[cur_index], real_f, learningR, latency_us, update->trans_us, e_trans_us);
 //		printk("before: w0:%d w1:%d w3:%d w4:%d lastok = %d, min_factor(exceed) = %d, min_factor2(less) = %d, min_factor3(ok) = %d\n", kvm->w0, kvm->w1,kvm->w3,kvm->w4, kvm->last_ok, kvm->min_factor, kvm->min_factor2, kvm->min_factor3);
 		printk("before: w0:%d w1:%d w3:%d w4:%d lastok = %d, min_factor(exceed) = %d, min_factor2(less) = %d, min_factor3(ok) = %d\n", kvm->w0, kvm->w1,kvm->w3,ft_m_trans.w4, kvm->last_ok, kvm->min_factor, kvm->min_factor2, kvm->min_factor3);
 	}
-
+*/
 	static unsigned long long allcount = 0;
 	static unsigned long long allok = 0;
 	static unsigned long long allok_o = 0;
@@ -5577,10 +5619,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	if(kvm->x02[cur_index] < real_f + 30 && kvm->x02[cur_index] > real_f-30) {
 		allok++;
 	}
-	if(kvm->ft_id == 0) {
+/*	if(kvm->ft_id == 0) {
 		printk("factor hit rate: %d\n", 1000*allok/allcount);
 	}
-
+*/
 	/*int fix_trans = update->e_trans - (kvm->w4*kvm->x02[cur_index]) + kvm->w4*real_f;
 
 	if(update->e_trans <= update->trans_us + 1000 && update->e_trans >= update->trans_us - 1000) {
@@ -5681,6 +5723,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		update->learningR = learningR;
 		kvm->learningR = learningR;
 
+		kvm->current_ok_IF = kvm->x02[cur_index];
 		//continue_ok+=ctx->others_dirty[cur_index];
 		//ok_sum++;
 		//kvm->average_vt = continue_ok/ok_sum;
@@ -5714,7 +5757,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    kvm->w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(1))/1000;
 
 
-//				int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(1))/1000;
+				//int w4 = kvm->w4 + (learningR*kvm->x02[cur_index]*(1))/1000;
 				int w4 = ft_m_trans.w4 + (learningR*kvm->x02[cur_index]*(1))/1000;
 				//if(w4 > 5500) w4 = 5500;
 				int d = 0;
@@ -5727,7 +5770,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				//if(d < 10)
 				//if(d < 20)
 				//if(d < 50)
-					//kvm->w4 = w4;
+			//		kvm->w4 = w4;
 					ft_m_trans.w4 = w4;
 
 		}
@@ -5762,7 +5805,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				//if(d < 10)
 				//if(d < 20)
 				//if(d < 50)
-				//	kvm->w4 = w4;
+//					kvm->w4 = w4;
 					ft_m_trans.w4 = w4;
 
 		}

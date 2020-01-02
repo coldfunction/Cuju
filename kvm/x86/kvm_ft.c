@@ -385,10 +385,10 @@ int other_when_take_snapshot(struct kvm *kvm, struct kvm *otherkvm, int target_l
 	}
 
 
-	struct kvmft_context *ctx;
-    ctx = &otherkvm->ft_context;
-    struct kvmft_dirty_list *dlist;
-    dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
+//	struct kvmft_context *ctx;
+ //   ctx = &otherkvm->ft_context;
+  //  struct kvmft_dirty_list *dlist;
+   // dlist = ctx->page_nums_snapshot_k[ctx->cur_index];
 
 	//if(otherkvm->last_runtime == 0) return 0;
 
@@ -396,9 +396,10 @@ int other_when_take_snapshot(struct kvm *kvm, struct kvm *otherkvm, int target_l
 //	int runtime = period+otherkvm->last_epoch_runtime;
 	//int try_t = target_latency_us - runtime;
 
-	ktime_t now = ktime_get();
-	ktime_t diff = ktime_sub(now, otherkvm->vcpus[0]->mark_start_time);
-    int runtime = ktime_to_us(diff);
+	//ktime_t now = ktime_get();
+	//ktime_t diff = ktime_sub(now, otherkvm->vcpus[0]->mark_start_time);
+    //int runtime = ktime_to_us(diff);
+    int runtime = otherkvm->current_runtime;
 	int try_t = target_latency_us - runtime;
 
 //	if(kvm->ft_id == 0)
@@ -406,7 +407,8 @@ int other_when_take_snapshot(struct kvm *kvm, struct kvm *otherkvm, int target_l
 
 
 	//int d = otherkvm->old_dirty_count;
-	int D = dlist->put_off;
+	//int D = dlist->put_off;
+	int D = otherkvm->old_pages_count;
 	int d = otherkvm->dirty_density*D;
 	int dirty_bytes_rate = d/runtime;
 	int dirty_pages_rate = D/runtime;
@@ -647,7 +649,7 @@ int find_IF(struct kvm *kvm, struct kvm *otherkvm, int IFP, int IFP2)
 	last_d1 = other_last_dirty(otherkvm);
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%2];
 	int RT = time_in_us() - otherkvm->trans_start_time;
-	IF = (last_d1 - (RT*last_d1/(kvm->e_trans_latency/1000+1)));
+	IF = (last_d1 - (RT*last_d1/(otherkvm->e_trans_latency/1000+1)));
 	if(IF < 0)	IF = 0;
 //	int IF1 = IF;
 
@@ -1368,6 +1370,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 			kvm->current_log_input_index = (kvm->current_log_input_index+1)%2;
 			kvm->last_load_rate = 0;
+
+
+		kvm->trans_start_time = time_in_us();
 
     	vcpu->hrtimer_pending = true;
         vcpu->run->exit_reason = KVM_EXIT_HRTIMER;
@@ -4638,7 +4643,7 @@ int kvm_start_kernel_transfer(struct kvm *kvm,
     int err;
     int ram_len, ret;
 
-	kvm->trans_start_time = time_in_us();
+	//kvm->trans_start_time = time_in_us();
 	kvm->trans_start = 1;
 
 

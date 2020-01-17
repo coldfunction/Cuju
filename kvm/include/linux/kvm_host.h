@@ -650,6 +650,15 @@ struct kvm {
     int measureRecord[2][5];
     int measureRecord_tail;
     int current_ok_IF;
+
+    int is_trans;
+    int other_impact_me;
+    int other_impact_count;
+
+    int r_list_count;
+    int r_IF[400];
+    int r_rate[400];
+    int last_pages_count;
 };
 
 #define kvm_err(fmt, ...) \

@@ -2337,10 +2337,10 @@ static void kvmft_flush_output(MigrationState *s)
     static unsigned long latency_less_count = 0;
     static unsigned long int ok = 0;
 
-	if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000)
+	if(latency_us <= target_latency + target_latency/10 && latency_us >= target_latency - target_latency/10)
 		ok++;
 
-	else if (latency_us > target_latency + 1000) {
+	else if (latency_us > target_latency + target_latency/10) {
 		latency_exceed_count++;
 	}
 	else {

@@ -86,6 +86,10 @@ struct ft_multi_trans_h {
 	struct kvm *kvm[4];
 	int load_mem_rate_ok;
 	int w4;
+//	int rec[4][100];
+	s64 rec_start[4];
+	int init_start[4];
+	uint64_t L2cache_miss_c[4];
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -293,6 +297,115 @@ void kvm_shm_timer_cancel(struct kvm_vcpu *vcpu)
     spcl_kthread_notify_abandon(vcpu->kvm);
 	hrtimer_cancel(&vcpu->hrtimer);
 }
+/*
+static int bd_lc_test(void *arg)
+{
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) arg;
+	static uint64_t cache_miss = 0;
+	char *buf = kmalloc(512*1024, GFP_KERNEL | __GFP_ZERO);
+	int i;
+	for(i = 0; i < 512*1024; i++)	{
+		buf[i] = 1;
+	}
+	while(!kthread_should_stop()) {
+//		wait_event_interruptible(vcpu->kvm->calc_event, vcpu->kvm->ft_kick
+//				|| kthread_should_stop());
+		if(kthread_should_stop())
+			break;
+
+		int stride = 64;
+		for(i = 0; i < 512*1024; i+=stride)	{
+			if(buf[i] != 1) {
+				printk("not ok\n");
+				break;
+			}
+		}
+	}
+	kfree(buf);
+	return 0;
+}
+*/
+
+/*
+static int run_average(int value, int id)
+{
+	static int rec[100]	;
+	static int p = 0;
+
+	rec[p] = value;
+	p = (p+1)%100;
+	int i, tmp = 0;
+	for(i = 0; i < 100; i++) {
+		tmp+=rec[i];
+	}
+	return tmp/100;
+}*/
+
+static int bd_lc(void *arg)
+{
+	struct kvm_vcpu *vcpu = (struct kvm_vcpu *) arg;
+//	static uint64_t cache_miss = 0;
+//	static s64 start_time = 0;
+//	char *buf = kmalloc(512*1024, GFP_KERNEL | __GFP_ZERO);
+//	int i;
+//	for(i = 0; i < 512*1024; i++)	{
+//		buf[i] = 1;
+//	}
+	while(!kthread_should_stop()) {
+		wait_event_interruptible(vcpu->kvm->calc_event, vcpu->kvm->ft_kick2
+				|| kthread_should_stop());
+		if(kthread_should_stop())
+			break;
+
+
+		if(ft_m_trans.init_start[vcpu->kvm->ft_id] == 0) {
+			ft_m_trans.init_start[vcpu->kvm->ft_id] = 1;
+			native_write_msr(0x186,0x432124,0);
+			ft_m_trans.L2cache_miss_c[vcpu->kvm->ft_id]= native_read_msr(0xc1); //L2 caches
+			ft_m_trans.rec_start[vcpu->kvm->ft_id] = time_in_us();
+		}
+
+
+
+		//uint64_t cache_miss2 = native_read_msr(0xc1); //L2 caches
+
+		//printk("cache miss = %d\n", cache_miss2-cache_miss);
+		//cache_miss = cache_miss2;
+		//native_write_msr(0x186,0x4310D1,0);
+		//native_write_msr(0x186,0x432124,0);
+
+		uint64_t cache_miss2 = native_read_msr(0xc1); //L2 caches
+//		native_write_msr(0x186,0x432124,0);
+ /*   	s64 start_time, time;
+		start_time = time_in_us();
+		int stride = 128;
+		for(i = 0; i < 512*1024; i+=stride)	{
+			if(buf[i] != 1) {
+				printk("not ok\n");
+				break;
+			}
+		}*/
+	//	time = time_in_us()-start_time;
+	//	uint64_t cache_miss3 = native_read_msr(0xc1); //L2 caches
+	//	int totalbytes = 512*1024/stride;
+
+	//	printk("load rate = %d\n", totalbytes/time);
+//		int diff = time_in_us() - start_time;
+		int diff = time_in_us() - ft_m_trans.rec_start[vcpu->kvm->ft_id];
+		//printk("cache miss rate = %d\n", (cache_miss2-cache_miss)/(diff+1));
+//		if(cache_miss2-cache_miss != 0)
+		//int average = run_average((cache_miss2-cache_miss)/(diff+1));
+		uint64_t cache_diff =  (uint64_t)(cache_miss2 - ft_m_trans.L2cache_miss_c[vcpu->kvm->ft_id]);
+		vcpu->kvm->cache_degree = cache_diff*100;
+		//printk("cache miss rate = %d\n", (cache_miss2-cache_miss)/(diff+1));
+		//printk("cache diff = %lld, cache miss degree = %lld, difftime = %d\n", cache_diff, cache_diff/(diff+1), diff);
+		//start_time = time_in_us();
+		vcpu->kvm->ft_kick2 = 0;
+	}
+	//kfree(buf);
+	return 0;
+}
+
 
 static int bd_predic_stop3(void *arg)
 {
@@ -900,15 +1013,49 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		kvm->r_IF[kvm->r_list_count] = IF;
 //		kvm->r_rate[kvm->r_list_count] = new_r;
 
-		if(kvm->ft_id == 0 && vm_counts > 1 && ft_m_trans.kvm[1]->is_trans == 1 && (ft_m_trans.kvm[1]->last_pages_count == kvm->old_pages_count)) {
-			printk("IF = %d, other_impact_me = %d, before load rate = %d  before_trans_rate = %d\n", IF, kvm->other_impact_me, kvm->load_mem_rate, ft_m_trans.kvm[1]->e_load_mem_rate);
-		}
+//		static int rec_load = 0;
+//		static int rec_count = 0;
+
+		struct kvm *otherkvm = ft_m_trans.kvm[(j+1)%2];
+
+//		if(kvm->r_list_count && kvm->ft_id == 0 && vm_counts > 1 && ft_m_trans.kvm[1]->is_trans == 1 && (ft_m_trans.kvm[1]->last_pages_count == kvm->old_pages_count)) {
+/*		if(kvm->r_list_count && kvm->ft_id == 0 && vm_counts > 1 && otherkvm->is_trans == 1 && \
+				//(ft_m_trans.kvm[1]->last_pages_count <= kvm->old_pages_count)) {
+				(kvm->old_pages_count - otherkvm->last_pages_count <= 10) && \
+				(kvm->old_pages_count - otherkvm->last_pages_count >= -10) && \
+				(current_dirty_byte - otherkvm->last_dirty <= 2048 ) && \
+				(current_dirty_byte - otherkvm->last_dirty >= -2048 ) && \
+				current_dirty_byte > 1000000) {
+
+			printk("IF = %d, other_impact_me = %d, before load rate = %d  before_trans_rate = %d\n", IF, kvm->other_impact_me, kvm->load_mem_rate, otherkvm->e_load_mem_rate);
+			//printk("IF = %d, other_impact_me = %d, before load rate = %d  before_trans_rate = %d\n", IF, kvm->other_impact_me, load_mem_bytes/kvm->load_mem_rate, otherkvm->load_mem_bytes/otherkvm->e_load_mem_rate);
+//			printk("last pages count = %d, old_pages_count = %d\n", ft_m_trans.kvm[1]->last_pages_count, kvm->old_pages_count);
+//			printk("current dirty byte = %d, other bytes = %d\n", current_dirty_byte, otherkvm->last_dirty);
+//			kvm->r_list_count = 0;
+			//rec_load += kvm->load_mem_rate;
+			//rec_count++;
+		} */
 //		thiskvm->IF = IF;
 		//if(thiskvm->IF += IF > 200) { thiskvm->IF = 0; }
 		//else
 		//	thiskvm->IF += IF;
 		//
 		//
+		//
+		int x05 = 0;
+		//IF+=(100+vm_counts*100);
+		//IF+=300;
+	/*	printk("before load_mem_rate = %d, IF = %d, otherImpact = %d\n", kvm->load_mem_rate, IF, kvm->other_impact_me);
+		kvm->load_mem_rate = (kvm->load_mem_rate/IF)*(kvm->other_impact_me+200);
+		if(kvm->load_mem_rate < 300)
+		kvm->load_mem_rate = 300;
+		int x05 = kvm->load_mem_rate;
+		kvm->load_mem_rate = kvm->w5*x05/1000;
+		printk("after load_mem_rate = %d\n", kvm->load_mem_rate);
+		current_load_mem_rate = kvm->load_mem_rate;
+		tmp1 = load_mem_bytes / current_load_mem_rate;
+		kvm->x1  = tmp1;
+		IF = 0;*/
 /*
 		if(kvm->other_impact_me != 0) {
 			//IF = 0;
@@ -1394,7 +1541,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us - kvm->latency_bias) { //this one is good
 	if(epoch_run_time >= target_latency_us-target_latency_us/10 || beta>= target_latency_us - kvm->latency_bias) { //this one is good
 //	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-kvm->w2) {
-		kvm->r_list_count = 0;
+		kvm->r_list_count = 1;
+		ft_m_trans.init_start[kvm->ft_id] = 0;
 
 //	if(kvm->ft_id == 0)
 //		printk("==================================================\n");
@@ -1402,6 +1550,14 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	if(kvm->ft_id == 0) {
 //		printk("real take snapshot in %d\n", epoch_run_time);
 //	}
+/*	if(kvm->ft_id == 0) {
+		if(rec_count != 0) {
+			rec_load = rec_load/rec_count;
+			printk("IF = %d, other_impact_me = %d, before load rate = %d  before_trans_rate = %d\n", IF, kvm->other_impact_me, load_mem_bytes/kvm->load_mem_rate, otherkvm->e_load_mem_rate);
+
+		}
+		rec_load = rec_count = 0;
+	}*/
 	kvm->last_pages_count = kvm->old_pages_count;
 	kvm->last_runtime = 0;
 	kvm->last_epoch_runtime = 0;
@@ -1437,6 +1593,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 			kvm->w0 = w0;
 			kvm->w1 = w1;
 			kvm->w4 = w4;
+			kvm->x05 = x05;
 			ft_m_trans.trans_cur_id[kvm->ft_id] = ctx->cur_index;
 			ft_m_trans.trans_start_time[kvm->ft_id] = time_in_us();
 
@@ -1511,11 +1668,32 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 
 	struct kvm *kvm = vcpu->kvm;
 
+	if(kvm->ft_lc_tsk) {
+		wake_up_process(kvm->ft_lc_tsk);
+	}
+
+	if(kvm->ft_lc_test_tsk) {
+		wake_up_process(kvm->ft_lc_test_tsk);
+	}
+
+
 	if(kvm->ft_cmp_tsk) {
 		wake_up_process(kvm->ft_cmp_tsk);
 	}
+/*
+	if(ft_m_trans.init_start[kvm->ft_id] == 0) {
+		ft_m_trans.init_start[kvm->ft_id] = 1;
+		native_write_msr(0x186,0x432124,0);
+		ft_m_trans.L2cache_miss_c[kvm->ft_id]= native_read_msr(0xc1); //L2 caches
+		ft_m_trans.rec_start[kvm->ft_id] = time_in_us();
+	}
+*/
 	kvm->ft_kick = 1;
+	kvm->ft_kick2 = 1;
 	wake_up(&kvm->calc_event);
+
+
+
 	//kvm->ft_kick = 1;
 //	printk("cocotion in timer_callback after wake_up_process vmid = %d\n", kvm->ft_id);
 
@@ -2102,7 +2280,6 @@ int kvm_shm_enable(struct kvm *kvm)
     ctx->shm_enabled = !ctx->shm_enabled;
     printk("%s shm_enabled %d\n", __func__, ctx->shm_enabled);
 
-
 	kvm->load_mem_rate = 3800;
 	kvm->last_load_mem_rate = 3800;
 	kvm->last_load_mem_rate2 = 3800;
@@ -2119,8 +2296,17 @@ int kvm_shm_enable(struct kvm *kvm)
 	//kvm->w4 = 5500; //ok
 	ft_m_trans.w4 = 3800;
 
+/*	int i;
+	for(i = 0; i < 100; i++) {
+		ft_m_trans.rec[kvm->ft_id][i] = 0;
+	}
+*/
+	ft_m_trans.init_start[kvm->ft_id] = 0;
+
+	kvm->x05 = 300;
+
 	kvm->current_ok_IF = 0;
-	kvm->r_list_count = 0;
+	kvm->r_list_count = 1;
 	kvm->r_IF[0] = 100;
 	kvm->r_rate[0] = 3000;
 
@@ -2145,7 +2331,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->diffbytes_less = 300000;
 	kvm->last_refactor = 0;
 	kvm->last_dirty = 0;
-	kvm->IF = 0;
+	//kvm->IF = 300;
 
 	kvm->last_pages_count = 0;
 
@@ -2221,6 +2407,10 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
 	atomic_inc_return(&ft_m_trans.ft_vm_count);
+	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
+	//kvm->IF = 100+100*vm_counts;
+	//kvm->IF = 300;
+	kvm->IF = 0;
 
 	kvm->current_log_input_index = 0;
 	kvm->current_log_output_index = 0;
@@ -2230,6 +2420,9 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	kvm->is_updateW = 1;
 
+	kvm->pre_load_rate = 300;
+
+	native_write_msr(0x186,0x4310D1,0);
 
 	init_waitqueue_head(&kvm->calc_event);
 	kvm->ft_cmp_tsk = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
@@ -2238,12 +2431,26 @@ int kvm_shm_enable(struct kvm *kvm)
 		return 0;
 	}
 
+	kvm->ft_lc_tsk = kthread_create(bd_lc, kvm->vcpus[0], "lc thread");
+	if(IS_ERR(kvm->ft_lc_tsk)) {
+		kvm->ft_lc_tsk = NULL;
+		return 0;
+	}
+/*
+	kvm->ft_lc_test_tsk = kthread_create(bd_lc_test, kvm->vcpus[0], "lctest thread");
+	if(IS_ERR(kvm->ft_lc_test_tsk)) {
+		kvm->ft_lc_test_tsk = NULL;
+		return 0;
+	}
+*/
 //	kthread_bind(kvm->ft_cmp_tsk, kvm->ft_id);
 //	if(kvm->ft_id == 0)
 	kthread_bind(kvm->ft_cmp_tsk, 7);
 //	else
 //	kthread_bind(kvm->ft_cmp_tsk, 3);
 
+	kthread_bind(kvm->ft_lc_tsk, 4);
+//	kthread_bind(kvm->ft_lc_test_tsk, 2);
     return 0;
 }
 
@@ -3948,6 +4155,7 @@ static int kvmft_diff_to_buf(struct kvm *kvm, unsigned long gfn,
 
 
     if (check_modify) {
+		kvm_release_page_clean(page2);
         page2 = find_later_backup(kvm, gfn, trans_index, run_serial);
         if (page2 != NULL) {
             ret = __diff_to_buf(gfn, page1, page2, buf);
@@ -4188,8 +4396,16 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 free:
     kfree(buf);
 
-	if(cmp_t > 0)
+	if(cmp_t > 0) {
+		int real_load = end*4096/cmp_t;
+		int pre_load = kvm->pre_load_rate;
+
+//		if(kvm->ft_id == 0)
+//		printk("IF = 0, other_impact_me = 0, before load rate = %d  before_trans_rate = %d\n", real_load, pre_load);
+
 		kvm->last_load_mem_rate2 = end*4096/cmp_t;
+
+	}
 	if(send_t > 0) {
 		current_send_rate = total/send_t;
 		if(current_send_rate < 300)
@@ -4751,7 +4967,7 @@ int kvm_start_kernel_transfer(struct kvm *kvm,
 
 	//kvm->trans_start_time = time_in_us();
 	kvm->trans_start = 1;
-
+	kvm->pre_load_rate = kvm->e_load_mem_rate;
 
     if (max_conn <= 0 || max_conn > 8) {
         return -EINVAL;
@@ -5966,6 +6182,19 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->is_updateW = 1;
 }
 
+//static const int pmc_num = 0x00000001;	   //program monitor counter number for L1-Misses
+//static const int pmc_num = (1<<30)+1;	   //program monitor counter number for L1-Misses
+
+/*
+ * Read performance-counter instruction
+*/
+/*
+static inline uint64_t readpmc(int32_t n) {
+	uint32_t lo, hi;
+	__asm __volatile__ ("rdpmc" : "=a"(lo), "=d"(hi) : "c"(n) : );
+	return lo | (uint64_t)hi << 32;
+}*/
+
 int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft_dirty_list *dlist)
 {
     struct page *page1, *page2;
@@ -6035,6 +6264,7 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 
 	//uint8_t *block;
 	//block = kmalloc(4096, GFP_KERNEL);
+	//int pmc1 = (int)readpmc(pmc_num);
 
 //	kvm->f_count = 0;
 	kvm->other_impact_count = 0;
@@ -6086,6 +6316,7 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
         kunmap_atomic(page);
         kunmap_atomic(backup);
 
+		kvm_release_page_clean(page2);
 
         if(len == 0) {
             total_zero_len++;
@@ -6111,6 +6342,37 @@ int bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct kvmft
 	kvm->f_count = real_count;
 
 	//kfree(block);
+
+//	int pmc2 = (int)readpmc(pmc_num);
+//	printk("cache L1 miss pmc = %d\n", pmc2-pmc1);
+
+///////////////////test
+/*	int pmc;
+    struct task_struct *current_backup = get_cpu_var(current_task);
+    struct task_struct *kvm_task = kvm->vcpus[0]->task;
+    if(current_backup != kvm_task) {
+    	__this_cpu_write(current_task, kvm_task);
+    }
+
+	pmc = (int)readpmc(pmc_num);
+
+	__this_cpu_write(current_task, current_backup);
+    put_cpu_var(current_task);
+	printk("cache L1 miss pmc = %d\n", pmc);
+*/
+///////////////////////////////////
+//
+//	native_write_msr(0x186,0x412e,0);
+//	int cache_miss = (int) native_read_msr(0xc2);
+//	printk("cache miss = %d\n", cache_miss);
+	//uint64_t val = 0x41412E;
+	//uint64_t ret = 0x0;
+	//native_write_msr(0x187,0x43412E,0); //L3 caches
+	//native_write_msr(0x186,0x4310D1,0); //L2 caches
+	//int cache_miss = (int) native_read_msr(0xc1);
+	//printk("cache miss = %d\n", cache_miss);
+
+
 
     if (count > 0) {
         return total_dirty_bytes;

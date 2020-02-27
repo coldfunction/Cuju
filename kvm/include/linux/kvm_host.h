@@ -542,8 +542,11 @@ struct kvm {
     wait_queue_head_t trans_queue_event;
 
     int ft_kick;
+    int ft_kick2;
     wait_queue_head_t calc_event;
     struct task_struct *ft_cmp_tsk;
+    struct task_struct *ft_lc_tsk;
+    struct task_struct *ft_lc_test_tsk;
     int w0;
     int w1;
     int w2;
@@ -659,6 +662,11 @@ struct kvm {
     int r_IF[400];
     int r_rate[400];
     int last_pages_count;
+
+    int x05;
+
+    int pre_load_rate;
+    int cache_degree;
 };
 
 #define kvm_err(fmt, ...) \

@@ -29,6 +29,10 @@
 #include <immintrin.h>
 #include <malloc.h>
 
+#include <sys/types.h>
+#include <sys/syscall.h>
+
+
 #define TIMEVAL_TO_DOUBLE(tv)   ((tv).tv_sec + \
 								((double)(tv).tv_usec) / 1000000)
 #define TIMEVAL_TO_US(tv)   ((tv).tv_sec * 1000000 + (tv).tv_usec)
@@ -1086,6 +1090,7 @@ static void thread_set_realtime(void)
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
+	printf("transfer thread id = %ld\n", syscall(__NR_gettid));
 }
 
 static void* trans_ram_conn_thread_func(void *opaque)

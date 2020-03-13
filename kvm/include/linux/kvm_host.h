@@ -543,15 +543,18 @@ struct kvm {
 
     int ft_kick;
     int ft_kick2;
+    int ft_kick3;
     wait_queue_head_t calc_event;
     struct task_struct *ft_cmp_tsk;
     struct task_struct *ft_lc_tsk;
     struct task_struct *ft_lc_test_tsk;
+    struct task_struct *ft_reporter;
     int w0;
     int w1;
     int w2;
     int w3;
     int w4;
+    int w44;
     int w5;
     int x0;
     int x1;
@@ -559,6 +562,7 @@ struct kvm {
     int x00[2];
     int x01[2];
     int x02[2];
+    int x022[2];
     int x03[2];
     unsigned long int wn;
     unsigned long int wc;
@@ -579,7 +583,7 @@ struct kvm {
     int e_latency;
     int load_mem_bytes;
 
-    int e_load_mem_rate;
+    int e_load_mem_rate[2];
     int e_current_send_rate;
     int e_trans_latency;
     int e_epoch_runtime;
@@ -667,6 +671,19 @@ struct kvm {
 
     int pre_load_rate;
     int cache_degree;
+    int cache_time;
+    long long cache_diff;
+    long long cache_diff2;
+    uint64_t cache_miss2, cache_miss3;
+    uint64_t pre_l2_miss;
+    uint64_t diff_l2;
+    long long last_miss;
+    int last_diff_time;
+    int pre_cache_diff;
+    int pre_cache_diff2;
+    int pre_diff;
+    int latency_diff;
+    int bscore;
 };
 
 #define kvm_err(fmt, ...) \

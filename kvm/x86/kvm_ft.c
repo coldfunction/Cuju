@@ -1617,49 +1617,19 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
        //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 	   //beta = (target_latency_us-target_latency_us/10-epoch_run_time);
 	   if(kvm->cache_time != 0) {
-			//refactor = (long long)kvm->cache_diff*(target_latency_us-target_latency_us/10-epoch_run_time)/kvm->cache_time/10;
-//			refactor = (long long)kvm->cache_diff*(target_latency_us-target_latency_us/10-epoch_run_time)/kvm->cache_time;
-//			refactor = (long long)kvm->cache_diff*beta/1000/kvm->cache_time/10;
-//			refactor = (long long)kvm->cache_diff*beta/1000/kvm->cache_time/5;
-//			refactor = (long long)load_mem_bytes*kvm->cache_diff/(kvm->cache_time+1)/10000;
-
-
-//		   long long miss_byte = (long long)kvm->cache_diff*beta*64/kvm->cache_time;
 			refactor = (long long)kvm->cache_diff*64/kvm->cache_time;
-//			refactor = miss_byte/(refactor+1)/10;
-//			refactor2 = miss_byte;
 	   }
-/*	   if(current_load_mem_rate > refactor*w4/1000) {
-		current_load_mem_rate = current_load_mem_rate - refactor*w4/1000;
-		tmp1 = load_mem_bytes / current_load_mem_rate;
-		}
-        kvm->x1 = tmp1;
-*/
-
-
-	   //if(refactor < 300) refactor = 300;
-//		refactor = load_mem_bytes / refactor /10;
-
-//	   if(refactor < 0) refactor = 0;
-	 //  if(kvm->cache_time != 0)
-	       //refactor = (uint64_t)beta*kvm->cache_diff/kvm->cache_time/1000;
-	 //      refactor = (uint64_t)load_mem_bytes*kvm->cache_diff/kvm->cache_time/1000000;
-	  // else
-		//refactor = 0;
-      // beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*w4 + refactor2*w44;
-//       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + refactor*w4;
-//
-//		if(current_load_mem_rate - refactor*w4/1000 > 300) {
-//			tmp1 = load_mem_bytes / current_load_mem_rate;
- //       	kvm->x1 = tmp1;
-//		}
 //
 		int bscore = ft_m_trans.bscore;
 		refactor = ft_m_trans.bub[bscore];
 		int o_factor = ft_m_trans.bub[kvm->bscore];
 
-		if(o_factor - refactor > 0)
-			kvm->IF = o_factor - refactor;
+//		if(o_factor - refactor > 0)
+//			kvm->IF = o_factor - refactor;
+
+		kvm->IF = refactor-ft_m_trans.bub[0];
+
+
 
 //       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + kvm->IF*kvm->w4;

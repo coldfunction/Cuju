@@ -21,6 +21,8 @@
 
 //#define ENABLE_PRE_DIFF 1
 
+#define ft_bubble_enable 1
+
 #if defined(ENABLE_SWAP_PTE) && defined(ENABLE_PRE_DIFF)
 #error ENABLE_SWAP_PTE and ENABLE_PRE_DIFF cant co-exist.
 #endif
@@ -92,7 +94,7 @@ struct ft_multi_trans_h {
 	uint64_t L2cache_miss_c[4];
 	uint64_t L3cache_miss_c[4];
 	int bscore;
-	int bub[12];
+	int bub[24];
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -353,7 +355,7 @@ unsigned int dump[1000];
 
 #define __rr (rand%footprint_size)
 #define __qqq (rand%2)
-int report_score[12];
+int report_score[24];
 
 
 static int reporter(void *arg)
@@ -362,7 +364,7 @@ static int reporter(void *arg)
 	int chunk_size_MB = 8;
 	int chunk_size = chunk_size_MB * 1024 * 1024;
 	footprint_size = chunk_size/2;
-
+/*
 	report_score[0] = 879;
 	report_score[1] = 643;
 	report_score[2] = 522;
@@ -375,7 +377,33 @@ static int reporter(void *arg)
 	report_score[9] = 341;
 	report_score[10] = 337;
 	report_score[11] = 334;
+*/
 
+
+	report_score[0] = 879;
+	report_score[1] = 771;
+	report_score[2] = 643;
+	report_score[3] = 555;
+	report_score[4] = 522;
+	report_score[5] = 463;
+	report_score[6] = 403;
+	report_score[7] = 398;
+	report_score[8] = 377;
+	report_score[9] = 358;
+	report_score[10] = 352;
+	report_score[11] = 348;
+	report_score[12] = 341;
+	report_score[13] = 337;
+	report_score[14] = 334;
+	report_score[15] = 279;
+	report_score[16] = 221;
+	report_score[17] = 212;
+	report_score[18] = 212;
+	report_score[19] = 208;
+	report_score[20] = 202;
+	report_score[21] = 204;
+	report_score[22] = 203;
+	report_score[23] = 202;
 
 
 
@@ -388,7 +416,7 @@ static int reporter(void *arg)
 
 //	char *buf = kmalloc(512*1024, GFP_KERNEL | __GFP_ZERO);
 	uint64_t sum = 0;
-	//uint64_t c = 0;
+	uint64_t c = 0;
 	s64 begin, end;
 
 	while(!kthread_should_stop()) {
@@ -406,7 +434,7 @@ static int reporter(void *arg)
 //			dump[i] += data_chunk[1][0]++;
 		}
 		end = time_in_us();
-//		sum += (end-begin);
+	//	sum += (end-begin);
 		sum = (end-begin);
 
 		int pscore = 8000/sum;
@@ -414,7 +442,7 @@ static int reporter(void *arg)
 		int bscore = 0;
 		int bottom = 0;
 
-		for(i = 11; i >=0; i--) {
+		for(i = 23; i >=0; i--) {
 			if(bottom <= pscore && pscore <= report_score[i]) {
 				bscore = i;
 				break;
@@ -424,10 +452,10 @@ static int reporter(void *arg)
 //		printk("%d\n", bscore);
 		ft_m_trans.bscore = bscore;
 
-		//c++;
-		//if(c %1000000 == 0) {
-		//	printk("%ld, %ld\n", c, sum);
-		//}
+	//	c++;
+	//	if(c %1000000 == 0) {
+	//		printk("%ld, %ld\n", c, sum);
+	//	}
 	}
 	kfree(data_chunk[0]);
 	kfree(data_chunk[1]);
@@ -579,11 +607,11 @@ static int bd_lc(void *arg)
 //		}
 
 		//printk("QQvmid = %d, cache_delta = %d, deltatime = %d\n", vcpu->kvm->ft_id, cd, td);
-		//vcpu->kvm->cache_diff = cache_diff - vcpu->kvm->pre_cache_diff;
-		vcpu->kvm->cache_diff = cache_diff;
+		vcpu->kvm->cache_diff = cache_diff - vcpu->kvm->pre_cache_diff;
+		//vcpu->kvm->cache_diff = cache_diff;
 //		vcpu->kvm->cache_diff2 = cache_diff2 - vcpu->kvm->pre_cache_diff2;
-		//vcpu->kvm->cache_time = diff - vcpu->kvm->pre_diff;
-		vcpu->kvm->cache_time = diff;
+		vcpu->kvm->cache_time = diff - vcpu->kvm->pre_diff;
+		//vcpu->kvm->cache_time = diff;
 
 		//if(vcpu->kvm->pre_diff != 0 && vcpu->kvm->trans_start == 1 && vcpu->kvm->cache_time != 0) {
 			//printk("vmid = %d %ld %d %ld %d\n", vcpu->kvm->ft_id, vcpu->kvm->last_miss, vcpu->kvm->last_diff_time, vcpu->kvm->cache_diff, vcpu->kvm->cache_time);
@@ -1068,8 +1096,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	    kvm->load_mem_rate = 2*kvm->f_count*4096/dt;
     }
 
-	if(kvm->load_mem_rate < 300)
-	kvm->load_mem_rate = 300;
+	if(kvm->load_mem_rate < 2000)
+	kvm->load_mem_rate = 2000;
 
 	load_mem_bytes = 2*dlist->put_off*4096;
 
@@ -1618,6 +1646,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	   //beta = (target_latency_us-target_latency_us/10-epoch_run_time);
 	   if(kvm->cache_time != 0) {
 			refactor = (long long)kvm->cache_diff*64/kvm->cache_time;
+			//if(refactor == 54)
+			//	printk("%d %d\n", refactor, current_load_mem_rate);
 	   }
 //
 		int bscore = ft_m_trans.bscore;
@@ -1627,8 +1657,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		if(o_factor - refactor > 0)
 //			kvm->IF = o_factor - refactor;
 
+	#ifdef ft_bubble_enable
 		kvm->IF = refactor-ft_m_trans.bub[0];
-
+	#endif
 
 
 //       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
@@ -1975,9 +2006,11 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 		wake_up_process(kvm->ft_lc_tsk);
 	}
 
+#ifdef ft_bubble_enable
 	if(kvm->ft_id == 0 && kvm->ft_reporter) {
 		wake_up_process(kvm->ft_reporter);
 	}
+#endif
 
 	if(kvm->ft_lc_test_tsk) {
 		wake_up_process(kvm->ft_lc_test_tsk);
@@ -2649,7 +2682,7 @@ int kvm_shm_enable(struct kvm *kvm)
 */
 
 	//2 VMs, 10 ms, compile kernel workload
-	ft_m_trans.bub[0] = 1058;
+/*	ft_m_trans.bub[0] = 1058;
 	ft_m_trans.bub[1] = 1137;
 	ft_m_trans.bub[2] = 1111;
 	ft_m_trans.bub[3] = 1134;
@@ -2661,6 +2694,35 @@ int kvm_shm_enable(struct kvm *kvm)
 	ft_m_trans.bub[9] = 1442;
 	ft_m_trans.bub[10] = 1565;
 	ft_m_trans.bub[11] = 1469;
+*/
+
+	ft_m_trans.bub[0] = 1058;
+	ft_m_trans.bub[1] = 1438;
+	ft_m_trans.bub[2] = 1138;
+	ft_m_trans.bub[3] = 1462;
+	ft_m_trans.bub[4] = 1112;
+	ft_m_trans.bub[5] = 1134;
+	ft_m_trans.bub[6] = 1208;
+	ft_m_trans.bub[7] = 1563;
+	ft_m_trans.bub[8] = 1318;
+	ft_m_trans.bub[9] = 1385;
+	ft_m_trans.bub[10] = 1422;
+	ft_m_trans.bub[11] = 1437;
+	ft_m_trans.bub[12] = 1442;
+	ft_m_trans.bub[13] = 1565;
+	ft_m_trans.bub[14] = 1470;
+	ft_m_trans.bub[15] = 1732;
+	ft_m_trans.bub[16] = 1791;
+	ft_m_trans.bub[17] = 1819;
+	ft_m_trans.bub[18] = 1866;
+	ft_m_trans.bub[19] = 1840;
+	ft_m_trans.bub[20] = 1889;
+	ft_m_trans.bub[21] = 1885;
+	ft_m_trans.bub[22] = 1916;
+	ft_m_trans.bub[23] = 1898;
+
+
+
 
 	/*
 	ft_m_trans.bub[0] = 106;
@@ -2810,13 +2872,14 @@ int kvm_shm_enable(struct kvm *kvm)
 		kvm->ft_cmp_tsk = NULL;
 		return 0;
 	}
-
-/*	kvm->ft_lc_tsk = kthread_create(bd_lc, kvm->vcpus[0], "lc thread");
+/*
+	kvm->ft_lc_tsk = kthread_create(bd_lc, kvm->vcpus[0], "lc thread");
 	if(IS_ERR(kvm->ft_lc_tsk)) {
 		kvm->ft_lc_tsk = NULL;
 		return 0;
 	}
 */
+#ifdef ft_bubble_enable
 	if(kvm->ft_id == 0) {
 		kvm->ft_reporter = kthread_create(reporter, kvm->vcpus[0], "reporter thread");
 		if(IS_ERR(kvm->ft_reporter)) {
@@ -2827,6 +2890,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	if(kvm->ft_id == 0) {
 		kthread_bind(kvm->ft_reporter, 3);
 	}
+#endif
 /*
 	kvm->ft_lc_test_tsk = kthread_create(bd_lc_test, kvm->vcpus[0], "lctest thread");
 	if(IS_ERR(kvm->ft_lc_test_tsk)) {
@@ -5591,11 +5655,12 @@ void kvm_shm_exit(struct kvm *kvm)
     spcl_kthread_destroy(kvm);
     xmit_kthread_destroy(kvm);
 
+#ifdef ft_bubble_enable
 	if(kvm->ft_id == 0 && kvm->ft_reporter) {
 		kthread_stop(kvm->ft_reporter);
 		kvm->ft_reporter = NULL;
 	}
-
+#endif
 
 
 	//net_set_tcp_zero_copy_callbacks(NULL, NULL);

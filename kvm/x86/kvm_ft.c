@@ -364,7 +364,8 @@ static int reporter(void *arg)
 	int chunk_size_MB = 8;
 	int chunk_size = chunk_size_MB * 1024 * 1024;
 	footprint_size = chunk_size/2;
-/*
+
+	/*
 	report_score[0] = 879;
 	report_score[1] = 643;
 	report_score[2] = 522;
@@ -379,7 +380,8 @@ static int reporter(void *arg)
 	report_score[11] = 334;
 */
 
-
+/*
+ //10 ms ok
 	report_score[0] = 879;
 	report_score[1] = 771;
 	report_score[2] = 643;
@@ -404,8 +406,31 @@ static int reporter(void *arg)
 	report_score[21] = 204;
 	report_score[22] = 203;
 	report_score[23] = 202;
-
-
+*/
+	report_score[0] = 1048;
+	report_score[1] = 674;
+	report_score[2] = 555;
+	report_score[3] = 461;
+	report_score[4] = 417;
+	report_score[5] = 387;
+	report_score[6] = 370;
+	report_score[7] = 360;
+	report_score[8] = 351;
+	report_score[9] = 370;
+	report_score[10] = 345;
+	report_score[11] = 344;
+	report_score[12] = 340;
+	report_score[13] = 337;
+	report_score[14] = 337;
+	report_score[15] = 336;
+	report_score[16] = 337;
+	report_score[17] = 212;
+	report_score[18] = 212;
+	report_score[19] = 208;
+	report_score[20] = 202;
+	report_score[21] = 204;
+	report_score[22] = 203;
+	//report_score[23] = 202;
 
 	char **data_chunk;
 
@@ -434,15 +459,18 @@ static int reporter(void *arg)
 //			dump[i] += data_chunk[1][0]++;
 		}
 		end = time_in_us();
-	//	sum += (end-begin);
+//		sum += (end-begin);
 		sum = (end-begin);
 
 		int pscore = 8000/sum;
-		//printk("%d\n", 8000/sum);
+//		printk("%d\n", 8000/sum);
 		int bscore = 0;
 		int bottom = 0;
 
-		for(i = 23; i >=0; i--) {
+		//for(i = 23; i >=0; i--) {
+		for(i = 22; i >=0; i--) {
+		//for(i = 11; i >=0; i--) {
+//		for(i = 16; i >=0; i--) {
 			if(bottom <= pscore && pscore <= report_score[i]) {
 				bscore = i;
 				break;
@@ -452,10 +480,10 @@ static int reporter(void *arg)
 //		printk("%d\n", bscore);
 		ft_m_trans.bscore = bscore;
 
-	//	c++;
-	//	if(c %1000000 == 0) {
-	//		printk("%ld, %ld\n", c, sum);
-	//	}
+//		c++;
+//		if(c %1000000 == 0) {
+//			printk("%ld, %ld\n", c, sum);
+//		}
 	}
 	kfree(data_chunk[0]);
 	kfree(data_chunk[1]);
@@ -1854,7 +1882,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 */
 //	refactor*load_mem_bytes/1000000;
-//	printk("id = %d, refactor = %d, refactor2 = %d, load_mem_rate = %d, load_mem_bytes = %d, w4 = %d, w0 = %d, w1 = %d, w3 =%d\n", kvm->ft_id, refactor, refactor2, current_load_mem_rate, load_mem_bytes, w4, kvm->w0, kvm->w1, kvm->w3);
+	//printk("id = %d, refactor = %d, refactor2 = %d, load_mem_rate = %d, load_mem_bytes = %d, w4 = %d, w0 = %d, w1 = %d, w3 =%d\n", kvm->ft_id, refactor, refactor2, current_load_mem_rate, load_mem_bytes, w4, kvm->w0, kvm->w1, kvm->w3);
 
 //	kvm->measureRecord0[ctx->cur_index][kvm->measureRecord_tail] = epoch_run_time0;
 //	kvm->measureRecord[ctx->cur_index][kvm->measureRecord_tail]	 = epoch_run_time;
@@ -1878,7 +1906,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		printk("tmp1 = %d, before rate = %d, after rate =%d\n", kvm->x1, before_rate, current_load_mem_rate);
 //		printk("test refactor = %d, w4 = %d, res = %d, old_load_rate = %d\n", refactor, w4, res, current_load_mem_rate/*, update_rate*/);
 //	if(kvm->ft_id == 0)
-//		printk("==================================================\n");
+	//	printk("==================================================\n");
 
 //	if(kvm->ft_id == 0) {
 //		printk("real take snapshot in %d\n", epoch_run_time);
@@ -2695,7 +2723,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	ft_m_trans.bub[10] = 1565;
 	ft_m_trans.bub[11] = 1469;
 */
-
+/*
 	ft_m_trans.bub[0] = 1058;
 	ft_m_trans.bub[1] = 1438;
 	ft_m_trans.bub[2] = 1138;
@@ -2720,9 +2748,48 @@ int kvm_shm_enable(struct kvm *kvm)
 	ft_m_trans.bub[21] = 1885;
 	ft_m_trans.bub[22] = 1916;
 	ft_m_trans.bub[23] = 1898;
+*/
 
+/*
+// 20ms
+	ft_m_trans.bub[0] = 998;
+	ft_m_trans.bub[1] = 1019;
+	ft_m_trans.bub[2] = 1010;
+	ft_m_trans.bub[3] = 1034;
+	ft_m_trans.bub[4] = 1117;
+	ft_m_trans.bub[5] = 1184;
+	ft_m_trans.bub[6] = 1225;
+	ft_m_trans.bub[7] = 1241;
+	ft_m_trans.bub[8] = 1264;
+	ft_m_trans.bub[9] = 1269;
+	ft_m_trans.bub[10] = 1262;
+	ft_m_trans.bub[11] = 1279;
+*/
+	ft_m_trans.bub[0] = 998;
+	ft_m_trans.bub[1] = 1019;
+	ft_m_trans.bub[2] = 1010;
+	ft_m_trans.bub[3] = 1034;
+	ft_m_trans.bub[4] = 1117;
+	ft_m_trans.bub[5] = 1184;
+	ft_m_trans.bub[6] = 1225;
+	ft_m_trans.bub[7] = 1241;
+	ft_m_trans.bub[8] = 1264;
+	ft_m_trans.bub[9] = 1269;
+	ft_m_trans.bub[10] = 1262;
+	ft_m_trans.bub[11] = 1279;
+	ft_m_trans.bub[12] = 1294;
+	ft_m_trans.bub[13] = 1314;
+	ft_m_trans.bub[14] = 1319;
+	ft_m_trans.bub[15] = 1279;
+	ft_m_trans.bub[16] = 1318;
 
-
+	ft_m_trans.bub[17] = 1385;
+	ft_m_trans.bub[18] = 1422;
+	ft_m_trans.bub[19] = 1437;
+	ft_m_trans.bub[20] = 1442;
+	ft_m_trans.bub[21] = 1565;
+	ft_m_trans.bub[22] = 1470;
+	//ft_m_trans.bub[23] = 1732;
 
 	/*
 	ft_m_trans.bub[0] = 106;
@@ -6627,8 +6694,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    	int w1 = kvm->w1 + (learningR*kvm->x01[cur_index]*(-1))/1000;
 				if(w0 < 1000 ) w0 = 1000;
 				//if(w0 < 500 ) w0 = 500;
-				if(w1 < 1000 ) w1 = 1000;
-				//if(w1 < 500 ) w1 = 500;
+				//if(w1 < 1000 ) w1 = 1000;
+				if(w1 < 500 ) w1 = 500;
 				kvm->w0 = w0;
 				kvm->w1 = w1;
 			//} else {

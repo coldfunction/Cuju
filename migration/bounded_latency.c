@@ -9,6 +9,14 @@
 struct kvmft_update_latency mybdupdate;
 int bd_alpha = 0;
 
+struct ft_log {
+	unsigned long int **latency_diff;
+	unsigned long int *latency_row;
+	unsigned long int ***cache_r;
+	unsigned long int **runtime;
+};
+
+struct ft_log bdlog;
 
 
 void bd_reset_epoch_timer(void)
@@ -25,6 +33,85 @@ void bd_reset_epoch_timer(void)
 	}
 
 }
+
+unsigned long int latency_c = 0;
+
+int fill_diff_latency(int r, int trans_diff);
+
+int fill_diff_latency(int r, int trans_diff)
+{
+	int ori = 0;
+	if(trans_diff > 1700) {
+		bdlog.latency_row[15]++;
+		bdlog.latency_diff[r][15]++;
+		ori = 15;
+	}else if(trans_diff > 1500) {
+		bdlog.latency_row[14]++;
+		bdlog.latency_diff[r][14]++;
+		ori = 14;
+	}else if(trans_diff > 1300) {
+		bdlog.latency_row[13]++;
+		bdlog.latency_diff[r][13]++;
+		ori = 13;
+	}else if(trans_diff > 1100) {
+		bdlog.latency_row[12]++;
+		bdlog.latency_diff[r][12]++;
+		ori = 12;
+	}else if(trans_diff > 900) {
+		bdlog.latency_row[11]++;
+		bdlog.latency_diff[r][11]++;
+		ori = 11;
+	}else if(trans_diff > 700) {
+		bdlog.latency_row[10]++;
+		bdlog.latency_diff[r][10]++;
+		ori = 10;
+	}else if(trans_diff > 500) {
+		bdlog.latency_row[9]++;
+		bdlog.latency_diff[r][9]++;
+		ori = 9;
+	}else if(trans_diff > 0) {
+		bdlog.latency_row[8]++;
+		bdlog.latency_diff[r][8]++;
+		ori = 8;
+	}
+
+
+	if(trans_diff < -1700) {
+		bdlog.latency_row[0]++;
+		bdlog.latency_diff[r][0]++;
+		ori = 0;
+	}else if(trans_diff < -1500) {
+		bdlog.latency_row[1]++;
+		bdlog.latency_diff[r][1]++;
+		ori = 1;
+	}else if(trans_diff < -1300) {
+		bdlog.latency_row[2]++;
+		bdlog.latency_diff[r][2]++;
+		ori = 2;
+	}else if(trans_diff < -1100) {
+		bdlog.latency_row[3]++;
+		bdlog.latency_diff[r][3]++;
+		ori = 3;
+	}else if(trans_diff < -900) {
+		bdlog.latency_row[4]++;
+		bdlog.latency_diff[r][4]++;
+		ori = 4;
+	}else if(trans_diff < -700) {
+		bdlog.latency_row[5]++;
+		bdlog.latency_diff[r][5]++;
+		ori = 5;
+	}else if(trans_diff < -500) {
+		bdlog.latency_row[6]++;
+		bdlog.latency_diff[r][6]++;
+		ori = 6;
+	}else if(trans_diff < 0) {
+		bdlog.latency_row[7]++;
+		bdlog.latency_diff[r][7]++;
+		ori = 7;
+	}
+	return ori;
+}
+
 
 
 
@@ -48,13 +135,205 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static int average_de = 263;
 	static int average_dl = 154;
 
+	static int previous_diff = 0;
+
 	update.average_e = average_e*1000;
 	update.average_l = average_l*1000;
 	update.average_de = average_de;
 	update.average_dl = average_dl;
 
+	int i, j;
+	if(latency_c == 0) {
+		bdlog.latency_diff = malloc(sizeof(unsigned long int*)*16);
+		for(i = 0; i < 16; i++) {
+			bdlog.latency_diff[i] = malloc(sizeof(unsigned long int)*16);
+			memset(bdlog.latency_diff[i], 0, sizeof(unsigned long int)*16);
+		}
+		bdlog.latency_row = malloc(sizeof(unsigned long int)*16);
+		memset(bdlog.latency_row, 0, sizeof(unsigned long int)*16);
+
+		bdlog.cache_r = malloc(sizeof(unsigned long int **)*16);
+
+
+		for(i = 0; i < 16; i++) {
+			bdlog.cache_r[i] = malloc(sizeof(unsigned long int *)*2000);
+		}
+
+		for(i = 0; i < 16; i++) {
+			for(j = 0; j < 2000; j++) {
+				bdlog.cache_r[i][j] = malloc(sizeof(unsigned long int)*2000);
+				memset(bdlog.cache_r[i][j], 0, sizeof(unsigned long int)*2000);
+			}
+		}
+
+		bdlog.runtime = malloc(sizeof(unsigned long int *)*16);
+		for(i = 0; i < 16; i++) {
+			bdlog.runtime[i] = malloc(sizeof(unsigned long int )*10000);
+		}
+	}
+
+
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
+
+
+	int trans_diff =  trans_us - update.e_trans;
+
+/*
+	double cacheP[256];
+	for(i = 0; i < update.pro_c && latency_c > 0; i++) {
+		if(update.pro1[i] > 1999)
+			update.pro1[i] = 1999;
+		if(update.pro2[i] > 1999)
+			update.pro2[i] = 1999;
+		cacheP[i] = (double)bdlog.cache_r[update.pro1[i]][update.pro2[i]]/latency_c;
+	}
+*/
+
+
+
+
+/*
+	if(trans_diff > 1700) {
+		bdlog.latency_row[15]++;
+	}else if(trans_diff > 1500) {
+		bdlog.latency_row[14]++;
+	}else if(trans_diff > 1300) {
+		bdlog.latency_row[13]++;
+	}else if(trans_diff > 1100) {
+		bdlog.latency_row[12]++;
+	}else if(trans_diff > 900) {
+		bdlog.latency_row[11]++;
+	}else if(trans_diff > 700) {
+		bdlog.latency_row[10]++;
+	}else if(trans_diff > 500) {
+		bdlog.latency_row[9]++;
+	}else if(trans_diff > 0) {
+		bdlog.latency_row[8]++;
+	}
+
+	if(trans_diff < -1700) {
+		bdlog.latency_row[0]++;
+	}else if(trans_diff < -1500) {
+		bdlog.latency_row[1]++;
+	}else if(trans_diff < -1300) {
+		bdlog.latency_row[2]++;
+	}else if(trans_diff < -1100) {
+		bdlog.latency_row[3]++;
+	}else if(trans_diff < -900) {
+		bdlog.latency_row[4]++;
+	}else if(trans_diff < -700) {
+		bdlog.latency_row[5]++;
+	}else if(trans_diff < -500) {
+		bdlog.latency_row[6]++;
+	}else if(trans_diff < 0) {
+		bdlog.latency_row[7]++;
+	}
+*/
+
+	int ori = 0;
+	if(previous_diff > 1700) {
+		//bdlog.latency_row[15]++;
+		ori = fill_diff_latency(15, trans_diff);
+	}else if(previous_diff > 1500) {
+		//bdlog.latency_row[14]++;
+		ori = fill_diff_latency(14, trans_diff);
+	}else if(previous_diff > 1300) {
+		//bdlog.latency_row[13]++;
+		ori = fill_diff_latency(13, trans_diff);
+	}else if(previous_diff > 1100) {
+		//bdlog.latency_row[12]++;
+		ori = fill_diff_latency(12, trans_diff);
+	}else if(previous_diff > 900) {
+		//bdlog.latency_row[11]++;
+		ori = fill_diff_latency(11, trans_diff);
+	}else if(previous_diff > 700) {
+		//bdlog.latency_row[10]++;
+		ori = fill_diff_latency(10, trans_diff);
+	}else if(previous_diff > 500) {
+		//bdlog.latency_row[9]++;
+		ori = fill_diff_latency(9, trans_diff);
+	}else if(previous_diff > 0) {
+		//bdlog.latency_row[8]++;
+		ori = fill_diff_latency(8, trans_diff);
+	}
+
+
+	if(previous_diff < -1700) {
+		//bdlog.latency_row[0]++;
+		ori = fill_diff_latency(0, trans_diff);
+	}else if(previous_diff < -1500) {
+		//bdlog.latency_row[1]++;
+		ori = fill_diff_latency(1, trans_diff);
+	}else if(previous_diff < -1300) {
+		//bdlog.latency_row[2]++;
+		ori = fill_diff_latency(2, trans_diff);
+	}else if(previous_diff < -1100) {
+		//bdlog.latency_row[3]++;
+		ori = fill_diff_latency(3, trans_diff);
+	}else if(previous_diff < -900) {
+		//bdlog.latency_row[4]++;
+		ori = fill_diff_latency(4, trans_diff);
+	}else if(previous_diff < -700) {
+		//bdlog.latency_row[5]++;
+		ori = fill_diff_latency(5, trans_diff);
+	}else if(previous_diff < -500) {
+		//bdlog.latency_row[6]++;
+		ori = fill_diff_latency(6, trans_diff);
+	}else if(previous_diff < 0) {
+		//bdlog.latency_row[7]++;
+		ori = fill_diff_latency(7, trans_diff);
+	}
+
+
+	latency_c++;
+
+	previous_diff = trans_diff;
+
+
+
+	int cache2 = update.cache2;
+	int cache3 = update.cache3;
+	int myruntime = update.e_runtime;
+
+	if(cache2 > 1999) cache2 = 1999;
+	if(cache3 > 1999) cache3 = 1999;
+	if(myruntime > 9999) myruntime = 9999;
+
+	bdlog.cache_r[ori][cache2][cache3]++;
+	bdlog.runtime[ori][myruntime]++;
+	double Pcache[16];
+	double Pruntime[16];
+	for(i = 0; i < 16; i++) {
+		if(bdlog.latency_row[i] != 0)
+			Pcache[i] = (double)bdlog.cache_r[i][cache2][cache3]/bdlog.latency_row[i];
+		else
+			Pcache[i] = 0;
+	}
+
+	for(i = 0; i < 16; i++) {
+		if(bdlog.latency_row[i] != 0)
+			Pruntime[i] = (double)bdlog.runtime[i][myruntime]/bdlog.latency_row[i];
+		else
+			Pruntime[i] = 0;
+	}
+
+
+	double Tpro[16][16];
+	double Pipro[16];
+	for(i = 0; i < 16; i++) {
+		for(j = 0; j < 16; j++) {
+			if(bdlog.latency_row[i] != 0)
+				Tpro[i][j] = (double)bdlog.latency_diff[i][j]/bdlog.latency_row[i];
+			else
+				Tpro[i][j] = 0;
+		}
+	}
+	for(i = 0; i < 16; i++) {
+		Pipro[i] = (double)bdlog.latency_row[i]/latency_c;
+	}
+	//double Cpro = (double)bdlog.cache_r[cache2][cache3]/latency_c;
+	//double Rpro = (double)bdlog.runtime[myruntime]/latency_c;
 
 	int id = get_vm_id();
 /*	static int c0 = 0;
@@ -90,7 +369,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	//static unsigned long int abrupt = 0;
 
 	total++;
-	if(id >= 10) {
+	if(id >= 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -109,8 +388,51 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			//sprintf(pbuf, "%f\n", (float)abrupt/total );
 //			sprintf(pbuf, "%d\n", dirty_page);
 			//sprintf(pbuf, "%d\n", e_load_mem_rate);
-			sprintf(pbuf, "%f\n", (float)dirty_page/trans_us);
+			//sprintf(pbuf, "%f\n", (float)dirty_page/trans_us);
+			//
+			//
+	/*		if(latency_c > 1) {
+				sprintf(pbuf, "%d ", update.pro_c);
+        		fputs(pbuf, pFile);
+				for(i = 0; i < update.pro_c; i++) {
+					sprintf(pbuf, "%lf ", cacheP[i]);
+        			fputs(pbuf, pFile);
+				}
+			}*/
+			for(i = 0; i < 16; i++) {
+				sprintf(pbuf, "%lf ", Pipro[i]);
+        		fputs(pbuf, pFile);
+			}
+			for(i = 0; i < 16; i++) {
+				for(j = 0; j < 16; j++) {
+					sprintf(pbuf, "%lf ", Tpro[i][j]);
+        			fputs(pbuf, pFile);
+				}
+			}
+
+			for(i = 0; i < 16; i++) {
+				sprintf(pbuf, "%lf ", Pcache[i]);
+        		fputs(pbuf, pFile);
+			}
+			for(i = 0; i < 16; i++) {
+				sprintf(pbuf, "%lf ", Pruntime[i]);
+        		fputs(pbuf, pFile);
+			}
+
+
+/*			sprintf(pbuf, "%lf ", Cpro);
         	fputs(pbuf, pFile);
+			sprintf(pbuf, "%lf ", Rpro);
+        	fputs(pbuf, pFile);
+*/
+			sprintf(pbuf, "%d\n", trans_diff);
+        	fputs(pbuf, pFile);
+
+//			for(i = 0; i < update.pro_c; i++) {
+//				(double)bdlog.cache_r[update.pro1[i]][update.pro2[i]]/latency_c;
+//			}
+
+
 
 
         //fputs(pbuf, pFile);

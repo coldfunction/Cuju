@@ -1476,6 +1476,16 @@ struct kvmft_update_latency {
 	int diffbytes;
 
 	int runtime_inKernel;
+	int cache_o;
+	int cache2;
+	int cache3;
+	int cache_c;
+//	unsigned long int *latency_diff;
+//	unsigned long int **cache_r;
+//	unsigned long int *runtime;
+	__u64 pro1[256];
+	__u64 pro2[256];
+	int pro_c;
 };
 #define KVMFT_BD_UPDATE_LATENCY _IOW(KVMIO, 0xd2, struct kvmft_update_latency)
 #define KVMFT_BD_CREATE_VM_ID         _IO(KVMIO, 0xd3)

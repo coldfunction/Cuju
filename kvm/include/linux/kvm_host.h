@@ -556,6 +556,7 @@ struct kvm {
     int w4;
     int w44;
     int w5;
+    int w6;
     int x0;
     int x1;
     int x2;
@@ -563,6 +564,7 @@ struct kvm {
     int x01[2];
     int x02[2];
     int x022[2];
+    int x0222[2];
     int x03[2];
     unsigned long int wn;
     unsigned long int wc;
@@ -586,7 +588,7 @@ struct kvm {
     int e_load_mem_rate[2];
     int e_current_send_rate;
     int e_trans_latency;
-    int e_epoch_runtime;
+    int e_epoch_runtime[2];
 
     int learningR;
     int last_disspatch_time_smaller_count;
@@ -682,8 +684,32 @@ struct kvm {
     int pre_cache_diff;
     int pre_cache_diff2;
     int pre_diff;
-    int latency_diff;
+    int latencyDiff;
     int bscore;
+    uint64_t total_miss_rate;
+    uint64_t total_miss_rate_c;
+
+    int previous_diff;
+    unsigned long int **latency_diff;
+    unsigned long int *latency_row;
+    unsigned long int ***cache_r;
+    unsigned long int **runtime;
+    unsigned long int latency_c;
+    uint64_t Pipro[16];
+    uint64_t pro[16];
+    uint64_t pro1[2][256];
+    uint64_t pro2[2][256];
+    int pro_c[2];
+    unsigned long int **cache2;
+    unsigned long int **cache3;
+    unsigned long int **othercache2;
+    int e_l[2];
+    uint64_t total_e;
+    uint64_t total_c;
+    uint64_t total_c2;
+    uint64_t Tpro[16][16];
+    uint64_t a_t[2][16];
+    int e_round;
 };
 
 #define kvm_err(fmt, ...) \

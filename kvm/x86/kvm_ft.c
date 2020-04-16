@@ -3040,6 +3040,39 @@ int kvm_shm_enable(struct kvm *kvm)
 	for(i = 0; i < 16; i++)
 		kvm->runtime[i] = kmalloc(sizeof(unsigned long int)*10000, GFP_KERNEL | __GFP_ZERO);
 	kvm->latency_c = 0;
+
+
+//new/////////////
+	kvm->transTimeErr_L3CacheR_c = kmalloc(sizeof(unsigned long int*)*16, GFP_KERNEL);
+	for(i = 0; i < 16; i++)
+		kvm->transTimeErr_L3CacheR_c[i] = kmalloc(sizeof(unsigned long int)*10000, GFP_KERNEL | __GFP_ZERO);
+
+
+    kvm->transTimeErr = kmalloc(sizeof(unsigned long int)*16, GFP_KERNEL | __GFP_ZERO);
+
+
+	kvm->transTimeErr_L3CacheR_to_transTime = kmalloc(sizeof(unsigned long int**)*16, GFP_KERNEL);
+    for(i = 0; i < 16; i++)
+		kvm->transTimeErr_L3CacheR_to_transTime[i] = kmalloc(sizeof(unsigned long int*)*10000, GFP_KERNEL);
+
+	for(i = 0; i < 16; i++)
+		for(j = 0; j < 10000; j++) {
+			kvm->transTimeErr_L3CacheR_to_transTime[i][j] = kmalloc(sizeof(unsigned long int)*500, GFP_KERNEL | __GFP_ZERO);
+		}
+
+
+	kvm->transTimeErr_to_L3CacheR = kmalloc(sizeof(unsigned long int*)*16, GFP_KERNEL);
+	for(i = 0; i < 16; i++)
+		kvm->transTimeErr_to_L3CacheR[i] = kmalloc(sizeof(unsigned long int)*10000, GFP_KERNEL | __GFP_ZERO);
+
+
+
+
+
+
+
+
+
 	//kvm->Pipro = 0;
 	/*
 	ft_m_trans.lscore_cache2[kvm->ft_id][0].sum = 58;
@@ -6212,6 +6245,30 @@ void kvm_shm_exit(struct kvm *kvm)
 		kfree(kvm->cache_r[i]);
 	}
 	kfree(kvm->cache_r);
+
+
+///new////////
+    kfree(kvm->transTimeErr);
+	for(i = 0; i < 16; i++) {
+		kfree(kvm->transTimeErr_L3CacheR_c[i]);
+	}
+	kfree(kvm->transTimeErr_L3CacheR_c);
+
+
+	for(i = 0; i < 16; i++) {
+		for(j = 0; j < 10000; j++) {
+			kfree(kvm->transTimeErr_L3CacheR_to_transTime[i][j]);
+		}
+		kfree(kvm->transTimeErr_L3CacheR_to_transTime[i]);
+	}
+	kfree(kvm->transTimeErr_L3CacheR_to_transTime);
+
+
+	for(i = 0; i < 16; i++) {
+		kfree(kvm->transTimeErr_to_L3CacheR[i]);
+	}
+	kfree(kvm->transTimeErr_to_L3CacheR);
+
 
 
     spcl_kthread_destroy(kvm);

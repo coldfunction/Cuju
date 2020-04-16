@@ -713,11 +713,12 @@ struct kvm {
     //16,10000
     unsigned long int **transTimeErr_L3CacheR_c; //count of A&B
     //16
-    unsigned long int *transTimeErr_c; //count of A
+//    unsigned long int *transTimeErr_c; //count of A
+    unsigned long int *transTimeErr; //count of A
     //16,10000,500
-    unsigned long int ***transTimeErr_L3CacheR_to_transTime; //count of A
+    unsigned long int ***transTimeErr_L3CacheR_to_transTime; //C|A&B
     //16,10000
-    unsigned long int **transTimeErr_to_L3CacheR;
+    unsigned long int **transTimeErr_to_L3CacheR; //B|A
 
 
     //16, 10000, 20000

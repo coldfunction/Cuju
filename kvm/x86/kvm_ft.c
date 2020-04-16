@@ -1804,8 +1804,25 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 */
 
-
+        int L3cache = ft_m_trans.L3_cache_r;
+        int transtime = beta;
+        transtime/=200;
+        if(transtime > 49) transtime = 49;
+        if(L3cache > 9999) L3cache = 9999;
 		uint64_t max = 0;
+		uint64_t pro = 0;
+		for(i = 0; i < 16; i++) {
+            if(kvm->latency_c && kvm->transTimeErr_L3CacheR_c[i][L3cache] && kvm->transTimeErr[i]) {
+                pro = kvm->transTimeErr[i]*10000/kvm->latency_c;
+                pro *= kvm->transTimeErr_to_L3CacheR[i][L3cache]*10000/kvm->transTimeErr[i];
+                pro *= kvm->transTimeErr_L3CacheR_to_transTime[i][L3cache][transtime]*10000/kvm->transTimeErr_L3CacheR_c[i][L3cache];
+                if(pro > max) {
+                    max = pro;
+                    sel = i;
+                }
+
+            }
+        }
 //		if(kvm->latency_c > 30000) {
 		//if(kvm->latency_c > 1000) {
 		//uint64_t max = 0;
@@ -2265,7 +2282,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
         	kvm->x01[ctx->cur_index] = kvm->x1;
 			kvm->w2 = current_dirty_byte;
 			kvm->e_latency = beta;
-			kvm->e_l[ctx->cur_index] = beta2/1000;
+			//kvm->e_l[ctx->cur_index] = beta2/1000;
+			kvm->e_l[ctx->cur_index] = sel;
 			kvm->e_trans_latency = beta2;
 
 			kvm->load_mem_bytes = load_mem_bytes;

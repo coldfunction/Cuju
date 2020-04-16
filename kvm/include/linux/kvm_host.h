@@ -721,6 +721,15 @@ struct kvm {
     unsigned long int **transTimeErr_to_L3CacheR; //B|A
 
 
+    int L3_diff_rate[10];
+
+
+
+
+
+
+
+
     //16, 10000, 20000
     unsigned long int ***transTimeErr_L3CacheR_tranS_c; //count of A&B&C
 

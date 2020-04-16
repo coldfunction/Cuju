@@ -517,7 +517,8 @@ static int bd_lc(void *arg)
 	long long pre_diff = 0;
 
 	ft_m_trans.init_start[vcpu->kvm->ft_id] = 1;
-	native_write_msr(0x186,0x432124,0); //L2 cache miss
+//	native_write_msr(0x186,0x432124,0); //L2 cache miss
+	native_write_msr(0x186,0x434F2E,0); //L3 cache reference
 	native_write_msr(0x187,0x43412E,0); //L3 cache miss
 	ft_m_trans.L2cache_miss_c[vcpu->kvm->ft_id]= native_read_msr(0xc1); //L2 caches
 	ft_m_trans.L3cache_miss_c[vcpu->kvm->ft_id]= native_read_msr(0xc2); //L3 caches
@@ -668,9 +669,44 @@ static int bd_lc(void *arg)
 			//printk("vmid = %d %ld %d %ld %d\n", vcpu->kvm->ft_id, vcpu->kvm->last_miss, vcpu->kvm->last_diff_time, vcpu->kvm->cache_diff, vcpu->kvm->cache_time);
 //		}
 
+
+        static int sc = 0;
+        static int sum = 0;
+        static int ori = 0;
+
+//        if(difftime > 100 && (L3cache+L2cache)) {
         if(difftime > 100) {
             ft_m_trans.L3_cache_r =  100*L3cache/difftime;
+            //ft_m_trans.L3_cache_r = L3cache*100/(L3cache+L2cache);
             //printk("cache_time = %d, ft_m_trans.L3_cache_r = %d, istrans = %d\n", difftime, ft_m_trans.L3_cache_r, vcpu->kvm->is_trans);
+            struct kvmft_context *ctx;
+            ctx = &vcpu->kvm->ft_context;
+            if(vcpu->kvm->trans_start == 1) {
+                //int ori = vcpu->kvm->x0222[ctx->cur_index];
+                if(ori > ft_m_trans.L3_cache_r)
+                    sum += ori - ft_m_trans.L3_cache_r;
+                else
+                    sum += ft_m_trans.L3_cache_r - ori;
+//                printk("ori = %d, now in trans is %d\n", ori, ft_m_trans.L3_cache_r);
+                sc++;
+            } else {
+                if(sc) {
+                    int aved = sum/sc;
+                    sc = 0;
+                    if(ori) {
+                        aved = aved*100/ori;
+                        aved/=10;
+                        if(aved > 9) aved = 9;
+                    } else {
+                        aved = 9;
+                    }
+
+                    vcpu->kvm->L3_diff_rate[aved]++;
+                    sum = 0;
+ //                   printk("==================reset================\n");
+                }
+                ori = vcpu->kvm->x0222[ctx->cur_index];
+            }
         }
 
 //		vcpu->kvm->pre_cache_diff = 0;
@@ -2299,7 +2335,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 			kvm->x02[ctx->cur_index] = refactor;
 //			kvm->x022[ctx->cur_index] = bscore;
 			kvm->x022[ctx->cur_index] = refactor2;
-			kvm->x0222[ctx->cur_index] = refactor3;
+//			kvm->x0222[ctx->cur_index] = refactor3;
+			kvm->x0222[ctx->cur_index] = L3cache;
 //			kvm->x03[ctx->cur_index] = x3;
 //			kvm->f0[ctx->cur_index] = factor;
 //			kvm->x02[ctx->cur_index] = 100;
@@ -3085,7 +3122,9 @@ int kvm_shm_enable(struct kvm *kvm)
 
 
 
-
+    for(i = 0; i < 10; i++) {
+        kvm->L3_diff_rate[i] = 0;
+    }
 
 
 
@@ -7123,7 +7162,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 */
 
-    if(kvm->latency_c < 10000) {
+    if(kvm->latency_c < 100000) {
 	kvm->latency_c++;
 
     kvm->transTimeErr[ori]++;
@@ -7138,14 +7177,20 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     }
 
     int el = kvm->e_l[ctx->cur_index];
-    if(kvm->latency_c >= 10000) {
+    if(kvm->latency_c >= 100000) {
 		kvm->total_c2++;
 	    if((ori - el <=2 && ori - el >= 0) || (el - ori <= 2 && el - ori >= 0 )) {
 		    kvm->total_c++;
 		    printk("%d %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_c, kvm->total_c2, kvm->total_c*100/kvm->total_c2, ori, el);
         }
     }
-/*
+/*    if(kvm->latency_c %1000 == 0 && kvm->ft_id == 0) {
+    for(i = 0; i < 10; i++) {
+        printk("@[%d] %d (%d, %d)", i, kvm->L3_diff_rate[i]*100/kvm->latency_c, kvm->L3_diff_rate[i], kvm->latency_c);
+    }
+    printk("===>\n");
+    }*/
+    /*
 	if((ori - kvm->x0222[ctx->cur_index] <=2 && ori - kvm->x0222[ctx->cur_index] >= 0) || (kvm->x0222[ctx->cur_index] - ori <= 2 && kvm->x0222[ctx->cur_index] - ori >= 0 )) {
 		kvm->total_c++;
 		printk("%d %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_c, kvm->latency_c, kvm->total_c*100/kvm->latency_c, ori, kvm->x0222[ctx->cur_index]);

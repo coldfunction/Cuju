@@ -670,7 +670,7 @@ struct kvm {
     int last_pages_count;
 
     int x05;
-
+    int trained;
     int pre_load_rate;
     int cache_degree;
     int cache_time;
@@ -695,6 +695,12 @@ struct kvm {
     unsigned long int ***cache_r;
     unsigned long int **runtime;
     unsigned long int latency_c;
+    unsigned long int latency_c2;
+    unsigned long int cache3_r[100];
+    unsigned long int cache3_r_c;
+    unsigned long int cache3_r_max;
+    int cache_err_sta[10];
+
     uint64_t Pipro[16];
     uint64_t pro[16];
     uint64_t pro1[2][256];
@@ -703,7 +709,28 @@ struct kvm {
     unsigned long int **cache2;
     unsigned long int **cache3;
     unsigned long int **othercache2;
+    unsigned long int **trans_speed;
+    //16,10000
+    unsigned long int **transTimeErr_L3CacheR_c; //count of A&B
+    //16
+    unsigned long int *transTimeErr_c; //count of A
+    //16,10000,500
+    unsigned long int ***transTimeErr_L3CacheR_to_transTime; //count of A
+    //16,10000
+    unsigned long int **transTimeErr_to_L3CacheR;
+
+
+    //16, 10000, 20000
+    unsigned long int ***transTimeErr_L3CacheR_tranS_c; //count of A&B&C
+
+    //20000,16,10000
+    unsigned long int ***tranS_To_transTimeErr_L3CacheR_c; //count of A&B
+    //10000,16,10000,20000
+    unsigned long int ****runtime_To_transTimeErr_L3CacheR_tranS_c; //count of A&B
+
+
     int e_l[2];
+    int e_ts[2];
     uint64_t total_e;
     uint64_t total_c;
     uint64_t total_c2;

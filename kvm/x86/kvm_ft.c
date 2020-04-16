@@ -7067,7 +7067,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
 	int ori = 0;
-	if(kvm->previous_diff > 3500) {
+	ori = fill_diff_latency(kvm, 15, trans_diff);
+/*
+    if(kvm->previous_diff > 3500) {
 	//	kvm->latency_row[15]++;
 		ori = fill_diff_latency(kvm, 15, trans_diff);
 	}else if(kvm->previous_diff > 3000) {
@@ -7119,7 +7121,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	//	kvm->latency_row[7]++;
 		ori = fill_diff_latency(kvm, 7, trans_diff);
 	}
+*/
 
+    if(kvm->latency_c < 10000) {
 	kvm->latency_c++;
 
     kvm->transTimeErr[ori]++;
@@ -7131,7 +7135,16 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     kvm->transTimeErr_L3CacheR_c[ori][L3cache]++;
     kvm->transTimeErr_L3CacheR_to_transTime[ori][L3cache][transtime]++;
     kvm->transTimeErr_to_L3CacheR[ori][L3cache]++;
+    }
 
+    int el = kvm->e_l[ctx->cur_index];
+    if(kvm->latency_c >= 10000) {
+		kvm->total_c2++;
+	    if((ori - el <=2 && ori - el >= 0) || (el - ori <= 2 && el - ori >= 0 )) {
+		    kvm->total_c++;
+		    printk("%d %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_c, kvm->total_c2, kvm->total_c*100/kvm->total_c2, ori, el);
+        }
+    }
 /*
 	if((ori - kvm->x0222[ctx->cur_index] <=2 && ori - kvm->x0222[ctx->cur_index] >= 0) || (kvm->x0222[ctx->cur_index] - ori <= 2 && kvm->x0222[ctx->cur_index] - ori >= 0 )) {
 		kvm->total_c++;

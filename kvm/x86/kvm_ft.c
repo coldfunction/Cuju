@@ -670,7 +670,7 @@ static int bd_lc(void *arg)
 
         if(difftime > 100) {
             ft_m_trans.L3_cache_r =  100*L3cache/difftime;
-            printk("cache_time = %d, ft_m_trans.L3_cache_r = %d, istrans = %d\n", difftime, ft_m_trans.L3_cache_r, vcpu->kvm->is_trans);
+            //printk("cache_time = %d, ft_m_trans.L3_cache_r = %d, istrans = %d\n", difftime, ft_m_trans.L3_cache_r, vcpu->kvm->is_trans);
         }
 
 //		vcpu->kvm->pre_cache_diff = 0;
@@ -3057,7 +3057,7 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	for(i = 0; i < 16; i++)
 		for(j = 0; j < 10000; j++) {
-			kvm->transTimeErr_L3CacheR_to_transTime[i][j] = kmalloc(sizeof(unsigned long int)*500, GFP_KERNEL | __GFP_ZERO);
+			kvm->transTimeErr_L3CacheR_to_transTime[i][j] = kmalloc(sizeof(unsigned long int)*50, GFP_KERNEL | __GFP_ZERO);
 		}
 
 
@@ -7103,6 +7103,16 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 
 	kvm->latency_c++;
+
+    kvm->transTimeErr[ori]++;
+    int transtime = update->e_trans;
+    int L3cache = ft_m_trans.L3_cache_r;
+    if(L3cache > 9999) L3cache = 9999;
+    transtime/=200;
+    if(transtime > 49) transtime = 49;
+    kvm->transTimeErr_L3CacheR_c[ori][L3cache]++;
+    kvm->transTimeErr_L3CacheR_to_transTime[ori][L3cache][transtime]++;
+    kvm->transTimeErr_to_L3CacheR[ori][L3cache]++;
 
 /*
 	if((ori - kvm->x0222[ctx->cur_index] <=2 && ori - kvm->x0222[ctx->cur_index] >= 0) || (kvm->x0222[ctx->cur_index] - ori <= 2 && kvm->x0222[ctx->cur_index] - ori >= 0 )) {

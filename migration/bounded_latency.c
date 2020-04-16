@@ -369,7 +369,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	//static unsigned long int abrupt = 0;
 
 	total++;
-	if(id >= 0) {
+	if(id >= 110) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);

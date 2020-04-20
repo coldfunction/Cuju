@@ -103,6 +103,8 @@ struct ft_multi_trans_h {
 	struct latency_score *lscore_cache2[4];
 	struct latency_score *lscore_cache3[4];
     int L3_cache_r;
+    int L3_cache_h[10];
+    int L3_cache_i;
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -676,7 +678,32 @@ static int bd_lc(void *arg)
 
 //        if(difftime > 100 && (L3cache+L2cache)) {
         if(difftime > 100) {
-            ft_m_trans.L3_cache_r =  100*L3cache/difftime;
+            /*ft_m_trans.L3_cache_i = ft_m_trans.L3_cache_i%10;
+            ft_m_trans.L3_cache_h[ft_m_trans.L3_cache_i] =  100*L3cache/difftime;
+            ft_m_trans.L3_cache_i++;*/
+            ft_m_trans.L3_cache_h[0] =  64*L3cache/difftime;
+//            ft_m_trans.L3_cache_h[0] =  L3cache*100/(L3cache+L2cache);
+
+//            printk("BWT = %d\n", 64*L3cache/difftime);
+
+           /*
+            int mysum = 0;
+            int max = 0;
+            int i, sel;
+            sel = 9;
+            for(i = 0; i < 10; i++) {
+                //mysum += ft_m_trans.L3_cache_h[i];
+                mysum = ft_m_trans.L3_cache_h[i];
+                if(max < mysum) {
+                    max = mysum;
+                    sel = i;
+                }
+            }
+            //ft_m_trans.L3_cache_r =  mysum/10;
+            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
+*/
+            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
+
             //ft_m_trans.L3_cache_r = L3cache*100/(L3cache+L2cache);
             //printk("cache_time = %d, ft_m_trans.L3_cache_r = %d, istrans = %d\n", difftime, ft_m_trans.L3_cache_r, vcpu->kvm->is_trans);
             struct kvmft_context *ctx;
@@ -687,7 +714,11 @@ static int bd_lc(void *arg)
                     sum += ori - ft_m_trans.L3_cache_r;
                 else
                     sum += ft_m_trans.L3_cache_r - ori;
-//                printk("ori = %d, now in trans is %d\n", ori, ft_m_trans.L3_cache_r);
+ //               if(vcpu->kvm->latency_c < 200000)
+//                printk("ori = %d  now in trans is %d\n", ori, ft_m_trans.L3_cache_r);
+//                printk("ori = %d  now in trans is %d\n", ori, 64*L3cache/difftime);
+//                printk("ori = %d  now in trans is %d\n", ori, L3cache*100/(L3cache+L2cache));
+           //     printk("ori = %d  now in trans is %d\n", ori, L3cache*100/(L3cache+L2cache));
                 sc++;
             } else {
                 if(sc) {
@@ -703,11 +734,32 @@ static int bd_lc(void *arg)
 
                     vcpu->kvm->L3_diff_rate[aved]++;
                     sum = 0;
- //                   printk("==================reset================\n");
+          //          printk("==================reset================\n");
                 }
                 ori = vcpu->kvm->x0222[ctx->cur_index];
             }
+
         }
+/*
+        int mysum = 0;
+        int max = 0;
+        int i, sel;
+        sel = 9;
+        for(i = 0; i < 10; i++) {
+//            mysum += ft_m_trans.L3_cache_h[i];
+            mysum = ft_m_trans.L3_cache_h[i];
+            if(max < mysum) {
+                max = mysum;
+                sel = i;
+            }
+        }
+
+        //ft_m_trans.L3_cache_r =  mysum/10;
+        ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
+*/
+
+        ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
+
 
 //		vcpu->kvm->pre_cache_diff = 0;
 //		vcpu->kvm->pre_cache_diff2 =0;
@@ -3126,7 +3178,10 @@ int kvm_shm_enable(struct kvm *kvm)
         kvm->L3_diff_rate[i] = 0;
     }
 
-
+    for(i = 0; i < 10; i++) {
+        ft_m_trans.L3_cache_h[i] = 20;
+    }
+    ft_m_trans.L3_cache_i = 0;
 
 
 
@@ -7162,7 +7217,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 */
 
-    if(kvm->latency_c < 100000) {
+    //if(kvm->latency_c < 200000) {
 	kvm->latency_c++;
 
     kvm->transTimeErr[ori]++;
@@ -7174,17 +7229,21 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     kvm->transTimeErr_L3CacheR_c[ori][L3cache]++;
     kvm->transTimeErr_L3CacheR_to_transTime[ori][L3cache][transtime]++;
     kvm->transTimeErr_to_L3CacheR[ori][L3cache]++;
-    }
+    //}
 
     int el = kvm->e_l[ctx->cur_index];
-    if(kvm->latency_c >= 100000) {
+    if(kvm->latency_c >= 200000 ) {
+    //    kvm->w0 = kvm->w1 = kvm->w2 = 1000;
+     //   kvm->w3 = 1070000;
 		kvm->total_c2++;
 	    if((ori - el <=2 && ori - el >= 0) || (el - ori <= 2 && el - ori >= 0 )) {
 		    kvm->total_c++;
+            //if(kvm->total_c % 1000 == 1)
 		    printk("%d %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_c, kvm->total_c2, kvm->total_c*100/kvm->total_c2, ori, el);
         }
     }
-/*    if(kvm->latency_c %1000 == 0 && kvm->ft_id == 0) {
+/*
+    if(kvm->latency_c %1000 == 1 && kvm->ft_id == 0) {
     for(i = 0; i < 10; i++) {
         printk("@[%d] %d (%d, %d)", i, kvm->L3_diff_rate[i]*100/kvm->latency_c, kvm->L3_diff_rate[i], kvm->latency_c);
     }

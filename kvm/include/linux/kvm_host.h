@@ -723,10 +723,21 @@ struct kvm {
 
     int L3_diff_rate[10];
 
+    unsigned long int pre_1_smaller;
+    unsigned long int pre_1_larger;
 
+    unsigned long int pre_1_5_smaller;
+    unsigned long int pre_1_5_larger;
 
-
-
+    unsigned long int pre_2_smaller;
+    unsigned long int pre_2_larger;
+    unsigned long int total_1_5c;
+    unsigned long int total_1c;
+    unsigned long int total_2c;
+    int x04[2];
+    int cache_h[100];
+    int cache_hc;
+    int cache_hc_ok;
 
 
 

@@ -678,31 +678,32 @@ static int bd_lc(void *arg)
 
 //        if(difftime > 100 && (L3cache+L2cache)) {
         if(difftime > 100) {
-            /*ft_m_trans.L3_cache_i = ft_m_trans.L3_cache_i%10;
+            ft_m_trans.L3_cache_i = ft_m_trans.L3_cache_i%10;
             ft_m_trans.L3_cache_h[ft_m_trans.L3_cache_i] =  100*L3cache/difftime;
-            ft_m_trans.L3_cache_i++;*/
-            ft_m_trans.L3_cache_h[0] =  100*L3cache/difftime;
+            ft_m_trans.L3_cache_i++;
+ //           ft_m_trans.L3_cache_h[0] =  100*L3cache/difftime;
 //            ft_m_trans.L3_cache_h[0] =  L3cache*100/(L3cache+L2cache);
 
 //            printk("BWT = %d\n", 64*L3cache/difftime);
 
-           /*
+
             int mysum = 0;
             int max = 0;
             int i, sel;
             sel = 9;
             for(i = 0; i < 10; i++) {
-                //mysum += ft_m_trans.L3_cache_h[i];
-                mysum = ft_m_trans.L3_cache_h[i];
+                mysum += ft_m_trans.L3_cache_h[i];
+                //mysum = ft_m_trans.L3_cache_h[i];
                 if(max < mysum) {
                     max = mysum;
                     sel = i;
                 }
             }
-            //ft_m_trans.L3_cache_r =  mysum/10;
-            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
-*/
-            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
+            ft_m_trans.L3_cache_r =  mysum/10;
+//            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
+            //ft_m_trans.L3_cache_r =  100*L3cache/difftime;
+
+//            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
 
             //ft_m_trans.L3_cache_r = L3cache*100/(L3cache+L2cache);
             //printk("cache_time = %d, ft_m_trans.L3_cache_r = %d, istrans = %d\n", difftime, ft_m_trans.L3_cache_r, vcpu->kvm->is_trans);
@@ -722,7 +723,9 @@ static int bd_lc(void *arg)
            //     printk("ori = %d  now in trans is %d\n", ori, L3cache*100/(L3cache+L2cache));
                 //if(vcpu->kvm->cache_hc_ok) {
 //                    int mdiff = ori-ft_m_trans.L3_cache_r;
-                    int mdiff = ft_m_trans.L3_cache_r-ori;
+                    //int mdiff = ft_m_trans.L3_cache_r-ori;
+                    int mdiff = 100*L3cache/difftime-ori;
+                    //int mdiff = 100*L3cache/difftime-ori;
 //                    if(mdiff < 0) mdiff*=-1;
                     if(vcpu->kvm->cache_hc < 100) {
                         vcpu->kvm->cache_h[vcpu->kvm->cache_hc] = mdiff;
@@ -765,12 +768,13 @@ static int bd_lc(void *arg)
                 sel = i;
             }
         }
-
-        //ft_m_trans.L3_cache_r =  mysum/10;
-        ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
 */
+        //ft_m_trans.L3_cache_r =  mysum/10;
+        //ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
+//        ft_m_trans.L3_cache_r =  100*L3cache/difftime;
 
-        ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
+
+//        ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
 
 
 //		vcpu->kvm->pre_cache_diff = 0;
@@ -1995,7 +1999,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		refactor3 = othercache2;
 		//beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 //		beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + adj*kvm->w6;
-//		if(kvm->latency_c >= 100000)
+//		if(kvm->latency_c >= 200000)
 //			beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3 + adj;
  //       else
 		    beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
@@ -2325,7 +2329,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	if(epoch_run_time >= target_latency_us-target_latency_us/10 || beta>= target_latency_us /*- kvm->latency_bias*/) { //this one is good
 //	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-kvm->w2) {
 		kvm->e_round = 0;
-//		if(kvm->latency_c >= 100000)
+//		if(kvm->latency_c >= 200000)
 //		if(sel < 7 && sel >= 0 && epoch_run_time < target_latency_us-target_latency_us/10 - 500) goto notaksnapshot;
 //		if(sel < 1 && sel >= 0 && epoch_run_time < target_latency_us-target_latency_us/10 - 500) goto notaksnapshot;
 
@@ -7836,7 +7840,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
 //	if(update->e_trans < update->trans_us - 1000 || update->e_trans > update->trans_us + 1000 ) {
-/*       if(kvm->ft_id == 0) {
+//	if(update->e_trans < update->trans_us - 2000 || update->e_trans > update->trans_us + 2000 ) {
+ /*      if(kvm->ft_id == 0) {
             for(i = 0; i < kvm->cache_hc; i++)
                 printk("%d\n", kvm->cache_h[i]);
         //        printk("%d %d\n", kvm->cache_h[i], kvm->cache_hc);
@@ -7844,17 +7849,25 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	        kvm->cache_hc_ok = 1;
         }
 */
- /*   } else {
+ //   } else {
+/*
+        if(kvm->ft_id == 0) {
+        //if(kvm->ft_id == 0 && kvm->latency_c < 100000) {
+            for(i = 0; i < kvm->cache_hc; i++)
+                printk("%d\n", kvm->cache_h[i]);
+            //kvm->cache_hc = 0;
+	        kvm->cache_hc_ok = 1;
+        }*/
+//    }
 
+/*
         if(kvm->ft_id == 0) {
             for(i = 0; i < kvm->cache_hc; i++)
                 printk("%d\n", kvm->cache_h[i]);
             //kvm->cache_hc = 0;
 	        kvm->cache_hc_ok = 1;
         }
-    }
 */
-
 
     kvm->cache_hc = 0;
 

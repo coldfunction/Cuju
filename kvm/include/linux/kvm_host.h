@@ -738,7 +738,12 @@ struct kvm {
     int cache_h[100];
     int cache_hc;
     int cache_hc_ok;
+    int sc[2];
+    int cache_i[2];
 
+    int latency_ok;
+    int latency_hit;
+    int latency_miss;
 
 
     //16, 10000, 20000

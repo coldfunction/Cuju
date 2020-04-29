@@ -706,7 +706,7 @@ static int bd_lc(void *arg)
             ft_m_trans.L3_cache_r =  mysum/10;
 		*/
 //            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[sel];
-            ft_m_trans.L3_cache_r =  100*L3cache/difftime;
+            ft_m_trans.L3_cache_r =  1000*L3cache/difftime;
             //ft_m_trans.L3_cache_r =  L3cache*L3cache*100/difftime/(L3cache+L2cache);
 
 //            ft_m_trans.L3_cache_r =  ft_m_trans.L3_cache_h[0];
@@ -752,7 +752,7 @@ static int bd_lc(void *arg)
 //                    int mdiff = ori-ft_m_trans.L3_cache_r;
                     //int mdiff = ft_m_trans.L3_cache_r-ori;
 					//if(ori == 0) ori = 1;
-                    int mdiff = 100*L3cache/difftime-ori;
+                    int mdiff = 1000*L3cache/difftime-ori;
                    // int mdiff = 100*L3cache/difftime;
 					//mdiff = mdiff*100/(ori+1);
 //					printk("L3cache = %d lastaverage = %d diff =%d\n", 100*L3cache/difftime, ori, mdiff);
@@ -1955,19 +1955,21 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 		kvm->sc[ctx->cur_index] = kvm->cache_i[ctx->cur_index] = 0;
-		L3cache = sum;
+//		L3cache = sum;
 		}
 
-
-
+		L3cache = kvm->compress_cache_r;
+		int L3cache2 = L3cache;
+		L3cache2/=100;
+        if(L3cache2 > 9999) L3cache2 = 9999;
 
 		uint64_t max = 0;
 		uint64_t pro = 0;
 		for(i = 0; i < 16; i++) {
-            if(kvm->latency_c && kvm->transTimeErr_L3CacheR_c[i][L3cache] && kvm->transTimeErr[i]) {
+            if(kvm->latency_c && kvm->transTimeErr_L3CacheR_c[i][L3cache2] && kvm->transTimeErr[i]) {
                 pro = kvm->transTimeErr[i]*10000/kvm->latency_c;
-                pro *= kvm->transTimeErr_to_L3CacheR[i][L3cache]*10000/kvm->transTimeErr[i];
-                pro *= kvm->transTimeErr_L3CacheR_to_transTime[i][L3cache][transtime]*10000/kvm->transTimeErr_L3CacheR_c[i][L3cache];
+                pro *= kvm->transTimeErr_to_L3CacheR[i][L3cache2]*10000/kvm->transTimeErr[i];
+                pro *= kvm->transTimeErr_L3CacheR_to_transTime[i][L3cache2][transtime]*10000/kvm->transTimeErr_L3CacheR_c[i][L3cache2];
                 if(pro > max) {
                     max = pro;
                     sel = i;
@@ -2381,6 +2383,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		if(sel < 7 && sel >= 0 && epoch_run_time < target_latency_us-target_latency_us/10 - 500) goto notaksnapshot;
 //		if(sel < 1 && sel >= 0 && epoch_run_time < target_latency_us-target_latency_us/10 - 500) goto notaksnapshot;
 
+
+
 		kvm->r_list_count = 1;
 		ft_m_trans.init_start[kvm->ft_id] = 0;
 
@@ -2468,7 +2472,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //			kvm->x022[ctx->cur_index] = bscore;
 			kvm->x022[ctx->cur_index] = refactor2;
 //			kvm->x0222[ctx->cur_index] = refactor3;
-			kvm->x0222[ctx->cur_index] = L3cache;
+			kvm->x0222[ctx->cur_index] = L3cache2;
 //			kvm->x03[ctx->cur_index] = x3;
 //			kvm->f0[ctx->cur_index] = factor;
 //			kvm->x02[ctx->cur_index] = 100;
@@ -3183,6 +3187,12 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->total_1_5c = 0;
 	kvm->total_1c = 0;
 	kvm->total_2c = 0;
+
+	kvm->compress_cache_r = 0;
+	kvm->pre_compress_cache_r = 0;
+	kvm->mycacher[0] = 0;
+	kvm->mycacher[1] = 0;
+	kvm->mycacher2 = 0;
 /*	int i;
 	for(i = 0; i < 100; i++) {
 		ft_m_trans.rec[kvm->ft_id][i] = 0;
@@ -3209,6 +3219,19 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	ft_m_trans.lscore_cache2[kvm->ft_id] = kmalloc(sizeof(struct latency_score)*20000, GFP_KERNEL | __GFP_ZERO);
 	ft_m_trans.lscore_cache3[kvm->ft_id] = kmalloc(sizeof(struct latency_score)*20000, GFP_KERNEL | __GFP_ZERO);
+
+
+	kvm->record = kmalloc(sizeof(int)*2000, GFP_KERNEL);
+	kvm->record_c = 0;
+	kvm->record2 = kmalloc(sizeof(int)*2000, GFP_KERNEL);
+	kvm->record_c2 = 0;
+	kvm->record3 = kmalloc(sizeof(int)*2000, GFP_KERNEL);
+	kvm->record_c3 = 0;
+	kvm->record4 = kmalloc(sizeof(int)*2000, GFP_KERNEL);
+	kvm->record_c4 = 0;
+	kvm->record5 = kmalloc(sizeof(int)*2000, GFP_KERNEL);
+	kvm->record_c5 = 0;
+
 
 	kvm->previous_diff = 0;
 	kvm->latency_diff = kmalloc(sizeof(unsigned long int*)*16, GFP_KERNEL);
@@ -5527,6 +5550,13 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     ctx = &kvm->ft_context;
 
 	kvm->is_trans = 1;
+
+//	kvm->trans_cache_start = native_read_msr(0xc2);
+	native_write_msr(0x187,0x43412E,0);
+	long long trans_cache_start = native_read_msr(0xc2);
+	kvm->before_trans_cache_time = time_in_us();
+
+
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -5562,7 +5592,17 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         }
 		send_t += time_in_us()-istart;
 	}
-
+	long long trans_cache_end = native_read_msr(0xc2);
+	long long myendt = time_in_us();
+	int compress_time = myendt-kvm->before_trans_cache_time;
+	if(compress_time) {
+		int totalcache = trans_cache_end - trans_cache_start;
+		kvm->compress_cache_r = totalcache*1000/compress_time;
+		//printk("@%ld\n", kvm->compress_cache_r);
+	}
+//	kvm->mycacher[ctx->cur_index] = kvm->compress_cache_r;
+	kvm->mycacher2 = kvm->compress_cache_r;
+//	printk("send_t = %d, loop = %d, compress = %d\n", send_t, myendt-kvm->before_trans_cache_time, myendt-kvm->before_trans_cache_time - send_t);
 
 	istart = time_in_us();
 
@@ -6889,6 +6929,15 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->cache_hc_ok = 0;
 	kvm->trans_stop_time = time_in_us();
 
+	int update_difftime = kvm->trans_stop_time - kvm->before_trans_cache_time;
+	int update_L3cache_r = 0;
+	long long trans_cache_end = native_read_msr(0xc2);
+	if(update_difftime != 0)
+		update_L3cache_r = 100*(trans_cache_end - kvm->trans_cache_start)/update_difftime;
+
+
+
+
 	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+vm_counts-1)%vm_counts];
 //	struct kvm *otherkvm = ft_m_trans.kvm[(kvm->ft_id+1)%vm_counts];
@@ -7330,7 +7379,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
     kvm->transTimeErr[ori]++;
     int transtime = update->e_trans;
-    int L3cache = ft_m_trans.L3_cache_r;
+    //int L3cache = ft_m_trans.L3_cache_r;
+//    int L3cache = kvm->mycacher2;
+    int L3cache = kvm->x0222[cur_index];
     if(L3cache > 9999) L3cache = 9999;
     transtime/=200;
     if(transtime > 49) transtime = 49;
@@ -7344,12 +7395,66 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     //    kvm->w0 = kvm->w1 = kvm->w2 = 1000;
      //   kvm->w3 = 1070000;
 		kvm->total_c2++;
-        for(i = 0; i < kvm->cache_hc; i++)
+/*
+				printk("=====start\n");
+        		for(i = 0; i < kvm->cache_hc; i++)
+        			printk("%d\n", kvm->cache_h[i]);
+				printk("=====end\n");*/
+/*		if(kvm->record_c == 2000) {
+			for(i = 0; i < 2000; i++) {
+				printk("all %d %d\n", i, kvm->record[i]);
+			}
+			kvm->record_c++;
+		}*/
+		int sum = 0;
+		if(kvm->record_c2 == 2000) {
+			for(i = 0; i < 2000; i++) {
+				printk("1ms %d %d\n", i, kvm->record2[i]);
+			//	sum+=kvm->record2[i];
+			}
+			//printk("1ms: %d\n", sum);
+			kvm->record_c2++;
+		}
+		sum = 0;
+		if(kvm->record_c3 == 2000) {
+			for(i = 0; i < 2000; i++) {
+				//sum+=kvm->record3[i];
+				printk("1.5ms %d %d\n", i, kvm->record3[i]);
+			}
+			//printk("1.5ms: %d\n", sum);
+			kvm->record_c3++;
+		}
+		sum = 0;
+		if(kvm->record_c4 == 2000) {
+			for(i = 0; i < 2000; i++) {
+			//	sum+=kvm->record4[i];
+				printk("2ms %d %d\n", i, kvm->record4[i]);
+			}
+			//printk("2ms: %d\n", sum);
+			kvm->record_c4++;
+		}
+		sum = 0;
+		if(kvm->record_c5 == 2000) {
+			for(i = 0; i < 2000; i++) {
+				//sum+=kvm->record5[i];
+				printk("xms %d %d\n", i, kvm->record5[i]);
+			}
+			//printk("xms: %d\n", sum);
+			kvm->record_c5++;
+		}
+/*
+			if(kvm->total_c2 > 15000){
+				for(i = 0; i < kvm->cache_hc && kvm->record_c < 2000; i++) {
+					kvm->record[kvm->record_c] = kvm->cache_h[i];
+					kvm->record_c++;
+				}
+			}
+*/
         if((ori - el <=1 && ori - el >= 0) || (el - ori <= 1 && el - ori >= 0 )) {
 		    kvm->total_1c++;
 
-/*
-			if(kvm->total_c2 > 50000) {
+
+			if(kvm->total_c2 > 20000) {
 			printk("============================1start=============\n");
 		    printk("%d (1ms error) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_1c, kvm->total_c2, kvm->total_1c*100/kvm->total_c2, ori, el);
             if(ori - el <=1 && ori - el >= 0) {
@@ -7360,20 +7465,58 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    printk("%d (1ms pre_small) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->pre_1_5_smaller, kvm->total_c, kvm->pre_1_smaller*100/kvm->total_1c);
 		    printk("%d (1ms pre_larger) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->pre_1_5_larger, kvm->total_c, kvm->pre_1_larger*100/kvm->total_1c);
             printk("============================1end=============\n");
-			} else {
+			} else if(kvm->total_c2 > 15000){
+			/*} else {
 				printk("=====start\n");
         		for(i = 0; i < kvm->cache_hc; i++)
         			printk("%d\n", kvm->cache_h[i]);
-				printk("=====end\n");
-			}*/
+				printk("=====end\n");*/
+				//int sum = 0;
+        		//for(i = 0; i < kvm->cache_hc && kvm->record_c2 < 2000; i++) {
+				//	sum+=kvm->cache_h[i];
+					//kvm->record2[kvm->record_c2] = kvm->cache_h[i];
+					//kvm->record_c2++;
+				//}
+				if(kvm->record_c2 < 2000) {
+					//kvm->record2[kvm->record_c2] = update_L3cache_r-kvm->x0222[cur_index];
+//					kvm->record2[kvm->record_c2] = kvm->mycacher[cur_index]-kvm->x0222[cur_index];
+					kvm->record2[kvm->record_c2] = kvm->mycacher2-kvm->x0222[cur_index];
+					kvm->record_c2++;
+				}
+
+				/*if(kvm->record_c2 < 2000) {
+					sum/=kvm->cache_hc;
+					kvm->record2[kvm->record_c2] = sum;
+					kvm->record_c2++;
+				}*/
+
+			}
+		} else if(kvm->total_c2 > 15000){
+				//int sum = 0;
+        		//for(i = 0; i < kvm->cache_hc && kvm->record_c5 < 2000; i++) {
+				//	sum+=kvm->cache_h[i];
+					//kvm->record5[kvm->record_c5] = kvm->cache_h[i];
+					//kvm->record_c5++;
+				//}
+				//if(kvm->record_c5 < 2000) {
+				//	sum/=kvm->cache_hc;
+				//	kvm->record5[kvm->record_c5] = sum;
+				//	kvm->record_c5++;
+				//}
+				if(kvm->record_c5 < 2000) {
+					//kvm->record5[kvm->record_c5] = update_L3cache_r-kvm->x0222[cur_index];
+//					kvm->record5[kvm->record_c5] = kvm->mycacher[cur_index]-kvm->x0222[cur_index];
+					kvm->record5[kvm->record_c5] = kvm->mycacher2-kvm->x0222[cur_index];
+					kvm->record_c5++;
+				}
 		}
 
 
         if((ori - el <=2 && ori - el >= 0) || (el - ori <= 2 && el - ori >= 0 )) {
 		    kvm->total_1_5c++;
 
-/*
-			if(kvm->total_c2 > 50000) {
+
+			if(kvm->total_c2 > 20000) {
 			printk("============================1.5start=============\n");
 		    printk("%d (1.5ms error) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_1_5c, kvm->total_c2, kvm->total_1_5c*100/kvm->total_c2, ori, el);
             if(ori - el <=2 && ori - el >= 0) {
@@ -7384,19 +7527,36 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    printk("%d (1.5ms pre_small) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->pre_1_5_smaller, kvm->total_1_5c, kvm->pre_1_5_smaller*100/kvm->total_1_5c);
 		    printk("%d (1.5ms pre_larger) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->pre_1_5_larger, kvm->total_1_5c, kvm->pre_1_5_larger*100/kvm->total_1_5c);
             printk("============================1.5end=============\n");
-			} else {
-				printk("=====start\n");
+			} else if(kvm->total_c2 > 15000){
+				/*printk("=====start\n");
         		for(i = 0; i < kvm->cache_hc; i++)
         			printk("%d\n", kvm->cache_h[i]);
-				printk("=====end\n");
-			}*/
+				printk("=====end\n");*/
+//				int sum = 0;
+ //       		for(i = 0; i < kvm->cache_hc && kvm->record_c3 < 2000; i++) {
+//					sum+=kvm->cache_h[i];
+					//kvm->record3[kvm->record_c3] = kvm->cache_h[i];
+					//kvm->record_c3++;
+//				}
+/*				if(kvm->record_c3 < 2000) {
+					sum/=kvm->cache_hc;
+					kvm->record3[kvm->record_c3] = sum;
+					kvm->record_c3++;
+				}*/
+				if(kvm->record_c3 < 2000) {
+					//kvm->record3[kvm->record_c3] = update_L3cache_r-kvm->x0222[cur_index];
+					//kvm->record3[kvm->record_c3] = kvm->mycacher[cur_index]-kvm->x0222[cur_index];
+					kvm->record3[kvm->record_c3] = kvm->mycacher2-kvm->x0222[cur_index];
+					kvm->record_c3++;
+				}
+			}
 		}
 
         if((ori - el <=3 && ori - el >= 0) || (el - ori <= 3 && el - ori >= 0 )) {
 		    kvm->total_2c++;
 
 
-			if(kvm->total_c2 > 50000) {
+			if(kvm->total_c2 > 20000) {
 			printk("============================2start=============\n");
 		    printk("%d (2ms error) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->total_2c, kvm->total_c2, kvm->total_2c*100/kvm->total_c2, ori, el);
             if(ori - el <=3 && ori - el >= 0) {
@@ -7408,11 +7568,31 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		    printk("%d (2ms pre_larger) %ld %ld %ld, %d %d\n", kvm->ft_id, kvm->pre_2_larger, kvm->total_2c, kvm->pre_2_larger*100/kvm->total_2c);
             printk("============================2end=============\n");
 
-			} else {
+			} else if(kvm->total_c2 > 15000){
+		/*	} else {
 				printk("=====start\n");
         		for(i = 0; i < kvm->cache_hc; i++)
         			printk("%d\n", kvm->cache_h[i]);
 				printk("=====end\n");
+        	*/
+
+				//int sum = 0;
+				//for(i = 0; i < kvm->cache_hc && kvm->record_c4 < 2000; i++) {
+				//	sum+=kvm->cache_h[i];
+				//	kvm->record4[kvm->record_c4] = kvm->cache_h[i];
+				//	kvm->record_c4++;
+				//}
+				/*if(kvm->record_c4 < 2000) {
+					sum/=kvm->cache_hc;
+					kvm->record4[kvm->record_c4] = sum;
+					kvm->record_c4++;
+				}*/
+				if(kvm->record_c4 < 2000) {
+					//kvm->record4[kvm->record_c4] = update_L3cache_r-kvm->x0222[cur_index];
+					//kvm->record4[kvm->record_c4] = kvm->mycacher[cur_index]-kvm->x0222[cur_index];
+					kvm->record4[kvm->record_c4] = kvm->mycacher2-kvm->x0222[cur_index];
+					kvm->record_c4++;
+				}
 			}
     	}
 	}

@@ -744,6 +744,25 @@ struct kvm {
     int latency_ok;
     int latency_hit;
     int latency_miss;
+    int *record;
+    int record_c;
+    int *record2;
+    int record_c2;
+    int *record3;
+    int record_c3;
+    int *record4;
+    int record_c4;
+    int *record5;
+    int record_c5;
+
+    long long trans_cache_start;
+    long long trans_cache_end;
+    long long before_trans_cache_time;
+    long long end_trans_cache_time;
+    int compress_cache_r;
+    int pre_compress_cache_r;
+    int mycacher[2];
+    int mycacher2;
 
 
     //16, 10000, 20000

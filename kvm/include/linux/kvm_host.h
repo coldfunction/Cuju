@@ -463,6 +463,18 @@ struct kvm_trackable {
 	struct page **page;
 };
 
+struct k_dis {
+    int index;
+    int value;
+};
+
+struct k_point {
+    int estimated_transtime;
+    int L3cache_speed;
+    int transtime_err;
+};
+
+
 struct kvm {
 	spinlock_t mmu_lock;
 	struct mutex slots_lock;
@@ -578,7 +590,7 @@ struct kvm {
 
     int e_load_mem_rate;
     int e_current_send_rate;
-    int e_trans_latency;
+    int e_trans_latency[2];
     int e_epoch_runtime;
 
     int learningR;
@@ -650,6 +662,15 @@ struct kvm {
     int measureRecord[2][5];
     int measureRecord_tail;
     int current_ok_IF;
+
+	long long cache_start;
+    long long cache_time_start;
+    struct k_dis *kdis;
+    int kindex;
+    struct k_point *kpoint;
+	int e_round;
+
+
 };
 
 #define kvm_err(fmt, ...) \

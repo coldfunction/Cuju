@@ -463,6 +463,18 @@ struct kvm_trackable {
 	struct page **page;
 };
 
+struct k_dis {
+    int index;
+    int value;
+};
+
+struct k_point {
+    int estimated_transtime;
+    int L3cache_speed;
+    int transtime_err;
+};
+
+
 struct kvm {
 	spinlock_t mmu_lock;
 	struct mutex slots_lock;
@@ -736,6 +748,7 @@ struct kvm {
     unsigned long int total_2c;
     int x04[2];
     int cache_h[100];
+    int cache_h2[100];
     int cache_hc;
     int cache_hc_ok;
     int sc[2];
@@ -754,6 +767,14 @@ struct kvm {
     int record_c4;
     int *record5;
     int record_c5;
+    int *record6;
+    int record_c6;
+    long long cache_start;
+    long long cache_time_start;
+    struct k_dis *kdis;
+    int kindex;
+    struct k_point *kpoint;
+
 
     long long trans_cache_start;
     long long trans_cache_end;
@@ -763,6 +784,8 @@ struct kvm {
     int pre_compress_cache_r;
     int mycacher[2];
     int mycacher2;
+    int iscompress;
+    int iscompress2;
 
 
     //16, 10000, 20000

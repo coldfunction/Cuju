@@ -591,7 +591,7 @@ struct kvm {
     int e_load_mem_rate;
     int e_current_send_rate;
     int e_trans_latency[2];
-    int e_epoch_runtime;
+    int e_epoch_runtime[2];
 
     int learningR;
     int last_disspatch_time_smaller_count;
@@ -669,7 +669,8 @@ struct kvm {
     int kindex;
     struct k_point *kpoint;
 	int e_round;
-
+	long long latency_total;
+	long long latency_hit;
 
 };
 

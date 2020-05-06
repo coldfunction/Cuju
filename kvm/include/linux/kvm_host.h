@@ -670,7 +670,11 @@ struct kvm {
     struct k_point *kpoint;
 	int e_round;
 	long long latency_total;
+	long long latency_total2;
 	long long latency_hit;
+	long long total_1c;
+	long long total_1_5c;
+	long long total_2c;
 
 };
 

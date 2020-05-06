@@ -23,7 +23,8 @@
 
 //#define KNUM 3000
 //#define KNUM 300
-#define KNUM 1600
+//#define KNUM 1600
+#define KNUM 300
 //#define ENABLE_PRE_DIFF 1
 
 #if defined(ENABLE_SWAP_PTE) && defined(ENABLE_PRE_DIFF)
@@ -708,7 +709,9 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 {
 
-    ktime_t start = ktime_get();
+	//get_l3s_start(vcpu->kvm);
+
+	ktime_t start = ktime_get();
     struct kvm *kvm = vcpu->kvm;
 
 
@@ -820,7 +823,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 
 	//int L3cache = get_l3s(kvm);
-	int L3cache = 10;
+	int L3cache = ft_m_trans.L3cache_speed;
+	//int L3cache = get_l3s_end(kvm);
 
        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 
@@ -828,8 +832,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta2 = beta;
 
 	//int time_start = time_in_us();
-	//int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
-	int predict_transErr = 100;
+	int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
+	//int predict_transErr = 100;
 	//int time_end = time_in_us();
 	//printk("==================time = %d\n", time_end-time_start);
 	now = ktime_get();
@@ -3657,7 +3661,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 	send_t += time_in_us()-istart;
 
-	kvm->L3cache_speed = get_l3s_end(kvm);
+	ft_m_trans.L3cache_speed = get_l3s_end(kvm);
 
     kvmft_tcp_nodelay(sock);
 
@@ -4784,7 +4788,7 @@ int diff_latency(int trans_diff)
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
 	//int myl3s = get_l3s_end(kvm);
-	int myl3s = kvm->L3cache_speed;
+	//int myl3s = kvm->L3cache_speed;
 
 
 	kvm->trans_start = 0;
@@ -5289,11 +5293,11 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	//ready for KNN
 	int trans_diff = update->trans_us - e_trans_us;
-	//int L3cache = kvm->x02[cur_index];
-	int L3cache = myl3s;
+	int L3cache = kvm->x02[cur_index];
+	//int L3cache = myl3s;
 
 
-	int el = get_predict_transErr(kvm, e_trans_us, L3cache);
+	//int el = get_predict_transErr(kvm, e_trans_us, L3cache);
 
 
 	//kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
@@ -5304,7 +5308,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	//kvm->kindex = (kvm->kindex+1)%KNUM;
 
 
-	//int el = kvm->f0[ctx->cur_index];
+	int el = kvm->f0[ctx->cur_index];
 /*    if(6 <= ori && ori <= 9) {
 		kvm->kindex = kvm->err_1;
 		kvm->err_1 = (kvm->err_1+1)%400;

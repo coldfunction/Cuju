@@ -22,7 +22,8 @@
 
 
 //#define KNUM 3000
-#define KNUM 300
+//#define KNUM 300
+#define KNUM 1600
 //#define ENABLE_PRE_DIFF 1
 
 #if defined(ENABLE_SWAP_PTE) && defined(ENABLE_PRE_DIFF)
@@ -90,6 +91,7 @@ struct ft_multi_trans_h {
 	struct kvm *kvm[4];
 	int load_mem_rate_ok;
 	int w4;
+	int L3cache_speed;
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -602,6 +604,35 @@ int other_trans_t(struct kvm *kvm)
 //	return (t1+t0)/vm_counts;
 }
 
+int get_l3s_start(struct kvm *kvm)
+{
+	native_write_msr(0x187,0x43412E,0); //L3 cache miss
+	kvm->cache_start = native_read_msr(0xc2);
+	kvm->cache_time_start = time_in_us();
+
+//	uint64_t cache_miss3 = native_read_msr(0xc2); //L3 caches
+//	int difftime = time_in_us() - kvm->cache_time_start;
+
+//	if(difftime) {
+//		return (cache_miss3-kvm->cache_start)*1000/difftime;
+//	} else {
+//		return 0;
+//	}
+
+}
+int get_l3s_end(struct kvm *kvm)
+{
+	uint64_t cache_miss3 = native_read_msr(0xc2); //L3 caches
+	int difftime = time_in_us() - kvm->cache_time_start;
+
+	if(difftime) {
+		return (cache_miss3-kvm->cache_start)*1000/difftime;
+	} else {
+		return 0;
+	}
+
+}
+
 int get_l3s(struct kvm *kvm)
 {
 
@@ -624,32 +655,44 @@ int get_l3s(struct kvm *kvm)
 int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_speed)
 {
 	//printk("%d %d\n", estimated_transtime, L3cache_speed);
-	int x = estimated_transtime;
-	int y = L3cache_speed;
+	long long x = estimated_transtime;
+	long long y = L3cache_speed;
 	int i;
 	int sel = 8;
+	int total = 0;
 	if(kvm->latency_total > KNUM) {
 		for(i = 0; i < KNUM; i++) {
-			kvm->kdis[i].index = i;
-			int xx = kvm->kpoint[i].estimated_transtime;
-			int yy = kvm->kpoint[i].L3cache_speed;
-			kvm->kdis[i].value = (x-xx)*(x-xx)+(y-yy)*(y-yy);
+			if(kvm->kpoint[i].L3cache_speed) {
+				kvm->kdis[i].index = i;
+				long long xx = kvm->kpoint[i].estimated_transtime;
+				long long yy = kvm->kpoint[i].L3cache_speed;
+				kvm->kdis[i].value = (x-xx)*(x-xx)+(y-yy)*(y-yy);
+				total++;
+			}
 		}
+	//printk(">>>>>>>>>>>>>>>>>>>> total = %d", total);
+	kvm->err_total = total;
+	sort(kvm->kdis, total, sizeof(struct k_dis), &compare_dis, NULL);
 
-
-	sort(kvm->kdis, KNUM, sizeof(struct k_dis), &compare_dis, NULL);
-
-	int a[16];
+	long long a[16];
 	for(i = 0; i < 16; i++) {
 		a[i] = 0;
 	}
 
 	for(i = 0; i < 50; i++ ) {
 		int index = kvm->kdis[i].index;
+		long long dis = kvm->kdis[i].value;
+
+		//printk("%d %ld\n", i, dis);
+
 		int pre = kvm->kpoint[index].transtime_err;
+//		dis/=10000;
+
+//		a[pre]+=1000000/(dis+1);
+		//a[pre]+=1/(dis+1);
 		a[pre]++;
 	}
-	int max = 0;
+	long long int max = 0;
 	for(i = 0; i < 16; i++) {
 		if(a[i] > max) {
 			max = a[i];
@@ -776,7 +819,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int i, j, k;
 
 
-	int L3cache = get_l3s(kvm);
+	//int L3cache = get_l3s(kvm);
+	int L3cache = 10;
 
        beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
 
@@ -784,7 +828,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta2 = beta;
 
 	//int time_start = time_in_us();
-	int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
+	//int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
+	int predict_transErr = 100;
 	//int time_end = time_in_us();
 	//printk("==================time = %d\n", time_end-time_start);
 	now = ktime_get();
@@ -1529,6 +1574,11 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	kvm->current_ok_IF = 0;
 
+	kvm->err_1 = 0;
+	kvm->err_1_5 = 0;
+	kvm->err_2 = 0;
+	kvm->err_2_b = 0;
+
 	kvm->w5 = 1000;
 	kvm->wc = 0;
 	kvm->wn = 0;
@@ -1551,7 +1601,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->total_1c = 0;
 	kvm->total_1_5c = 0;
 	kvm->total_2c = 0;
-
+	kvm->err_total = 0;
 
 	kvm->real_f = 100;
 	kvm->last_ok = 0;
@@ -3559,7 +3609,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     struct kvmft_context *ctx;
     ctx = &kvm->ft_context;
 
-
+	get_l3s_start(kvm);
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -3606,6 +3656,8 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
         total += len;
     }
 	send_t += time_in_us()-istart;
+
+	kvm->L3cache_speed = get_l3s_end(kvm);
 
     kvmft_tcp_nodelay(sock);
 
@@ -4731,9 +4783,12 @@ int diff_latency(int trans_diff)
 // latency = runtime + constant + dirty_page_number / rate
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
+	//int myl3s = get_l3s_end(kvm);
+	int myl3s = kvm->L3cache_speed;
+
+
 	kvm->trans_start = 0;
 	kvm->trans_stop_time = time_in_us();
-
 	kvm->latency_total++;
 
 	if(kvm->latency_total > 10000 && kvm->latency_hit >= 0) {
@@ -5234,7 +5289,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	//ready for KNN
 	int trans_diff = update->trans_us - e_trans_us;
-	int L3cache = kvm->x02[cur_index];
+	//int L3cache = kvm->x02[cur_index];
+	int L3cache = myl3s;
+
+
+	int el = get_predict_transErr(kvm, e_trans_us, L3cache);
+
 
 	//kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
 	//kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
@@ -5244,13 +5304,31 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	//kvm->kindex = (kvm->kindex+1)%KNUM;
 
 
-	int el = kvm->f0[ctx->cur_index];
+	//int el = kvm->f0[ctx->cur_index];
+/*    if(6 <= ori && ori <= 9) {
+		kvm->kindex = kvm->err_1;
+		kvm->err_1 = (kvm->err_1+1)%400;
+	} else if(ori == 10 || ori == 5) {
+		kvm->kindex = kvm->err_1_5+400;
+		kvm->err_1_5 = (kvm->err_1_5+1)%200;
 
+	} else if(ori == 11 || ori == 4){
+		kvm->kindex = kvm->err_2+600;
+		kvm->err_2 = (kvm->err_2+1)%200;
+
+	} else {
+		kvm->kindex = kvm->err_2_b+800;
+		kvm->err_2_b = (kvm->err_2_b+1)%800;
+
+	}*/
+//	printk("###!!! %d %d %d %d\n", kvm->err_1, kvm->err_1_5, kvm->err_2, kvm->err_2_b);
 		kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
 		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
 		kvm->kpoint[kvm->kindex].transtime_err = ori;
 		kvm->kindex = (kvm->kindex+1)%KNUM;
+		kvm->latency_total++;
 
+//	if(kvm->latency_total > KNUM && kvm->err_total == KNUM) {
 	if(kvm->latency_total > KNUM) {
 		kvm->latency_total2++;
         if((ori - el <=1 && ori - el >= 0) || (el - ori <= 1 && el - ori >= 0 )) {

@@ -465,7 +465,7 @@ struct kvm_trackable {
 
 struct k_dis {
     int index;
-    int value;
+    long long value;
 };
 
 struct k_point {
@@ -675,7 +675,12 @@ struct kvm {
 	long long total_1c;
 	long long total_1_5c;
 	long long total_2c;
-
+	int L3cache_speed;
+	int err_1;
+	int err_1_5;
+	int err_2;
+	int err_2_b;
+	int err_total;
 };
 
 #define kvm_err(fmt, ...) \

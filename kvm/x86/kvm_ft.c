@@ -1591,6 +1591,10 @@ int kvm_shm_enable(struct kvm *kvm)
     kvm->x03[0] = 1;
     kvm->x03[1] = 1;
 
+	kvm->a = 1;
+	kvm->b = 15;
+	kvm->c = 100;
+
 	//kvm->diffbytes_exceed = 700000;
 	kvm->diffbytes_exceed = 1638000;
 	kvm->diffbytes_less = 300000;
@@ -4779,6 +4783,23 @@ int diff_latency(int trans_diff)
 	return ori;
 }
 
+long long LossF(struct kvm *kvm, int x, int y, int z, int type)
+{
+	int ret = 0;
+	long long a = kvm->a;
+	long long b = kvm->b;
+	long long c = kvm->c;
+	if(type == 0) {
+		ret = -2*x*(z-a*x-b*y-c);
+	} else if (type == 1) {
+		ret = -2*y*(z-a*x-b*y-c);
+	} else {
+		ret = -2*(z-a*x-b*y-c);
+	}
+	return ret;
+}
+
+
 
 // latency = runtime + constant + dirty_page_number / rate
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
@@ -5326,9 +5347,48 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
 		kvm->kpoint[kvm->kindex].transtime_err = ori;
 		kvm->kindex = (kvm->kindex+1)%KNUM;
-		kvm->latency_total++;
+		//kvm->latency_total++;
 
-//	if(kvm->latency_total > KNUM && kvm->err_total == KNUM) {
+		int x = L3cache;
+		int y = e_trans_us;
+		int z = update->trans_us;
+
+
+//////////el
+		long long a = kvm->a;
+		long long b = kvm->b;
+		long long c = kvm->c;
+		long long zz = a*x+b*y+c;
+		el = diff_latency(z-zz);
+/////////////////
+
+
+
+		long long los_a = LossF(kvm, x, y, z, 0);
+		long long los_b = LossF(kvm, x, y, z, 1);
+		long long los_c = LossF(kvm, x, y, z, 2);
+
+        //if((ori - el <=3 && ori - el >= 0) || (el - ori <= 3 && el - ori >= 0 )) {
+			kvm->a = kvm->a - los_a/2;
+			kvm->b = kvm->b - los_b/2;
+			kvm->c = kvm->c - los_c/2;
+		//}
+		//printk("%ld, %ld, %ld\n", kvm->a, kvm->b, kvm->c);
+
+	//if(update->trans_us) {
+	//	printk("%d %d %d\n", L3cache, trans_diff, update->trans_us);
+	//}
+	/*if(kvm->ft_id == 0) {
+	update->w0 = L3cache;
+	update->w1 = trans_diff;
+	update->w3 = update->trans_us;
+	update->w4 = e_trans_us;
+	}*/
+
+
+
+
+	//if(kvm->latency_total > KNUM && kvm->err_total == -1) {
 	if(kvm->latency_total > KNUM) {
 		kvm->latency_total2++;
         if((ori - el <=1 && ori - el >= 0) || (el - ori <= 1 && el - ori >= 0 )) {

@@ -1592,8 +1592,10 @@ int kvm_shm_enable(struct kvm *kvm)
     kvm->x03[1] = 1;
 
 	kvm->a = 1;
-	kvm->b = 15;
-	kvm->c = 100;
+	kvm->b = 1;
+	kvm->c = 15;
+	kvm->d = 1;
+	kvm->e = 100;
 
 	//kvm->diffbytes_exceed = 700000;
 	kvm->diffbytes_exceed = 1638000;
@@ -4785,16 +4787,38 @@ int diff_latency(int trans_diff)
 
 long long LossF(struct kvm *kvm, int x, int y, int z, int type)
 {
-	int ret = 0;
+	long long ret = 0;
 	long long a = kvm->a;
 	long long b = kvm->b;
 	long long c = kvm->c;
+	long long d = kvm->d;
+	long long e = kvm->e;
 	if(type == 0) {
-		ret = -2*x*(z-a*x-b*y-c);
+		//ret = -2*x*(z-a*x-b*y-c);
+		//if(b*b*d)
+			//ret = -2*x*(b*d*z-d*a*x-b*c*y-e*b*d)/(b*b*d);
+		if(b*b)
+			ret = -2*x*(b*y-a*x-b*c)/(b*b);
 	} else if (type == 1) {
-		ret = -2*y*(z-a*x-b*y-c);
-	} else {
-		ret = -2*(z-a*x-b*y-c);
+		//ret = -2*y*(z-a*x-b*y-c);
+		//if(b*b*b*d)
+			//ret = 2*a*x*(d*z*b-a*d*x-c*b*y-e*d*b)/(d*b*b*b);
+		if(b*b*b)
+			ret = 2*a*x*(y*b-a*x-c*b)/(b*b*b);
+	} else if (type == 2){
+		//ret = -2*(z-a*x-b*y-c);
+		//if(b*d*d)
+			//ret = -2*y*(b*d*z-d*a*x-b*c*y-e*b*d)/(b*d*d);
+		if(b)
+			ret = -2*(y-a*x/b-c);
+	} else if (type == 3) {
+		if(d*d*d*b*b)
+			ret = (d*b*z-d*a*x-b*c*y-e*d*b)*(d*b*z-d*a*x-b*c*y-e*d*b)/(d*d*d*b*b);
+
+	} else if (type == 4) {
+		if(b&&d)
+			ret = -2*(z-a*x/b-c*y/d-e);
+
 	}
 	return ret;
 }
@@ -5350,7 +5374,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//kvm->latency_total++;
 
 		int x = L3cache;
-		int y = e_trans_us;
+		//int y = e_trans_us;
+		int y = 0;
+		if(update->trans_us)
+			y = trans_diff*100/update->trans_us;
 		int z = update->trans_us;
 
 
@@ -5358,8 +5385,19 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		long long a = kvm->a;
 		long long b = kvm->b;
 		long long c = kvm->c;
-		long long zz = a*x+b*y+c;
-		el = diff_latency(z-zz);
+		long long d = kvm->d;
+		long long e = kvm->e;
+		long long zz = 0;
+		long long yy = 0;
+		//if(b&&d)
+			//zz = a/b*x+c/d*y+e;
+			yy = a/b*x+c;
+
+			int xx = (yy/100);
+			if(xx!=1)
+				el = diff_latency(xx*e_trans_us/(1-xx));
+
+		//el = diff_latency(z-zz);
 /////////////////
 
 
@@ -5367,13 +5405,17 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		long long los_a = LossF(kvm, x, y, z, 0);
 		long long los_b = LossF(kvm, x, y, z, 1);
 		long long los_c = LossF(kvm, x, y, z, 2);
+//		long long los_d = LossF(kvm, x, y, z, 3);
+//		long long los_e = LossF(kvm, x, y, z, 4);
 
         //if((ori - el <=3 && ori - el >= 0) || (el - ori <= 3 && el - ori >= 0 )) {
 			kvm->a = kvm->a - los_a/2;
 			kvm->b = kvm->b - los_b/2;
 			kvm->c = kvm->c - los_c/2;
+//			kvm->d = kvm->d - los_d/2;
+//			kvm->e = kvm->e - los_e/2;
 		//}
-		//printk("%ld, %ld, %ld\n", kvm->a, kvm->b, kvm->c);
+//		printk("%ld, %ld, %ld, %ld, %ld\n", kvm->a, kvm->b, kvm->c, kvm->d, kvm->e);
 
 	//if(update->trans_us) {
 	//	printk("%d %d %d\n", L3cache, trans_diff, update->trans_us);
@@ -5388,7 +5430,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
 
-	//if(kvm->latency_total > KNUM && kvm->err_total == -1) {
+//	if(kvm->latency_total > KNUM && kvm->err_total == -1) {
 	if(kvm->latency_total > KNUM) {
 		kvm->latency_total2++;
         if((ori - el <=1 && ori - el >= 0) || (el - ori <= 1 && el - ori >= 0 )) {

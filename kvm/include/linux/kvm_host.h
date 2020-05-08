@@ -684,6 +684,8 @@ struct kvm {
 	long long a;
 	long long b;
 	long long c;
+	long long d;
+	long long e;
 };
 
 #define kvm_err(fmt, ...) \

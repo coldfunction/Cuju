@@ -474,6 +474,12 @@ struct k_point {
     int transtime_err;
 };
 
+struct k_point2 {
+    int current_dirty_byte;
+    int current_L3cache_speed;
+    int actual_L3cache_speed;
+};
+
 
 struct kvm {
 	spinlock_t mmu_lock;
@@ -558,7 +564,7 @@ struct kvm {
     struct task_struct *ft_cmp_tsk;
     int w0;
     int w1;
-    int w2;
+    int w2[2];
     int w3;
     int w4;
     int w5;
@@ -591,6 +597,7 @@ struct kvm {
     int e_load_mem_rate;
     int e_current_send_rate;
     int e_trans_latency[2];
+    int e_trans_latency_p[2];
     int e_epoch_runtime[2];
 
     int learningR;
@@ -663,11 +670,13 @@ struct kvm {
     int measureRecord_tail;
     int current_ok_IF;
 
-	long long cache_start;
+	uint64_t cache_start;
+	uint64_t cache_end;
     long long cache_time_start;
     struct k_dis *kdis;
     int kindex;
     struct k_point *kpoint;
+    struct k_point2 *kpoint2;
 	int e_round;
 	long long latency_total;
 	long long latency_total2;
@@ -686,6 +695,20 @@ struct kvm {
 	long long c;
 	long long d;
 	long long e;
+	uint64_t total_miss;
+	uint64_t total_miss_time_rec;
+	uint64_t part_miss_time_rec;
+	uint64_t part_miss;
+	long long sum_diff_right;
+	long long sum_diff_wrong;
+	long long count_diff_right;
+	long long count_diff_wrong;
+	long long sum_actual_miss_speed;
+	long long actual_miss_speed;
+
+	long long cache_rec[30];
+	long long cache_rec_hit[30];
+	int last_knnTime;
 };
 
 #define kvm_err(fmt, ...) \

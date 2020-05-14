@@ -145,6 +145,7 @@ struct nocopy_callback_arg {
 	int16_t sending;
 };
 
+int diff_latency(int trans_diff);
 
 static int compare_dis(const void *lhs, const void *rhs)
 {
@@ -693,6 +694,8 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 	long long y = L3cache_speed;
 	int i;
 	int sel = 8;
+	long long sum = 0;
+	long long a[16];
 	int total = 0;
 	if(kvm->latency_total > KNUM) {
 		for(i = 0; i < KNUM; i++) {
@@ -708,6 +711,54 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 	kvm->err_total = total;
 	sort(kvm->kdis, total, sizeof(struct k_dis), &compare_dis, NULL);
 
+	//long long sum = 0;
+	//int index = kvm->kdis[0].index;
+	//sum+=kvm->kpoint[index].transtime_err;
+	//long long a[16];
+	for(i = 0; i < 16; i++) {
+		a[i] = 0;
+	}
+
+	int mk;
+	for(i = 0; i < 50; i++) {
+		int index = kvm->kdis[i].index;
+	//	if(kvm->ft_id == 0)
+	//	printk("vmid: %d, %d, %d\n", kvm->ft_id, i, kvm->kpoint[index].transtime_err );
+		mk = kvm->kpoint[index].transtime_err;
+		sum+=mk;
+/*		int qk = 0;
+		if(100-mk)
+			qk = 100*estimated_transtime/(100-mk);
+		else
+			qk = 0;
+		int mk2 = qk-estimated_transtime;
+		mk = diff_latency(mk2);
+		a[mk]++; //current best
+*/
+	}
+	mk = sum/50;
+
+		int qk = 0;
+		if(100-mk)
+			qk = 100*estimated_transtime/(100-mk);
+		else
+			qk = 0;
+		int mk2 = qk-estimated_transtime;
+		mk = diff_latency(mk2);
+		//a[mk]++; //current best
+		sel = mk;
+
+
+
+
+
+
+
+
+
+
+	//printk("sum = %d\n", sum);
+	/*
 	long long a[16];
 	for(i = 0; i < 16; i++) {
 		a[i] = 0;
@@ -738,9 +789,20 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 			sel = i;
 		}
 	}
-	}
+	*/
 
+
+	}
+/*	long long max = 0;
+	for(i = 0; i < 16; i++) {
+		if(a[i] > max) {
+			max = a[i];
+			sel = i;
+		}
+	}
+*/
 	return sel;
+//	return sum;
 }
 
 
@@ -879,6 +941,14 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	L3cache = get_predict_L3cacheSpeed(kvm, current_dirty_byte, L3cache);
 	int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
 
+/*	if(100-predict_transErr)
+		predict_transErr = 100*beta2/1000/(100-predict_transErr);
+	else
+		predict_transErr = 0;
+
+	predict_transErr = predict_transErr-beta2/1000;
+	predict_transErr = diff_latency(predict_transErr);
+*/
 	int adj = 0;
 	if(predict_transErr == 9) {
 		adj = 750;
@@ -909,7 +979,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta/= 1000;
 	beta += epoch_run_time;
 
-	beta+=adj;
+	//beta+=adj;
 
 	kvm->last_runtime = time_in_us();
 
@@ -919,7 +989,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	if(kvm->ft_id == 0) {
 //		printk("real take snapshot in %d\n", epoch_run_time);
 //	}
-		if(predict_transErr < 5) goto notaksnapshot;
+//		if(predict_transErr < 5) goto notaksnapshot;
 
 
 	kvm->e_round = 1;
@@ -4879,7 +4949,7 @@ int diff_latency(int trans_diff)
 		ori = 10;
 	}else if(trans_diff > 500) {
 		ori = 9;
-	}else if(trans_diff > 0) {
+	}else if(trans_diff >= 0) {
 		ori = 8;
 	}
 
@@ -5598,7 +5668,22 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
 		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
 		//kvm->kpoint[kvm->kindex].L3cache_speed = real_L3cache;
-		kvm->kpoint[kvm->kindex].transtime_err = ori;
+	//	kvm->kpoint[kvm->kindex].transtime_err = ori;
+		kvm->kpoint[kvm->kindex].transtime_err = trans_diff*100/(int)update->trans_us;
+
+	/*
+		int mk = kvm->kpoint[kvm->kindex].transtime_err;
+		int qk = 0;
+		if(100-mk)
+			qk = 100*e_trans_us/(100-mk);
+		else
+			qk = 0;
+		int mk2 = qk-e_trans_us;
+		mk = diff_latency(mk2);
+		if(mk != ori)
+			printk("qk = %d, mk2 = %d, mk = %d, ori = %d, real trans = %d, esti trans = %d\n", qk, mk2, mk, ori, update->trans_us, e_trans_us);
+*/
+//		printk("cocotion test transerrrpresen = %d trans_diff = %d, update->trans_us = %d\n", kvm->kpoint[kvm->kindex].transtime_err, trans_diff, update->trans_us);
 		kvm->kindex = (kvm->kindex+1)%KNUM;
 		//kvm->latency_total++;
 

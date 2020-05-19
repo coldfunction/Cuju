@@ -22,8 +22,7 @@
 
 
 //#define KNUM 3000
-#define KNUM 300
-//#define KNUM 200
+#define KNUM 300 //current ok
 //#define KNUM 1600 //current best
 //#define KNUM 3200 //current best
 //#define KNUM 6400
@@ -686,6 +685,14 @@ int get_predict_L3cacheSpeed(struct kvm *kvm, int current_dirty_byte, int curren
 	return (kvm->kpoint2[i].actual_L3cache_speed+y)/2;
 }
 
+static inline long long CMAT4_4(long long A0, long long A1, long long A2, long long A3, \
+		long long X1, long long X2, long long X3, long long X4, \
+		long long Y1, long long Y2, long long Y3, long long Y4, \
+		long long Z1, long long Z2, long long Z3, long long Z4)
+{
+
+	return A0*(X2*Y3*Z4+Y2*Z3*X4+Z2*X3*Y4)-A0*(Z2*Y3*X4+X2*Z3*Y4+Y2*X3*Z4)-A1*(X1*Y3*Z4+Y1*Z3*X4+Z1*X3*Y4)+A1*(Z1*Y3*X4+X1*Z3*Y4+Y1*X3*Z4)+A2*(X1*Y2*Z4+Y1*Z2*X4+Z1*X2*Y4)-A2*(Z1*Y2*X4+X1*Z2*Y4+Y1*X2*Z4)-A3*(X1*Y2*Z3+Y1*Z2*X3+Z1*X2*Y3)+A3*(Z1*Y2*X3+X1*Z2*Y3+Y1*X2*Z3);
+}
 
 int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_speed)
 {
@@ -695,7 +702,7 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 	int i;
 	int sel = 8;
 	long long sum = 0;
-	long long a[16];
+	long long a[21];
 	int total = 0;
 	if(kvm->latency_total > KNUM) {
 		for(i = 0; i < KNUM; i++) {
@@ -715,39 +722,148 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 	//int index = kvm->kdis[0].index;
 	//sum+=kvm->kpoint[index].transtime_err;
 	//long long a[16];
-	for(i = 0; i < 16; i++) {
-		a[i] = 0;
-	}
 
-	int mk;
-	for(i = 0; i < 50; i++) {
-		int index = kvm->kdis[i].index;
-	//	if(kvm->ft_id == 0)
-	//	printk("vmid: %d, %d, %d\n", kvm->ft_id, i, kvm->kpoint[index].transtime_err );
-		mk = kvm->kpoint[index].transtime_err;
-		sum+=mk;
-/*		int qk = 0;
-		if(100-mk)
-			qk = 100*estimated_transtime/(100-mk);
-		else
-			qk = 0;
-		int mk2 = qk-estimated_transtime;
-		mk = diff_latency(mk2);
-		a[mk]++; //current best
+	long long x1,x2,x3,x4,y1,y2,y3,y4;
+	long long z1,z2,z3,z4;
+	int index = kvm->kdis[0].index;
+	z1 = kvm->kpoint[index].transtime_err;
+	x1 = kvm->kpoint[index].estimated_transtime;
+	y1 = kvm->kpoint[index].L3cache_speed;
+
+	int sel1,sel2,sel3;
+	sel1=sel2=sel3=0;
+	long long D = 0;
+	long long Q = 0;
+	long long P = 0;
+
+	long long zz1;
+	long long zz2;
+	long long zz3;
+	long long zz4;
+	long long Da0;
+	long long Da1;
+	long long Da2;
+	long long Da3;
+	long long mk;
+	long long c = 0;
+
+
+	for(sel1=1; sel1 < KNUM && D == 0; sel1++) {
+		for(sel2=sel1+1; sel2 < KNUM && D == 0; sel2++) {
+			for(sel3=sel2+1; sel3 < KNUM && D == 0; sel3++) {
+				index = kvm->kdis[sel1].index;
+				z2 = kvm->kpoint[index].transtime_err;
+				x2 = kvm->kpoint[index].estimated_transtime;
+				y2 = kvm->kpoint[index].L3cache_speed;
+				index = kvm->kdis[sel2].index;
+				z3 = kvm->kpoint[index].transtime_err;
+				x3 = kvm->kpoint[index].estimated_transtime;
+				y3 = kvm->kpoint[index].L3cache_speed;
+				index = kvm->kdis[sel3].index;
+				z4 = kvm->kpoint[index].transtime_err;
+				x4 = kvm->kpoint[index].estimated_transtime;
+				y4 = kvm->kpoint[index].L3cache_speed;
+				//Q = x2*y3*x4*y4+x1*y2*x3*y3+y1*x2*y2*x4+x1*y1*x3*y4;
+				//P = x1*y1*y2*x3+x2*y2*y3*x4+x1*x3*y3*y4+y1*x2*x4*y4;
+				//D = Q-P;
+				D =(x2*y3*x4*y4+y2*x3*y3*x4+x2*y2*x3*y4)-(x2*y2*y3*x4+x2*x3*y3*y4+y2*x3*x4*y4)-(x1*y3*x4*y4+y1*x3*y3*x4+x1*y1*x3*y4)+(x1*y1*y3*x4+x1*x3*y3*y4+y1*x3*x4*y4)+(x1*y2*x4*y4+y1*x2*y2*x4+x1*y1*x2*y4)-(x1*y1*y2*x4+x1*x2*y2*y4+y1*x2*x4*y4)-(x1*y2*x3*y3+y1*x2*y2*x3+x1*y1*x2*y3)+(x1*y1*y2*x3+x1*x2*y2*y3+y1*x2*x3*y3);
+
+				if(D) {
+					zz1 = x1*y1;
+					zz2 = x2*y2;
+					zz3 = x3*y3;
+					zz4 = x4*y4;
+					Da0 = CMAT4_4(z1,z2,z3,z4,x1,x2,x3,x4,y1,y2,y3,y4,zz1,zz2,zz3,zz4);
+					Da1 = CMAT4_4(1,1,1,1,z1,z2,z3,z4,y1,y2,y3,y4,zz1,zz2,zz3,zz4);
+					Da2 = CMAT4_4(1,1,1,1,x1,x2,x3,x4,z1,z2,z3,z4,zz1,zz2,zz3,zz4);
+					Da3 = CMAT4_4(1,1,1,1,x1,x2,x3,x4,y1,y2,y3,y4,z1,z2,z3,z4);
+					mk = Da0+Da1*x+Da2*y+Da3*x*y;
+					mk/=D;
+					//if(mk < -50 || mk > 50) {
+	//					c++;
+	//					sum+=mk;
+					//	D=0;
+					//}
+//					if(c > 20) {
+						//printk("sel1=%d, sel2=%d, sel3=%d\n", sel1, sel2, sel3);
+//						D = 1;
+//					}
+				}
+			}
+		}
+	}
+//	printk("@@@@@@@@@@@@@@@@@@@ C=%lld\n", c);
+//	if(c) {
+//		D = 1;
+//		mk = sum/c;
+//		sum = 0;
+//	}
+
+
+	if(D==0) printk("no sol!!!!!!!!!!!!!!!!\n");
+
+	/*
+	long long Qa0 = z1*x2*y3*x4*y4+x1*y2*x3*y3*z4+y1*x2*y2*z3*x4+x1*y1*z2*x3*y4;
+	long long Pa0 = x1*y1*y2*x3*z4+z1*x2*y2*y3*x4+x1*z2*x3*y3*y4+y1*x2*z3*x4*y4;
+	long long Da0 = Qa0-Pa0;
+	long long Qa1 = z2*y3*x4*y4+z1*y2*x3*y3+y1*x2*y2*z4+x1*y1*z3*y4;
+	long long Pa1 = x1*y1*y2*z3+x2*y2*y3*z4+z1*x3*y3*y4+y1*z2*x4*y4;
+	long long Da1 = Qa1-Pa1;
+	long long Qa2 = x2*z3*x4*y4+x1*z2*x3*y3+z1*x2*y2*x4+x1*y1*x3*z4;
+	long long Pa2 = x1*y1*z2*x3+x2*y2*z3*x4+x1*x3*y3*z4+z1*x2*x4*y4;
+	long long Da2 = Qa2-Pa2;
+	long long Qa3 = x2*y3*z4+x1*y2*z3+y1*z2*x4+z1*x3*y4;
+	long long Pa3 = z1*y2*x3+z2*y3*x4+x1*z3*y4+y1*x2*z4;
+	long long Da3 = Qa3-Pa3;
 */
+
+	//D0 =(x2*y3*x4*y4+y2*x3*y3*x4+x2*y2*x3*y4)-(x2*y2*y3*x4+x2*x3*y3*y4+y2*x3*x4*y4)-(x1*y3*x4*y4+y1*x3*y3*x4+x1*y1*x3*y4)+(x1*y1*y3*x4+x1*x3*y3*y4+y1*x3*x4*y4)+(x1*y2*x4*y4+y1*x2*y2*x4+x1*y1*x2*y4)-(x1*y1*y2*x4+x1*x2*y2*y4+y1*x2*x4*y4)-(x1*y2*x3*y3+y1*x2*y2*x3+x1*y1*x2*y3)+(x1*y1*y2*x3+x1*x2*y2*y3+y1*x2*x3*y3);
+
+//	long long a0 = Da0/D;
+//	long long a1 = Da1/D;
+//	long long a2 = Da2/D;
+//	long long a3 = Da3/D;
+
+//	printk("Q = %lld, P = %lld\n", Q, P);
+	if(D == 0) {
+//		printk("no sol!!!\n");
+		printk("(%d %d %d) (%d %d %d) (%d %d %d) (%d %d %d)\n",x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4);
 	}
-	mk = sum/50;
+//	printk("Pa0 = %lld, Pa1 = %lld, Pa2 = %lld, Pa3 = %lld\n", Pa0, Pa1, Pa2, Pa3);
+//	printk("Da0 = %ld, Da1 = %ld, Da2 = %ld, Da3 = %ld, D = %ld\n", Da0, Da1, Da2, Da3, D);
 
-		int qk = 0;
-		if(100-mk)
-			qk = 100*estimated_transtime/(100-mk);
-		else
-			qk = 0;
-		int mk2 = qk-estimated_transtime;
-		mk = diff_latency(mk2);
-		//a[mk]++; //current best
-		sel = mk;
 
+
+	if(D == 0 ) {
+
+		for(i = 0; i < 50; i++) {
+			int index = kvm->kdis[i].index;
+			mk = kvm->kpoint[index].transtime_err;
+			sum+=mk;
+		}
+		mk = sum/50;
+
+	} else {
+		//long long a0 = Da0/D;
+		//long long a1 = Da1/D;
+		//long long a2 = Da2/D;
+		//long long a3 = Da3/D;
+//		mk = Da0+Da1*x+Da2*y+Da3*x*y;
+//		mk/=D;
+
+		//mk = a0+a1*x+a2*y+a3*x*y;
+
+//		mk = (mk + z1 + z2 + z3 + z4)/5;
+	}
+
+	int qk = 0;
+	if(100-mk)
+		qk = 100*estimated_transtime/(100-mk);
+	else
+		qk = 0;
+	int mk2 = qk-estimated_transtime;
+	mk = diff_latency(mk2);
+	sel = mk;
 
 
 
@@ -5663,13 +5779,26 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->kpoint2[kvm->kindex].current_L3cache_speed = L3cache;
 		kvm->kpoint2[kvm->kindex].actual_L3cache_speed = real_L3cache;
 
+		int i;
+		for(i = 0; i < KNUM; i++) {
+			if(e_trans_us == kvm->kpoint[i].estimated_transtime && \
+			 kvm->kpoint[i].L3cache_speed == L3cache ) {
+				//kvm->kpoint[i].estimated_transtime = e_trans_us;
+				//kvm->kpoint[i].L3cache_speed = L3cache;
+				kvm->kpoint[i].transtime_err = trans_diff*100/(int)update->trans_us;
+				i = -1;
+				break;
+			}
+		}
 
-	//	printk("###!!! %d %d %d %d\n", kvm->err_1, kvm->err_1_5, kvm->err_2, kvm->err_2_b);
+		if(i!=-1) {
 		kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
 		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
 		//kvm->kpoint[kvm->kindex].L3cache_speed = real_L3cache;
 	//	kvm->kpoint[kvm->kindex].transtime_err = ori;
 		kvm->kpoint[kvm->kindex].transtime_err = trans_diff*100/(int)update->trans_us;
+		kvm->kindex = (kvm->kindex+1)%KNUM;
+		}
 
 	/*
 		int mk = kvm->kpoint[kvm->kindex].transtime_err;
@@ -5684,7 +5813,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			printk("qk = %d, mk2 = %d, mk = %d, ori = %d, real trans = %d, esti trans = %d\n", qk, mk2, mk, ori, update->trans_us, e_trans_us);
 */
 //		printk("cocotion test transerrrpresen = %d trans_diff = %d, update->trans_us = %d\n", kvm->kpoint[kvm->kindex].transtime_err, trans_diff, update->trans_us);
-		kvm->kindex = (kvm->kindex+1)%KNUM;
+		//kvm->kindex = (kvm->kindex+1)%KNUM;
 		//kvm->latency_total++;
 
 //		int x = L3cache;

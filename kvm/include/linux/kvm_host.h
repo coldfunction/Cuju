@@ -560,8 +560,10 @@ struct kvm {
     wait_queue_head_t trans_queue_event;
 
     int ft_kick;
+    int ft_kick2;
     wait_queue_head_t calc_event;
     struct task_struct *ft_cmp_tsk;
+    struct task_struct *ft_lc_tsk;
     int w0;
     int w1;
     int w2[2];
@@ -685,6 +687,9 @@ struct kvm {
 	long long total_1_5c;
 	long long total_2c;
 	int L3cache_speed;
+	int *L3cache_speed_rec;
+	int L3cache_speed_c;
+	int L3cache_speed_max;
 	int err_1;
 	int err_1_5;
 	int err_2;
@@ -709,6 +714,12 @@ struct kvm {
 	long long cache_rec[30];
 	long long cache_rec_hit[30];
 	int last_knnTime;
+	int iscompress;
+	int kindex2;
+	int oldcache[2];
+	struct tasklet_struct *t3;
+	int mflag;
+	int l3s_start;
 };
 
 #define kvm_err(fmt, ...) \

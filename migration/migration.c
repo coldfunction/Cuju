@@ -1426,6 +1426,21 @@ MigrationState *migrate_init(const MigrationParams *params)
 
     migrate_set_ft_state(s2, CUJU_FT_TRANSACTION_PRE_RUN);
 
+	char vfname[100];
+	sprintf(vfname, "/tmp/sig.txt");
+	int myfd = open(vfname, O_CREAT|O_RDWR,0666);
+	if(myfd < 0) {
+		printf("failure to open\n");
+		exit(0);
+	}
+	if (write(myfd, "@", 1) != 1) {
+		printf("failure on write\n");
+		exit(0);
+	}
+	lseek(myfd,0,SEEK_SET);
+	s->myfd = myfd;
+	s2->myfd = myfd;
+
     return s;
 }
 
@@ -3005,7 +3020,7 @@ static void migrate_run(MigrationState *s)
         return;
     }
 //    printf("%s %d\n", __func__, s->cur_off);
-//	printf("cocotion ok runrun1 - %d @@\n", s->cur_off);
+
 
     migrate_set_ft_state(s, CUJU_FT_TRANSACTION_RUN);
     s->run_serial = ++run_serial;
@@ -3068,6 +3083,37 @@ static void migrate_timer(void *opaque)
 
     s->transfer_start_time = time_in_double();
     s->ram_len = 0;
+
+/*
+   	char myfifo[200];
+	sprintf(myfifo, "/tmp/myfifo");
+	mkfifo(myfifo, 0777);
+	int mfo = open(myfifo, O_NONBLOCK|O_WRONLY);
+	char mbuf = 't';
+	int ret = write(mfo, &mbuf, 1);
+	if(ret < 0) printf("write error\n");
+	close(mfo);*/
+//	unlink(myfifo);
+
+	//cocotion fucking	start
+	if (write(s->myfd, "t", 1) != 1) {
+		printf("failure on write\n");
+		exit(0);
+	}
+	lseek(s->myfd,0,SEEK_SET);
+	/*
+	FILE *pFile;
+   	char pbuf[200];
+	sprintf(pbuf, "/tmp/sig.txt");
+    pFile = fopen(pbuf, "w");
+    if(pFile != NULL){
+        fputs("t", pFile);
+	}
+	fclose(pFile);
+	//cocotion fucking end
+*/
+
+
     kvm_shmem_send_dirty_kernel(s);
 
 //	printf("cocotion after dispatch dirty pages, curindex = %d\n", s->cur_off);

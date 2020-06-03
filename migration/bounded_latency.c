@@ -30,6 +30,40 @@ void bd_reset_epoch_timer(void)
 
 int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int latency_us, MigrationState *s)
 {
+
+
+/*
+	char myfifo[200];
+	sprintf(myfifo, "/tmp/myfifo");
+	mkfifo(myfifo, 0666);
+	int mfo = open(myfifo, O_WRONLY);
+	char mbuf = 'r';
+	int ret = write(mfo, &mbuf, 1);
+	if(ret < 0) printf("write error\n");
+	close(mfo);*/
+
+
+	//cocotion fucking› start
+	/*
+	FILE *pFile;
+	char pbuf[200];
+	sprintf(pbuf, "/tmp/sig.txt");
+	pFile = fopen(pbuf, "w");
+	if(pFile != NULL){
+	fputs("r", pFile);
+	}
+	fclose(pFile);
+	*/
+	//cocotion fucking end
+
+	if (write(s->myfd, "r", 1) != 1) {
+		printf("failure on write\n");
+		exit(0);
+	}
+	lseek(s->myfd,0,SEEK_SET);
+
+
+
     struct kvmft_update_latency update;
 
 	update.cur_index = s->cur_off;

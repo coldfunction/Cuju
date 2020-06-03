@@ -22,7 +22,10 @@
 
 
 //#define KNUM 3000
-#define KNUM 300 //current ok
+//#define KNUM 300 //current ok
+#define KNUM 200 //current ok
+#define KNUM2 200 //current ok
+#define KNUM3 50 //current ok
 //#define KNUM 1600 //current best
 //#define KNUM 3200 //current best
 //#define KNUM 6400
@@ -59,6 +62,9 @@ static int bd_predic_stop3(void *arg);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
 DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
+static int calc_miss3(unsigned long data);
+//DECLARE_TASKLET(tasklet, calc_miss3, 0);
+//static struct tasklet_struct *t3;
 
 struct kvm_vcpu *global_vcpu;
 
@@ -95,6 +101,8 @@ struct ft_multi_trans_h {
 	int load_mem_rate_ok;
 	int w4;
 	int L3cache_speed;
+	int L3cache_speed_rec[KNUM2];
+	int L3cache_speed_c;
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -610,7 +618,9 @@ int other_trans_t(struct kvm *kvm)
 
 int get_l3s_start(struct kvm *kvm)
 {
-	native_write_msr(0x187,0x43412E,0); //L3 cache miss
+	//if(kvm->mflag == 0)
+		native_write_msr(0x187,0x43412E,0); //L3 cache miss
+	//kvm->mflag = 1;
 	kvm->cache_start = native_read_msr(0xc2);
 	kvm->cache_time_start = time_in_us();
 
@@ -624,6 +634,7 @@ int get_l3s_start(struct kvm *kvm)
 //	}
 
 }
+
 int get_l3s_end(struct kvm *kvm)
 {
 	uint64_t cache_miss3 = native_read_msr(0xc2); //L3 caches
@@ -633,11 +644,42 @@ int get_l3s_end(struct kvm *kvm)
 
 
 	if(difftime) {
+//		return (cache_miss3-kvm->cache_start)*1000/difftime;
+//		int k = (cache_miss3-kvm->cache_start)/difftime;
+//		if(k < 0) {
+//			printk("miss_end = %ld, miss_start = %ld,D %ld time = %d\n", cache_miss3, kvm->cache_start, cache_miss3-kvm->cache_start, difftime);
+//		}
 		return (cache_miss3-kvm->cache_start)*1000/difftime;
 	} else {
 		return 0;
 	}
+}
 
+static int calc_miss3(unsigned long data)
+{
+	struct kvm *kvm = (struct kvm*)data;
+
+	while(!kthread_should_stop()) {
+		wait_event_interruptible(kvm->calc_event, kvm->ft_kick2
+				|| kthread_should_stop());
+		if(kthread_should_stop())
+			break;
+
+
+	//printk("kvmid = %d\n", kvm->ft_id);
+
+		if(kvm->l3s_start)
+			get_l3s_start(kvm);
+
+		//usleep_range(300, 1000);
+
+		else
+			kvm->L3cache_speed = get_l3s_end(kvm);
+
+		kvm->ft_kick2 = 0;
+
+	}
+	return 0;
 }
 
 int get_l3s(struct kvm *kvm)
@@ -667,13 +709,14 @@ int get_predict_L3cacheSpeed(struct kvm *kvm, int current_dirty_byte, int curren
 	int i;
 	int sel = 8;
 	int total = 0;
-	if(kvm->latency_total > KNUM) {
-		for(i = 0; i < KNUM; i++) {
+	if(kvm->latency_total > KNUM2) {
+		for(i = 0; i < KNUM2; i++) {
 			if(kvm->kpoint2[i].current_L3cache_speed) {
 				kvm->kdis[i].index = i;
 				long long xx = kvm->kpoint2[i].current_dirty_byte;
 				long long yy = kvm->kpoint2[i].current_L3cache_speed;
-				kvm->kdis[i].value = (x-xx)*(x-xx)+(y-yy)*(y-yy);
+				//kvm->kdis[i].value = (x-xx)*(x-xx)+(y-yy)*(y-yy);
+				kvm->kdis[i].value = (y-yy)*(y-yy);
 				total++;
 			}
 		}
@@ -681,8 +724,29 @@ int get_predict_L3cacheSpeed(struct kvm *kvm, int current_dirty_byte, int curren
 
 	}
 	i = kvm->kdis[0].index;
-	//return kvm->kpoint2[i].actual_L3cache_speed;
-	return (kvm->kpoint2[i].actual_L3cache_speed+y)/2;
+/*
+	long long mk;
+	long long sum = 0;
+	int knum = KNUM2;
+	int N = (1+knum/2)*knum/2/2;
+	for(i = 0; i < knum/2; i++) {
+		int index = kvm->kdis[i].index;
+		mk = kvm->kpoint2[index].actual_L3cache_speed;
+		sum+=(knum/2-i)*mk;
+	}
+	mk = sum/N;
+*/
+	long long mk;
+	long long sum = 0;
+	for(i = 0; i < 50; i++) {
+		int index = kvm->kdis[i].index;
+		mk = kvm->kpoint2[index].actual_L3cache_speed;
+		sum+=mk;
+	}
+	mk = sum/50;
+
+	//	return kvm->kpoint2[i].actual_L3cache_speed;
+	return mk;
 }
 
 static inline long long CMAT4_4(long long A0, long long A1, long long A2, long long A3, \
@@ -745,9 +809,10 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 	long long Da2;
 	long long Da3;
 	long long mk;
+	long long mkk=0;
 	long long c = 0;
 
-
+/*
 	for(sel1=1; sel1 < KNUM && D == 0; sel1++) {
 		for(sel2=sel1+1; sel2 < KNUM && D == 0; sel2++) {
 			for(sel3=sel2+1; sel3 < KNUM && D == 0; sel3++) {
@@ -763,9 +828,6 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 				z4 = kvm->kpoint[index].transtime_err;
 				x4 = kvm->kpoint[index].estimated_transtime;
 				y4 = kvm->kpoint[index].L3cache_speed;
-				//Q = x2*y3*x4*y4+x1*y2*x3*y3+y1*x2*y2*x4+x1*y1*x3*y4;
-				//P = x1*y1*y2*x3+x2*y2*y3*x4+x1*x3*y3*y4+y1*x2*x4*y4;
-				//D = Q-P;
 				D =(x2*y3*x4*y4+y2*x3*y3*x4+x2*y2*x3*y4)-(x2*y2*y3*x4+x2*x3*y3*y4+y2*x3*x4*y4)-(x1*y3*x4*y4+y1*x3*y3*x4+x1*y1*x3*y4)+(x1*y1*y3*x4+x1*x3*y3*y4+y1*x3*x4*y4)+(x1*y2*x4*y4+y1*x2*y2*x4+x1*y1*x2*y4)-(x1*y1*y2*x4+x1*x2*y2*y4+y1*x2*x4*y4)-(x1*y2*x3*y3+y1*x2*y2*x3+x1*y1*x2*y3)+(x1*y1*y2*x3+x1*x2*y2*y3+y1*x2*x3*y3);
 
 				if(D) {
@@ -777,84 +839,67 @@ int get_predict_transErr(struct kvm *kvm, int estimated_transtime, int L3cache_s
 					Da1 = CMAT4_4(1,1,1,1,z1,z2,z3,z4,y1,y2,y3,y4,zz1,zz2,zz3,zz4);
 					Da2 = CMAT4_4(1,1,1,1,x1,x2,x3,x4,z1,z2,z3,z4,zz1,zz2,zz3,zz4);
 					Da3 = CMAT4_4(1,1,1,1,x1,x2,x3,x4,y1,y2,y3,y4,z1,z2,z3,z4);
-					mk = Da0+Da1*x+Da2*y+Da3*x*y;
-					mk/=D;
-					//if(mk < -50 || mk > 50) {
-	//					c++;
-	//					sum+=mk;
-					//	D=0;
-					//}
-//					if(c > 20) {
-						//printk("sel1=%d, sel2=%d, sel3=%d\n", sel1, sel2, sel3);
-//						D = 1;
-//					}
+					mkk = Da0+Da1*x+Da2*y+Da3*x*y;
+					mkk/=D;
 				}
 			}
 		}
 	}
-//	printk("@@@@@@@@@@@@@@@@@@@ C=%lld\n", c);
-//	if(c) {
-//		D = 1;
-//		mk = sum/c;
-//		sum = 0;
+*/
+
+
+/*
+	long long max_dis = 0;
+	for(i = 0; i < 50; i++) {
+
+		if(kvm->kdis[i].value > max_dis) {
+			max_dis = kvm->kdis[i].value;
+		}
+	}
+
+
+	long long a[202];
+	for(i = 0; i < 202; i++) {
+		a[i] = 0;
+	}
+
+	for(i = 0; i < 50; i++) {
+			int index = kvm->kdis[i].index;
+			mk = kvm->kpoint[index].transtime_err;
+			if(mk < -100) mk = -100;
+			if(mk > 100) mk = 100;
+			//a[mk+100]++;
+			a[mk+100] += (max_dis+1)/(kvm->kdis[i].value+1);
+	}
+
+	long long max = 0;
+	for(i = 0; i < 202; i++) {
+	//	printk("a[%d] = %d\n", i, a[i]);
+		if(a[i] > max) {
+			max = a[i];
+			mk = i;
+		}
+	}
+	mk = mk - 100;
+*/
+
+	int N = (1+KNUM3)*KNUM3/2;
+//	D = 0;
+//	if(D == 0 ) {
+		for(i = 0; i < KNUM3; i++) {
+			int index = kvm->kdis[i].index;
+			mk = kvm->kpoint[index].transtime_err;
+			//sum+=mk;
+//			sum+=(mk*(max_dis-kvm->kdis[i].value))/max_dis;
+			sum+=(KNUM3-i)*mk;
+		}
+//		mk = sum/50;
+		mk = sum/N;
 //	}
 
 
-	if(D==0) printk("no sol!!!!!!!!!!!!!!!!\n");
-
-	/*
-	long long Qa0 = z1*x2*y3*x4*y4+x1*y2*x3*y3*z4+y1*x2*y2*z3*x4+x1*y1*z2*x3*y4;
-	long long Pa0 = x1*y1*y2*x3*z4+z1*x2*y2*y3*x4+x1*z2*x3*y3*y4+y1*x2*z3*x4*y4;
-	long long Da0 = Qa0-Pa0;
-	long long Qa1 = z2*y3*x4*y4+z1*y2*x3*y3+y1*x2*y2*z4+x1*y1*z3*y4;
-	long long Pa1 = x1*y1*y2*z3+x2*y2*y3*z4+z1*x3*y3*y4+y1*z2*x4*y4;
-	long long Da1 = Qa1-Pa1;
-	long long Qa2 = x2*z3*x4*y4+x1*z2*x3*y3+z1*x2*y2*x4+x1*y1*x3*z4;
-	long long Pa2 = x1*y1*z2*x3+x2*y2*z3*x4+x1*x3*y3*z4+z1*x2*x4*y4;
-	long long Da2 = Qa2-Pa2;
-	long long Qa3 = x2*y3*z4+x1*y2*z3+y1*z2*x4+z1*x3*y4;
-	long long Pa3 = z1*y2*x3+z2*y3*x4+x1*z3*y4+y1*x2*z4;
-	long long Da3 = Qa3-Pa3;
-*/
-
-	//D0 =(x2*y3*x4*y4+y2*x3*y3*x4+x2*y2*x3*y4)-(x2*y2*y3*x4+x2*x3*y3*y4+y2*x3*x4*y4)-(x1*y3*x4*y4+y1*x3*y3*x4+x1*y1*x3*y4)+(x1*y1*y3*x4+x1*x3*y3*y4+y1*x3*x4*y4)+(x1*y2*x4*y4+y1*x2*y2*x4+x1*y1*x2*y4)-(x1*y1*y2*x4+x1*x2*y2*y4+y1*x2*x4*y4)-(x1*y2*x3*y3+y1*x2*y2*x3+x1*y1*x2*y3)+(x1*y1*y2*x3+x1*x2*y2*y3+y1*x2*x3*y3);
-
-//	long long a0 = Da0/D;
-//	long long a1 = Da1/D;
-//	long long a2 = Da2/D;
-//	long long a3 = Da3/D;
-
-//	printk("Q = %lld, P = %lld\n", Q, P);
-	if(D == 0) {
-//		printk("no sol!!!\n");
-		printk("(%d %d %d) (%d %d %d) (%d %d %d) (%d %d %d)\n",x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4);
-	}
-//	printk("Pa0 = %lld, Pa1 = %lld, Pa2 = %lld, Pa3 = %lld\n", Pa0, Pa1, Pa2, Pa3);
-//	printk("Da0 = %ld, Da1 = %ld, Da2 = %ld, Da3 = %ld, D = %ld\n", Da0, Da1, Da2, Da3, D);
 
 
-
-	if(D == 0 ) {
-
-		for(i = 0; i < 50; i++) {
-			int index = kvm->kdis[i].index;
-			mk = kvm->kpoint[index].transtime_err;
-			sum+=mk;
-		}
-		mk = sum/50;
-
-	} else {
-		//long long a0 = Da0/D;
-		//long long a1 = Da1/D;
-		//long long a2 = Da2/D;
-		//long long a3 = Da3/D;
-//		mk = Da0+Da1*x+Da2*y+Da3*x*y;
-//		mk/=D;
-
-		//mk = a0+a1*x+a2*y+a3*x*y;
-
-//		mk = (mk + z1 + z2 + z3 + z4)/5;
-	}
 
 	int qk = 0;
 	if(100-mk)
@@ -1045,6 +1090,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	int L3cache = get_l3s(kvm);
 	//int L3cache = 10;
 	int L3cache = ft_m_trans.L3cache_speed;
+//	int L3cache = kvm->L3cache_speed_max;
+//	int L3cache = kvm->L3cache_speed;
+	int oldcache = L3cache;
 	//int L3cache = (kvm->L3cache_speed+ft_m_trans.L3cache_speed)/2;
 //	int L3cache = (L3cache+kvm->actual_miss_speed)/2;
 
@@ -1054,8 +1102,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta2 = beta;
 
 	int time_start = time_in_us();
-//	L3cache = get_predict_L3cacheSpeed(kvm, current_dirty_byte, L3cache);
+	//L3cache = get_predict_L3cacheSpeed(kvm, current_dirty_byte, L3cache);
 	int predict_transErr = get_predict_transErr(kvm, beta2/1000, L3cache);
+
 
 /*	if(100-predict_transErr)
 		predict_transErr = 100*beta2/1000/(100-predict_transErr);
@@ -1159,6 +1208,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 			kvm->e_load_mem_rate = kvm->load_mem_rate;
 			kvm->e_current_send_rate = current_send_rate;
 			kvm->e_epoch_runtime[ctx->cur_index] = epoch_run_time;
+			kvm->oldcache[ctx->cur_index] = oldcache;
 
 
 			kvm->old_dirty_count = 0;
@@ -1894,6 +1944,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->dirty_density = 0;
 
 	kvm->last_F = 0;
+	kvm->mflag = 0;
+	kvm->l3s_start = 0;
 
 	kvm->pages_less = 800;
 	kvm->pages_ok = 800;
@@ -1930,6 +1982,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->last_f = 0;
 	kvm->learningR = 600;
 
+	kvm->iscompress = 0;
+
 	kvm->dirty_bytes_diff = 123404;
 	kvm->dirty_bytes_diff_l = 53168;
 	kvm->dirty_bytes_diff_e = 613492;
@@ -1951,6 +2005,15 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	ft_m_trans.kvm[kvm->ft_id] = kvm;
 
+	kvm->L3cache_speed_rec = kmalloc(sizeof(int)*KNUM2, GFP_KERNEL|__GFP_ZERO);
+	kvm->L3cache_speed_c = 0;
+
+	int i;
+	for(i = 0; i < KNUM2; i++)
+		ft_m_trans.L3cache_speed_rec[i] = 0;
+	ft_m_trans.L3cache_speed_c = 0;
+
+	kvm->L3cache_speed_max = 0;
 
 	kvm->latency_bias = 0;
 	kvm->last_disspatch_time_smaller_count = 0;
@@ -1974,9 +2037,9 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->kindex = 0;
 	kvm->kpoint = kmalloc(sizeof(struct k_point)*KNUM, GFP_KERNEL|__GFP_ZERO);
 	kvm->kpoint2 = kmalloc(sizeof(struct k_point2)*KNUM, GFP_KERNEL|__GFP_ZERO);
+	kvm->kindex2 = 0;
 
 
-	int i;
 	for(i = 0; i < 23; i++) {
 		kvm->cache_rec[i] = 0;
 		kvm->cache_rec_hit[i] = 0;
@@ -2018,6 +2081,22 @@ int kvm_shm_enable(struct kvm *kvm)
 	kthread_bind(kvm->ft_cmp_tsk, 7);
 //	else
 //	kthread_bind(kvm->ft_cmp_tsk, 3);
+//	kvm->t3 = kzalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+//	tasklet_init(kvm->t3, calc_miss3, (unsigned long)kvm);
+
+	//if(kvm->ft_id == 0) {
+	kvm->ft_lc_tsk = kthread_create(calc_miss3, (unsigned long)kvm, "lc thread");
+	if(IS_ERR(kvm->ft_lc_tsk)) {
+		kvm->ft_lc_tsk = NULL;
+		return 0;
+	}
+	kthread_bind(kvm->ft_lc_tsk, 4);
+
+	if(kvm->ft_lc_tsk) {
+		wake_up_process(kvm->ft_lc_tsk);
+	}
+	//}
+
 
     return 0;
 }
@@ -3900,7 +3979,13 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	get_l3s_end(kvm);
 //	kvm->total_miss+=(kvm->cache_end - kvm->cache_start);
 
-	get_l3s_start(kvm);
+	//tasklet_schedule(kvm->t3);
+//	get_l3s_start(kvm);
+//	if(kvm->ft_id == 0) {
+	kvm->l3s_start = 1;
+	kvm->ft_kick2 = 1;
+//	}
+	kvm->iscompress = 1;
     for (i = start; i < end; ++i) {
         unsigned long gfn = gfns[i];
 
@@ -3948,8 +4033,53 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
     }
 	send_t += time_in_us()-istart;
 
-	kvm->L3cache_speed = get_l3s_end(kvm);
-	ft_m_trans.L3cache_speed = kvm->L3cache_speed;
+	//kvm->L3cache_speed = get_l3s_end(kvm);
+//		if(kvm->ft_id == 0) {
+	kvm->l3s_start = 0;
+	kvm->ft_kick2 = 1;
+//	}
+	int vm_counts = atomic_read(&ft_m_trans.ft_vm_count);
+	int vcount = 0;
+	for(i = 0; i < vm_counts; i++)	{
+			struct kvm *otherkvm = ft_m_trans.kvm[i];
+			if(otherkvm->iscompress)
+				vcount++;
+	}
+	kvm->iscompress = 0;
+
+//	if(vcount == vm_counts) {
+//		if(kvm->ft_id == 0) {
+		ft_m_trans.L3cache_speed_rec[ft_m_trans.L3cache_speed_c]=kvm->L3cache_speed;
+	//	if(kvm->ft_id == 0)
+	//	printk("%d\n", kvm->L3cache_speed);
+		ft_m_trans.L3cache_speed_c = (ft_m_trans.L3cache_speed_c+1)%KNUM2; //200 is better
+//	}
+//		}
+//	kvm->L3cache_speed_rec[kvm->L3cache_speed_c]=kvm->L3cache_speed;
+//	kvm->L3cache_speed_c = (kvm->L3cache_speed_c+1)%KNUM2; //200 is better
+
+
+	int max = 0;
+	for(i = 0; i < KNUM2; i++) {
+		if(ft_m_trans.L3cache_speed_rec[i] > max) {
+			max = ft_m_trans.L3cache_speed_rec[i];
+		}
+	}
+
+/*	int max = 0;
+	for(i = 0; i < KNUM2; i++) {
+		if(kvm->L3cache_speed_rec[i] > max) {
+			max = kvm->L3cache_speed_rec[i];
+		}
+	}
+*/
+
+
+
+//	ft_m_trans.L3cache_speed = kvm->L3cache_speed;
+	ft_m_trans.L3cache_speed = max;
+//	kvm->L3cache_speed_max = max;
+
 
 	kvm->total_miss_time_rec = kvm->part_miss_time_rec;
 
@@ -4789,7 +4919,18 @@ void kvm_shm_exit(struct kvm *kvm)
 
 	kfree(kvm->kdis);
 	kfree(kvm->kpoint);
-    /*
+
+
+	//tasklet_kill(kvm->t3);
+	kfree(kvm->t3);
+
+	if(kvm->ft_lc_tsk) {
+		kthread_stop(kvm->ft_lc_tsk);
+		kvm->ft_lc_tsk = NULL;
+	}
+
+
+	/*
        for (j = 0; j < 2; ++j) {
        if (shmem->dirty_bitmap_pages[j]) {
        __free_pages(shmem->dirty_bitmap_pages[j],
@@ -5774,15 +5915,28 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	}
 */
+		int i = 0;
+		for(i = 0; i < KNUM2; i++) {
+			if(/*e_trans_us == kvm->kpoint2[i].current_dirty_byte &&*/ \
+			kvm->kpoint2[i].current_L3cache_speed == kvm->oldcache[cur_index] /*ft_m_trans.L3cache_speed*/ ) {
+				//kvm->kpoint[i].estimated_transtime = e_trans_us;
+				//kvm->kpoint[i].L3cache_speed = L3cache;
+				kvm->kpoint2[i].actual_L3cache_speed = real_L3cache;
+				i = -1;
+				break;
+			}
+		}
+		if(i!=-1) {
+			kvm->kpoint2[kvm->kindex2].current_dirty_byte = kvm->w2[cur_index];
+			kvm->kpoint2[kvm->kindex2].current_L3cache_speed = kvm->oldcache[cur_index];
+			kvm->kpoint2[kvm->kindex2].actual_L3cache_speed = real_L3cache;
+			kvm->kindex2 = (kvm->kindex2+1)%KNUM2;
+		}
 
-		kvm->kpoint2[kvm->kindex].current_dirty_byte = kvm->w2[cur_index];
-		kvm->kpoint2[kvm->kindex].current_L3cache_speed = L3cache;
-		kvm->kpoint2[kvm->kindex].actual_L3cache_speed = real_L3cache;
-
-		int i;
+		i = 0;
 		for(i = 0; i < KNUM; i++) {
 			if(e_trans_us == kvm->kpoint[i].estimated_transtime && \
-			 kvm->kpoint[i].L3cache_speed == L3cache ) {
+			 kvm->kpoint[i].L3cache_speed == L3cache /*ft_m_trans.L3cache_speed*/ ) {
 				//kvm->kpoint[i].estimated_transtime = e_trans_us;
 				//kvm->kpoint[i].L3cache_speed = L3cache;
 				kvm->kpoint[i].transtime_err = trans_diff*100/(int)update->trans_us;
@@ -5793,7 +5947,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 		if(i!=-1) {
 		kvm->kpoint[kvm->kindex].estimated_transtime = e_trans_us;
-		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache;
+		kvm->kpoint[kvm->kindex].L3cache_speed = L3cache /*ft_m_trans.L3cache_speed*/;
+		//kvm->kpoint[kvm->kindex].L3cache_speed = ft_m_trans.L3cache_speed;
+
 		//kvm->kpoint[kvm->kindex].L3cache_speed = real_L3cache;
 	//	kvm->kpoint[kvm->kindex].transtime_err = ori;
 		kvm->kpoint[kvm->kindex].transtime_err = trans_diff*100/(int)update->trans_us;

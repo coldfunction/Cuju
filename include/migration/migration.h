@@ -273,7 +273,7 @@ struct MigrationState
 
     double before_lock_iothread_time;
     double after_kick_vcpu_time;
-
+    int myfd;
 };
 
 struct dirty_page_tracking_log {

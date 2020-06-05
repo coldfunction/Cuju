@@ -1898,13 +1898,14 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w4 = 5500; //ok
 	*/
 
-	kvm->w0 = 3662;
+	//so far so good
+/*	kvm->w0 = 3662;
 	kvm->w1 = 1696;
 	kvm->w2[0] = 1000;
 	kvm->w2[1] = 1000;
 	kvm->w3 = 1146600;
 	kvm->w4 = 381176; //ok
-
+*/
 	kvm->p_latency_c = 0;
 	/*
 	kvm->w0 = 4829;
@@ -1914,6 +1915,13 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w3 = 1167600;
 	kvm->w4 = 7529194; //ok
 */
+
+	kvm->w0 = 1000;
+	kvm->w1 = 1000;
+	kvm->w2[0] = 1000;
+	kvm->w2[1] = 1000;
+	kvm->w3 = 3193600;
+	kvm->w4 = 381176; //ok
 
 
 	ft_m_trans.w4 = 3800;
@@ -5346,7 +5354,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 
 
-	if(kvm->latency_total > 10000 && kvm->latency_hit >= 0) {
+	if(kvm->latency_total > 50000 && kvm->latency_hit >= 0) {
 			kvm->latency_hit = -1;
 	}
 /*
@@ -6411,8 +6419,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	int fixlatency = latency_us - trans_diff;
 
 //	if(e_trans_us < update->trans_us ) {
-	if(e_trans_us < update->trans_us  && kvm->latency_hit >= 0) {
-//	if(e_trans_us < update->trans_us-500 && kvm->latency_hit == 0) {
+//	if(e_trans_us < update->trans_us  && kvm->latency_hit >= 0) {
+	if(e_trans_us < update->trans_us-500 && kvm->latency_hit == 0) {
         if(update->dirty_page != 0) {
 
 			//if(real_f == 0) {
@@ -6444,8 +6452,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 //    } else if (latency_us < target_latency_us - 1000) {
 //    } else if (e_trans_us > update->trans_us + trans_bias) {
-    } else if (e_trans_us > update->trans_us && kvm->latency_hit >= 0) {
-//    } else if (e_trans_us > update->trans_us + 500 && kvm->latency_hit == 0) {
+//    } else if (e_trans_us > update->trans_us && kvm->latency_hit >= 0) {
+    } else if (e_trans_us > update->trans_us + 500 && kvm->latency_hit == 0) {
         if(update->dirty_page != 0) {
 			//if(real_f == 0) {
 		    int w0 = kvm->w0 + (kvm->learningR*kvm->x00[cur_index]*(-1))/1000;

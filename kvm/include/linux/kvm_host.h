@@ -720,6 +720,7 @@ struct kvm {
 	struct tasklet_struct *t3;
 	int mflag;
 	int l3s_start;
+	int p_latency_c;
 };
 
 #define kvm_err(fmt, ...) \

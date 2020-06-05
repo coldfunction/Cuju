@@ -1153,8 +1153,13 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta/= 1000;
 	beta += epoch_run_time;
 
-	if(kvm->latency_total > 10000 && /*!(7<=predict_transErr && 9 >=predict_transErr)*/ predict_transErr >= 10)
+	if(kvm->latency_total > 10000 && /*!(7<=predict_transErr && 9 >=predict_transErr)*/ predict_transErr >= 10 )
+//	if(kvm->latency_hit  && /*!(7<=predict_transErr && 9 >=predict_transErr)*/ predict_transErr >= 10 )
 		beta+=fix; //cocotion
+
+//	else if(kvm->latency_total > 10000 && /*!(7<=predict_transErr && 9 >=predict_transErr)*/ predict_transErr <=6 )
+//		beta+=(fix+500); //cocotion
+
 	//beta+=adj;
 
 	kvm->last_runtime = time_in_us();
@@ -1900,6 +1905,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w3 = 1146600;
 	kvm->w4 = 381176; //ok
 
+	kvm->p_latency_c = 0;
 	/*
 	kvm->w0 = 4829;
 	kvm->w1 = 2115;
@@ -1999,8 +2005,8 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	kvm->latency_total = 0;
 	kvm->latency_total2 = 0;
-	kvm->latency_hit = -1;
-//	kvm->latency_hit = 0;
+//	kvm->latency_hit = -1;
+	kvm->latency_hit = 0;
 
 	kvm->sum_actual_miss_speed = 0;
 
@@ -5323,10 +5329,26 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->trans_start = 0;
 	kvm->trans_stop_time = time_in_us();
 	kvm->latency_total++;
+	//kvm->p_latency_c++;
 
-//	if(kvm->latency_total > 10000 && kvm->latency_hit >= 0) {
-//			kvm->latency_hit = -1;
-//	}
+//	printk("p_latency_c = %d, latency_hit = %d\n", kvm->p_latency_c, kvm->latency_hit);
+	if(kvm->latency_total > 10000) {
+		/*if(kvm->latency_total % 2000 == 1999 && kvm->p_latency_c == -1) {
+			kvm->latency_hit ^= 1;
+			kvm->p_latency_c = 200;
+//			printk("@: @@@@@@@@@@@@@@@@@@@@@@@@@@@@ %d\n", kvm->latency_hit);
+		} else if (kvm->p_latency_c == 0) {
+			kvm->latency_hit ^= 1;
+			kvm->p_latency_c = -1;
+		}
+		if(kvm->p_latency_c > 0)
+			kvm->p_latency_c--; */
+	}
+
+
+	if(kvm->latency_total > 10000 && kvm->latency_hit >= 0) {
+			kvm->latency_hit = -1;
+	}
 /*
 	if(kvm->latency_total > 10000 && kvm->latency_hit >= 0) {
 		long long ptg = kvm->latency_hit*100/kvm->latency_total;
@@ -6285,7 +6307,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 
 */
-	if(kvm->latency_hit >= 0)
+	if(kvm->latency_hit == 0)
 	if(kvm->x00[cur_index] == 0 || kvm->x01[cur_index] == 0 || (kvm->w0 == 1000 && kvm->w1 == 1000) ) {
 		int w3 = kvm->w3 + (update->trans_us - update->e_trans) * 1000;
 		if (w3 < 0)
@@ -6360,17 +6382,17 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->w4 = w4;
 	}
 */
-/*
-	if(kvm->latency_hit >= 0)
+
+	if(kvm->latency_hit == 0)
 	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
 		update->learningR = kvm->learningR;
 
 		kvm->current_ok_IF = kvm->x02[cur_index];
 		kvm->is_updateW = 1;
-		kvm->latency_hit++;
+		//kvm->latency_hit++;
 		return;
 	}
-*/
+
 /*
 	if(kvm->last_w0 != -1 && kvm->last_w1 != -1) {
 		kvm->w0 = kvm->last_w0;
@@ -6389,8 +6411,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	int fixlatency = latency_us - trans_diff;
 
 //	if(e_trans_us < update->trans_us ) {
-//	if(e_trans_us < update->trans_us  && kvm->latency_hit >= 0) {
-	if(e_trans_us < update->trans_us-500 && kvm->latency_hit >= 0) {
+	if(e_trans_us < update->trans_us  && kvm->latency_hit >= 0) {
+//	if(e_trans_us < update->trans_us-500 && kvm->latency_hit == 0) {
         if(update->dirty_page != 0) {
 
 			//if(real_f == 0) {
@@ -6422,14 +6444,16 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 //    } else if (latency_us < target_latency_us - 1000) {
 //    } else if (e_trans_us > update->trans_us + trans_bias) {
-    //} else if (e_trans_us > update->trans_us && kvm->latency_hit >= 0) {
-    } else if (e_trans_us > update->trans_us + 500 && kvm->latency_hit >= 0) {
+    } else if (e_trans_us > update->trans_us && kvm->latency_hit >= 0) {
+//    } else if (e_trans_us > update->trans_us + 500 && kvm->latency_hit == 0) {
         if(update->dirty_page != 0) {
 			//if(real_f == 0) {
 		    int w0 = kvm->w0 + (kvm->learningR*kvm->x00[cur_index]*(-1))/1000;
 		    int w1 = kvm->w1 + (kvm->learningR*kvm->x01[cur_index]*(-1))/1000;
 			if(w0 < 1000 ) w0 = 1000;
 			if(w1 < 1000 ) w1 = 1000;
+//			if(w0 < 0 ) w0 = 0;
+//			if(w1 < 0 ) w1 = 0;
 			kvm->w0 = w0;
 			kvm->w1 = w1;
 

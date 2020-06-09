@@ -682,6 +682,7 @@ struct kvm {
 	int e_round;
 	long long latency_total;
 	long long latency_total2;
+	long long latency_total3;
 	long long latency_hit;
 	long long total_1c;
 	long long total_1_5c;
@@ -721,6 +722,7 @@ struct kvm {
 	int mflag;
 	int l3s_start;
 	int p_latency_c;
+	int n_latency_c;
 };
 
 #define kvm_err(fmt, ...) \

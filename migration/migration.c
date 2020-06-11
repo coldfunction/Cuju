@@ -2281,8 +2281,8 @@ static void kvmft_flush_output(MigrationState *s)
 {
     int runtime_us = (int)((s->snapshot_start_time - s->run_real_start_time) * 1000000);
     int latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
-    //int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
-    int trans_us = (int)((s->recv_ack1_time - s->transfer_real_start_time) * 1000000);
+    int trans_us = (int)((s->recv_ack1_time - s->snapshot_start_time) * 1000000);
+    //int trans_us = (int)((s->recv_ack1_time - s->transfer_real_start_time) * 1000000); //orig
 
 	int trans_rate = s->ram_len/trans_us;
 
@@ -2317,7 +2317,6 @@ static void kvmft_flush_output(MigrationState *s)
 	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
 	mybdupdate.last_trans_rate = trans_rate;
 
-
 /*
 
    FILE *pFile;
@@ -2325,6 +2324,9 @@ static void kvmft_flush_output(MigrationState *s)
 
     pFile = fopen("runtime_latency_trans_rate.txt", "a");
     if(pFile != NULL){
+        sprintf(pbuf, "%d\n", (int)(s->snapshot_start_time-s->before_lock_iothread_time)*1000000);
+        fputs(pbuf, pFile);
+
         sprintf(pbuf, "%d\n", runtime_us);
         fputs(pbuf, pFile);
         sprintf(pbuf, "%d\n", latency_us);
@@ -2341,8 +2343,8 @@ static void kvmft_flush_output(MigrationState *s)
     else
         printf("no profile\n");
     fclose(pFile);
-
 */
+
 
 
 	s->flush_start_time = time_in_double();

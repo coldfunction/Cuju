@@ -145,7 +145,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			//sprintf(pbuf, "%d %d %d %d\n", update.w0, update.w1, update.w3, update.w4);
 			//if(update.last_load_mem_rate != -1) {
 			//sprintf(pbuf, "%d\n", update.last_load_mem_rate);
-			sprintf(pbuf, "%d %d %d %d\n", update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
+			sprintf(pbuf, "%d %d %d %d %d\n", update.w5,  update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         	fputs(pbuf, pFile);
 			//}
 

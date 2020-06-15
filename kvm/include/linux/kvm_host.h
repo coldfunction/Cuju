@@ -563,6 +563,7 @@ struct kvm {
     int ft_kick2;
     wait_queue_head_t calc_event;
     wait_queue_head_t calc_event2;
+    wait_queue_head_t calc_event3;
     struct task_struct *ft_cmp_tsk;
     struct task_struct *ft_lc_tsk;
     int w0;

@@ -665,7 +665,7 @@ static int calc_miss3(unsigned long data)
 	while(!kthread_should_stop()) {
 //		wake_up_interruptible(&kvm->calc_event2);
 		//printk("kvmid = %d enter calc_miss3 yet, kick2 = %d\n", kvm->ft_id, kvm->ft_kick2);
-		wait_event_interruptible(kvm->calc_event, kvm->ft_kick2
+		wait_event_interruptible(kvm->calc_event2, kvm->ft_kick2
 				|| kthread_should_stop());
 		if(kthread_should_stop())
 			break;
@@ -682,6 +682,7 @@ static int calc_miss3(unsigned long data)
 		} else  {
 			kvm->L3cache_speed = get_l3s_end(kvm);
 			kvm->updated = 1;
+			wake_up_interruptible(&kvm->calc_event3);
 		}
 		kvm->ft_kick2 = 0;
 		//printk("kvmid = %d ok final updated = %d, l3start = %d, kick2 = %d\n", kvm->ft_id, kvm->updated, kvm->l3s_start, kvm->ft_kick2);
@@ -2153,7 +2154,8 @@ int kvm_shm_enable(struct kvm *kvm)
 		return 0;
 	}
 
-//	init_waitqueue_head(&kvm->calc_event2);
+	init_waitqueue_head(&kvm->calc_event2);
+	init_waitqueue_head(&kvm->calc_event3);
 	//wake_up(&kvm->calc_event2);
 
 //	kthread_bind(kvm->ft_cmp_tsk, kvm->ft_id);
@@ -2165,7 +2167,7 @@ int kvm_shm_enable(struct kvm *kvm)
 //	tasklet_init(kvm->t3, calc_miss3, (unsigned long)kvm);
 
 	//if(kvm->ft_id == 0) {
-/*	kvm->ft_lc_tsk = kthread_create(calc_miss3, (unsigned long)kvm, "lc thread");
+	kvm->ft_lc_tsk = kthread_create(calc_miss3, (unsigned long)kvm, "lc thread");
 	if(IS_ERR(kvm->ft_lc_tsk)) {
 		kvm->ft_lc_tsk = NULL;
 		return 0;
@@ -2174,7 +2176,7 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	if(kvm->ft_lc_tsk) {
 		wake_up_process(kvm->ft_lc_tsk);
-	}*/
+	}
 	//}
 
 
@@ -4060,11 +4062,11 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	kvm->total_miss+=(kvm->cache_end - kvm->cache_start);
 
 	//tasklet_schedule(kvm->t3);
-	get_l3s_start(kvm);
+//	get_l3s_start(kvm);
 //	if(kvm->ft_id == 0) {
 	kvm->l3s_start = 1;
 	kvm->ft_kick2 = 1;
-	//wake_up_interruptible(&kvm->calc_event);
+	wake_up_interruptible(&kvm->calc_event2);
 //	}
 	kvm->iscompress = 1;
     for (i = start; i < end; ++i) {
@@ -4115,7 +4117,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 	send_t += time_in_us()-istart;
 	kvm->send_t = send_t;
 	kvm->send_pages = end;
-	kvm->L3cache_speed = get_l3s_end(kvm);
+	//kvm->L3cache_speed = get_l3s_end(kvm);
 //		if(kvm->ft_id == 0) {
 //	wake_up_interruptible(&kvm->calc_event2);
 //	printk("fcuk0, l3start = %d, ft_kick2 = %d\n", kvm->l3s_start, kvm->ft_kick2);
@@ -4154,12 +4156,12 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	if(vcount == vm_counts) {
 //		if(kvm->ft_id == 0) {
 //	if(kvm->updated == 1) {
-		ft_m_trans.L3cache_speed_rec[ft_m_trans.L3cache_speed_c]=kvm->L3cache_speed;
+//		ft_m_trans.L3cache_speed_rec[ft_m_trans.L3cache_speed_c]=kvm->L3cache_speed;
 //		if(kvm->ft_id == 0)
 //		printk("%d\n", kvm->L3cache_speed);
-		ft_m_trans.L3cache_speed_c = (ft_m_trans.L3cache_speed_c+1)%KNUM2; //200 is better
+//		ft_m_trans.L3cache_speed_c = (ft_m_trans.L3cache_speed_c+1)%KNUM2; //200 is better
 //	}
-	kvm->updated = 0;
+//	kvm->updated = 0;
 //	}
 //		}
 //	kvm->L3cache_speed_rec[kvm->L3cache_speed_c]=kvm->L3cache_speed;
@@ -4167,12 +4169,12 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 //	if(kvm->ft_id == 0)
 //		printk("%d\n", kvm->L3cache_speed); //cocotion test
 	//kvm->updated = 1;
-	int max = 0;
-	for(i = 0; i < KNUM2; i++) {
-		if(ft_m_trans.L3cache_speed_rec[i] > max) {
-			max = ft_m_trans.L3cache_speed_rec[i];
-		}
-	}
+//	int max = 0;
+//	for(i = 0; i < KNUM2; i++) {
+//		if(ft_m_trans.L3cache_speed_rec[i] > max) {
+//			max = ft_m_trans.L3cache_speed_rec[i];
+//		}
+//	}
 
 /*	int max = 0;
 	for(i = 0; i < KNUM2; i++) {
@@ -4185,7 +4187,7 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
 
 //	ft_m_trans.L3cache_speed = kvm->L3cache_speed;
-	ft_m_trans.L3cache_speed = max;
+//	ft_m_trans.L3cache_speed = max;
 //	kvm->L3cache_speed_max = max;
 
 
@@ -5383,6 +5385,33 @@ long long LossF(struct kvm *kvm, int x, int y, int z, int type)
 // latency = runtime + constant + dirty_page_number / rate
 void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *update)
 {
+
+
+	kvm->l3s_start = 0;
+	kvm->ft_kick2 = 1;
+	wake_up_interruptible(&kvm->calc_event2);
+	if(kvm->updated == 0) {
+		wait_event_interruptible(kvm->calc_event3, kvm->updated);
+	}
+
+
+	if(kvm->updated == 1) {
+		ft_m_trans.L3cache_speed_rec[ft_m_trans.L3cache_speed_c]=kvm->L3cache_speed;
+		ft_m_trans.L3cache_speed_c = (ft_m_trans.L3cache_speed_c+1)%KNUM2; //200 is better
+
+		int max = 0;
+		int i;
+		for(i = 0; i < KNUM2; i++) {
+			if(ft_m_trans.L3cache_speed_rec[i] > max) {
+				max = ft_m_trans.L3cache_speed_rec[i];
+			}
+		}
+		ft_m_trans.L3cache_speed = max;
+	}
+
+
+	kvm->updated = 0;
+
 	//int myl3s = get_l3s_end(kvm);
 	int myl3s = kvm->L3cache_speed;
 	//get_l3s_end(kvm);
@@ -5559,6 +5588,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		update->last_load_mem_rate = kvm->L3cache_speed;
 		update->last_send_rate = kvm->send_t;
 		update->current_send_rate = kvm->send_pages;
+//		update->w5 = ft_m_trans.L3cache_speed;
+		update->w5 = myl3s;
 	//else
 	//	update->last_load_mem_rate = -1;
 	//kvm->updated = 0;
@@ -6057,7 +6088,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	}
 */
-		int i = 0;
+		int i;
 		for(i = 0; i < KNUM2; i++) {
 			if(/*e_trans_us == kvm->kpoint2[i].current_dirty_byte &&*/ \
 			kvm->kpoint2[i].current_L3cache_speed == kvm->oldcache[cur_index] /*ft_m_trans.L3cache_speed*/ ) {

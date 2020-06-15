@@ -125,10 +125,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	total++;
 //	if(id >= 10) {
-	if(id == 10) {
+	if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
+//		sprintf(pbuf, "runtime_latency_trans_rate.txt");
     	pFile = fopen(pbuf, "a");
     	if(pFile != NULL){
 
@@ -141,9 +142,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
  			//	abrupt++;
 			//}
 			//sprintf(pbuf, "%f\n", (float)abrupt/total );
-			sprintf(pbuf, "%d %d %d %d\n", update.w0, update.w1, update.w3, update.w4);
+			//sprintf(pbuf, "%d %d %d %d\n", update.w0, update.w1, update.w3, update.w4);
+			//if(update.last_load_mem_rate != -1) {
+			//sprintf(pbuf, "%d\n", update.last_load_mem_rate);
+			sprintf(pbuf, "%d %d %d %d\n", update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         	fputs(pbuf, pFile);
-
+			//}
 
         //fputs(pbuf, pFile);
 /*

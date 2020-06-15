@@ -562,6 +562,7 @@ struct kvm {
     int ft_kick;
     int ft_kick2;
     wait_queue_head_t calc_event;
+    wait_queue_head_t calc_event2;
     struct task_struct *ft_cmp_tsk;
     struct task_struct *ft_lc_tsk;
     int w0;
@@ -730,7 +731,10 @@ struct kvm {
 	int average_w3;
 	int lcc;
 	long long exceed_c;
-	long long less_c
+	long long less_c;
+	int updated;
+	int send_t;
+	int send_pages;
 };
 
 #define kvm_err(fmt, ...) \

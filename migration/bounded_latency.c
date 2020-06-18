@@ -56,12 +56,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	*/
 	//cocotion fucking end
 
-	if (write(s->myfd, "r", 1) != 1) {
+/*	if (write(s->myfd, "r", 1) != 1) {
 		printf("failure on write\n");
 		exit(0);
 	}
 	lseek(s->myfd,0,SEEK_SET);
-
+*/
 
 
     struct kvmft_update_latency update;
@@ -124,8 +124,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //	static unsigned long int abrupt = 0;
 
 	total++;
-	if(id >= 10) {
-//	if(id == 0) {
+//	if(id >= 10) {
+	if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -145,15 +145,22 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			//sprintf(pbuf, "%d %d %d %d\n", update.w0, update.w1, update.w3, update.w4);
 			//if(update.last_load_mem_rate != -1) {
 			//sprintf(pbuf, "%d\n", update.last_load_mem_rate);
-			int k = update.load_mem_rate_rec_index;
-			int i;
-			for(i = 0; i < k; i++)  {
-			sprintf(pbuf, "%d \n", update.load_mem_rate_rec[i]);
+//			int k = update.load_mem_rate_rec_index;
+//			int i;
+//			for(i = 0; i < k; i++)  {
+//			sprintf(pbuf, "%d \n", update.load_mem_rate_rec[i]);
+			if(update.last_load_mem_rate >= 0) {
+//			if(trans_us - update.w5 <= 100) {
+//			if(update.w5-trans_us <= 100 && update.w5-trans_us >= -100) {
+//			sprintf(pbuf, "%d %d\n", update.last_load_mem_rate, update.load_mem_rate);
+//
+			sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 
 			//sprintf(pbuf, "%d %d %d %d %d\n", update.w5,  update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         	fputs(pbuf, pFile);
-			//}
 			}
+			//}
+//			}
 
         //fputs(pbuf, pFile);
 /*

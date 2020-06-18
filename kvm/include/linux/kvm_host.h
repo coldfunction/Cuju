@@ -617,13 +617,19 @@ struct kvm {
     int average_de;
     int average_dl;
 
-    int load_mem_rate_rec[2][200];
+    uint64_t load_mem_rate_rec[2][500];
     int load_mem_rate_rec_index[2];
+    int load_mem_rate_rec_index2[2];
     int current_log_input_index;
     int current_log_output_index;
 
     int last_load_rate;
     s64 last_load_time;
+    s64 timestamp[2][500];
+	s64 trans_start_r[2];
+	int timestamp_index[2];
+	int trans_head;
+	int trans_tail;
 
     int dirty_bytes_rate;
     int dirty_pages_rate;
@@ -690,7 +696,7 @@ struct kvm {
 	long long total_1c;
 	long long total_1_5c;
 	long long total_2c;
-	int L3cache_speed;
+	int L3cache_speed[2];
 	int *L3cache_speed_rec;
 	int L3cache_speed_c;
 	int L3cache_speed_max;
@@ -736,6 +742,9 @@ struct kvm {
 	int updated;
 	int send_t;
 	int send_pages;
+	int trans_index;
+	int flush_index;
+	int miss_difftime;
 };
 
 #define kvm_err(fmt, ...) \

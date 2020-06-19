@@ -631,6 +631,7 @@ struct kvm {
 	int trans_head;
 	int trans_tail;
 	int cache_hist[2];
+	int current_cache_speed;
 
     int dirty_bytes_rate;
     int dirty_pages_rate;

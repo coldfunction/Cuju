@@ -1940,13 +1940,13 @@ int kvm_shm_enable(struct kvm *kvm)
 	*/
 
 	//so far so good
-	kvm->w0 = 3662;
+/*	kvm->w0 = 3662;
 	kvm->w1 = 1696;
 	kvm->w2[0] = 1000;
 	kvm->w2[1] = 1000;
 	kvm->w3 = 1146600;
 	kvm->w4 = 381176; //ok
-
+*/
 	kvm->p_latency_c = 0;
 	kvm->n_latency_c = 0;
 
@@ -1968,14 +1968,14 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w3 = 3193600;
 	kvm->w4 = 381176; //ok
 */
-	/*
+
 	kvm->w0 = 3759;
 	kvm->w1 = 2320;
 	kvm->w2[0] = 1000;
 	kvm->w2[1] = 1000;
 	kvm->w3 = 1240600;
 	kvm->w4 = 381176; //ok
-*/
+
 	ft_m_trans.w4 = 3800;
 
 	kvm->updated = 0;

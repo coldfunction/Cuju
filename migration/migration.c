@@ -2349,6 +2349,11 @@ static void kvmft_flush_output(MigrationState *s)
 
 	s->flush_start_time = time_in_double();
 
+//	assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us, s));
+
+//	s->recv_ack1_time = time_in_double();
+//   	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
+
 
     static unsigned long latency_exceed_count = 0;
     static unsigned long latency_less_count = 0;
@@ -3098,11 +3103,11 @@ static void migrate_timer(void *opaque)
 //	unlink(myfifo);
 
 	//cocotion fucking	start
-	if (write(s->myfd, "t", 1) != 1) {
+/*	if (write(s->myfd, "t", 1) != 1) {
 		printf("failure on write\n");
 		exit(0);
 	}
-	lseek(s->myfd,0,SEEK_SET);
+	lseek(s->myfd,0,SEEK_SET);*/
 	/*
 	FILE *pFile;
    	char pbuf[200];

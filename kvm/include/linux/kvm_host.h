@@ -627,11 +627,21 @@ struct kvm {
     s64 last_load_time;
     s64 timestamp[2][500];
 	s64 trans_start_r[2];
+	s64 last_trans_time_start;
+	s64 trans_start_kernel[2];
+	int trans_stall[2];
+	int last_esti_trans_time;
+	int latency_ok;
+
+	int flush_get_data_ok;
+	int trans_stop;
 	int timestamp_index[2];
 	int trans_head;
 	int trans_tail;
 	int cache_hist[2];
 	int current_cache_speed;
+
+
 
     int dirty_bytes_rate;
     int dirty_pages_rate;
@@ -747,6 +757,8 @@ struct kvm {
 	int trans_index;
 	int flush_index;
 	int miss_difftime;
+
+
 };
 
 #define kvm_err(fmt, ...) \

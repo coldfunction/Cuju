@@ -31,7 +31,8 @@
 //#define KNUM 6400
 //#define KNUM 4900
 //#define ENABLE_PRE_DIFF 1
-#define LEARNRATE 600;
+//#define LEARNRATE 600;
+#define LEARNRATE 200;
 
 
 #if defined(ENABLE_SWAP_PTE) && defined(ENABLE_PRE_DIFF)
@@ -688,7 +689,6 @@ static int calc_miss3(unsigned long data)
 			kvm->trans_index = (kvm->trans_index+1) % 2;
 			kvm->timestamp_index[kvm->trans_index] = 0;
 			kvm->trans_start = 0;
-
 		}
 		spin_unlock(&transfer_lock[kvm->ft_id]);
 		int k = kvm->trans_index;
@@ -1036,6 +1036,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	if(dt > 0) {
 	    kvm->load_mem_rate = kvm->f_count*4096/dt;
     }
+//	printk("real load_mem_rate = %d\n", kvm->load_mem_rate);
 
 	if(kvm->load_mem_rate < 300)
 	kvm->load_mem_rate = 300;
@@ -1146,6 +1147,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 
 	predict_transErr = diff_latency(predict_transErr);
 
+	if(kvm->latency_total <= 50000)
+		fix = 0;
+
 
 /*	if(100-predict_transErr)
 		predict_transErr = 100*beta2/1000/(100-predict_transErr);
@@ -1185,6 +1189,12 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	beta/= 1000;
 	beta += epoch_run_time;
 
+	int stall = kvm->last_esti_trans_time - (time_in_us() - kvm->last_trans_time_start);
+	if(stall > 0 && kvm->trans_stop == 0) {
+		beta+=stall;
+	}
+
+
 //	if(kvm->latency_total > 50000 && !(7<=predict_transErr && 9 >=predict_transErr) /*predict_transErr >= 10*/ )
 	if(kvm->latency_total > 50000 && predict_transErr >= 10)
 
@@ -1195,13 +1205,14 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	else if(kvm->latency_total > 10000 && /*!(7<=predict_transErr && 9 >=predict_transErr)*/ predict_transErr <=6 )
 //		beta+=(fix+500); //cocotion
 
-	beta+=adj;
+	beta+=fix;
 
 	kvm->last_runtime = time_in_us();
 
 	if(epoch_run_time >= target_latency_us-1000 || beta  >= target_latency_us ) { //this one is good
 //	if(epoch_run_time >= target_latency_us-1000 || beta>= target_latency_us-kvm->w2) {
 
+		printk("vmid = %d, beta: %d stall: %d\n", kvm->ft_id, beta, stall);
 //	if(kvm->ft_id == 0) {
 //		printk("real take snapshot in %d\n", epoch_run_time);
 //	}
@@ -1253,13 +1264,14 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
         	kvm->x01[ctx->cur_index] = kvm->x1;
 			kvm->w2[ctx->cur_index] = current_dirty_byte;
 			kvm->e_latency = beta;
-			kvm->e_trans_latency[ctx->cur_index] = beta2;
+			kvm->e_trans_latency[ctx->cur_index] = beta2+fix*1000;
 //			kvm->e_trans_latency_p[ctx->cur_index] = beta3;
 			kvm->load_mem_bytes = load_mem_bytes;
 			kvm->e_load_mem_rate = kvm->load_mem_rate;
 			kvm->e_current_send_rate = current_send_rate;
 			kvm->e_epoch_runtime[ctx->cur_index] = epoch_run_time;
 			kvm->oldcache[ctx->cur_index] = oldcache;
+			kvm->last_esti_trans_time = (beta2+fix*1000)/1000;
 
 
 			kvm->old_dirty_count = 0;
@@ -1294,7 +1306,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //		if(kvm->ft_id == 0) {
 //			printk("diff dirty: %d\n", refactor);
 //		}
-
+		kvm->trans_start_kernel[ctx->cur_index] = time_in_us();
 
 		return NULL;
     }
@@ -1927,6 +1939,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->average_w3 = 0;
 	kvm->exceed_c = 0;
 	kvm->less_c = 0;;
+	kvm->latency_ok = 0;
 
 	kvm->ft_kick = 0;
 	kvm->ft_kick2 = 0;
@@ -1968,14 +1981,22 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->w3 = 3193600;
 	kvm->w4 = 381176; //ok
 */
+//w0: 1000, w1: 1000 w3: 3104900
+	kvm->w0 = 1000;
+	kvm->w1 = 1000;
+	kvm->w3 = 3104900;
+	kvm->w4 = 381176; //ok
 
+
+/*
 	kvm->w0 = 3759;
 	kvm->w1 = 2320;
 	kvm->w2[0] = 1000;
 	kvm->w2[1] = 1000;
 	kvm->w3 = 1240600;
+	//kvm->w3 = 5000;
 	kvm->w4 = 381176; //ok
-
+*/
 	ft_m_trans.w4 = 3800;
 
 	kvm->updated = 0;
@@ -2018,6 +2039,8 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	kvm->last_knnTime = 100;
 
+	kvm->flush_get_data_ok = 1;
+
 	kvm->trans_head = 0;
 	kvm->trans_tail = 0;
 
@@ -2039,7 +2062,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->last_w1 = -1;
 	kvm->last_factor = 1;
 	kvm->trans_start = 0;
-	//kvm->trans_stop = 0;
+	kvm->trans_stop = 0;
 	kvm->p_when_take_snapshot = 1000;
 	kvm->last_runtime = 0;
 	kvm->last_epoch_runtime = 0;
@@ -2076,8 +2099,8 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->latency_total = 0;
 	kvm->latency_total2 = 0;
 	kvm->latency_total3 = 0;
-	kvm->latency_hit = -1;
-//	kvm->latency_hit = 0;
+//	kvm->latency_hit = -1;
+	kvm->latency_hit = 0;
 
 	kvm->sum_actual_miss_speed = 0;
 
@@ -2122,6 +2145,10 @@ int kvm_shm_enable(struct kvm *kvm)
 
 	kvm->L3cache_speed[0] = 0;
 	kvm->L3cache_speed[1] = 0;
+
+	kvm->last_esti_trans_time = 0;
+	kvm->last_trans_time_start = time_in_us();
+
 
 	int i;
 	for(i = 0; i < KNUM2; i++)
@@ -4265,7 +4292,7 @@ free:
 			current_send_rate = 300;
 		ft_m_trans.current_send_rate = (kvm->current_send_rate+current_send_rate)/2;
 		kvm->current_send_rate = current_send_rate;
-		kvm->last_send_rate2 = total/send_t;
+		//kvm->last_send_rate2 = total/send_t;
 	}
 		//kvm->last_send_rate = total/send_t;
 	if(ft_m_trans.current_send_rate < 300) {
@@ -4273,7 +4300,7 @@ free:
 	}
 
 
-	kvm->last_load_mem_rate = current_load_mem_rate;
+//	kvm->last_load_mem_rate = current_load_mem_rate;
 
 //	kvm->real_x0 = send_t;
 //	kvm->real_x1 = cmp_t;
@@ -4825,10 +4852,11 @@ int kvm_start_kernel_transfer(struct kvm *kvm,
     int ram_len, ret;
 
 
+	kvm->trans_stop = 0;
 	//get_l3s_start(kvm);
 
-
-
+	kvm->last_trans_time_start = time_in_us();
+	kvm->trans_stall[ctx->cur_index] = time_in_us() - kvm->trans_start_kernel[ctx->cur_index];
 
 	//kvm->trans_start_time = time_in_us();
 	kvm->trans_start_r[kvm->trans_index] = time_in_us();
@@ -5434,21 +5462,32 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	kvm->ft_kick2 = 1;
 	int myl3s = kvm->L3cache_speed[transindex];
 
-	kvm->total_miss_time_rec = 0;
+	kvm->trans_stop = 1;
 
-	kvm->trans_stop_time = time_in_us();
+	kvm->total_miss_time_rec = 0;
+	struct kvmft_context *ctx;
+    ctx = &kvm->ft_context;
+
+	//kvm->trans_stop_time = time_in_us();
+	s64 trans_stop_time = time_in_us();
+	//int real_trans = trans_stop_time - kvm->timestamp[kvm->flush_index][0];
+	int real_trans = update->trans_us-kvm->trans_stall[ctx->cur_index];
+	printk("vmid = %d, cocotion: orig = %d, stall = %d, real = %d, e_runtime = %d, runtime = %d\n", kvm->ft_id, update->trans_us, kvm->trans_stall[ctx->cur_index], real_trans, update->e_runtime, update->runtime_us);
+	//if(real_trans > update->trans_us)
+	//	real_trans = update->trans_us;
+	//printk("orig trans: %d, real trans: %d\n", update->trans_us, real_trans);
+
+
 	kvm->latency_total++;
 	long long real_f = 0;
 	kvm->real_f = real_f;
 
 
 
-	struct kvmft_context *ctx;
     int put_off;
 
 
 
-    ctx = &kvm->ft_context;
     put_off = ctx->bd_average_put_off;
 
     ctx->bd_average_latencies[put_off] = update->latency_us;
@@ -5524,9 +5563,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	if(kvm->last_load_mem_rate < 3000) kvm->last_load_mem_rate = 3000;
 	if(kvm->last_send_rate2 < 3000) kvm->last_send_rate2 = 3000;
-	int fix_trans_x1 = kvm->load_mem_bytes/kvm->last_load_mem_rate;
-	int fix_trans_x0 = update->dirty_page/kvm->last_send_rate2;
-	update->f_trans = (kvm->w0*fix_trans_x0 + kvm->w1*fix_trans_x1+kvm->w3)/1000;
+	//int fix_trans_x1 = kvm->load_mem_bytes/kvm->last_load_mem_rate;
+	//int fix_trans_x0 = update->dirty_page/kvm->last_send_rate2;
+//	update->f_trans = (kvm->w0*fix_trans_x0 + kvm->w1*fix_trans_x1+kvm->w3)/1000;
 
 
 	static int last_current_dirty_byte = 659637;
@@ -5866,7 +5905,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 */
 
 	//ready for KNN
-	int trans_diff = update->trans_us - e_trans_us;
+//	int trans_diff = update->trans_us - e_trans_us;
+	int trans_diff = real_trans - e_trans_us;
 
 	update->last_load_mem_rate = -1;
 
@@ -6092,14 +6132,17 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //	}
 //	printk("%d\n", update->runtime_us - update->e_runtime);
 	if(update->runtime_us < update->e_runtime) {
-		return ;
+		kvm->flush_index = (kvm->flush_index+1)%2;
+		//return ;
 	}
 	else {
-		update->trans_us += (update->runtime_us - update->e_runtime);
+		//update->trans_us += (update->runtime_us - update->e_runtime);
+		real_trans += (update->runtime_us - update->e_runtime);
 	}
 
 	s64 real_trans_start = kvm->timestamp[kvm->flush_index][0] ;
-	s64 real_trans_end = real_trans_start+update->trans_us;
+	//s64 real_trans_end = real_trans_start+update->trans_us;
+	s64 real_trans_end = trans_stop_time;
 
 	int ii;
 	int timestamp_index = kvm->timestamp_index[kvm->flush_index];
@@ -6136,8 +6179,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	update->last_load_mem_rate = -1;
 
 
-	trans_diff = update->trans_us - e_trans_us;
+//	trans_diff = update->trans_us - e_trans_us;
+	trans_diff = real_trans - e_trans_us;
 
+	printk("e_trans = %d\n", e_trans_us);
 
 		int i;
 		i = 0;
@@ -6180,6 +6225,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		dda = 1;
 	}
 	if(dd < 0) dd*=(-1);
+
+
+	//printk("x0: %d\n", kvm->x00[cur_index]);
+	//printk("x1: %d\n", kvm->x01[cur_index]);
 
 //	if(kvm->latency_total > KNUM && kvm->err_total == -1) {
 //	if(kvm->latency_total > KNUM) {
@@ -6304,7 +6353,15 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	kvm->flush_index = (kvm->flush_index+1)%2;
 
+//	if(kvm->latency_total > 50000) {
+//		kvm->latency_hit = -1;
+//	}
 
+	if(kvm->latency_total%1000 == 0) {
+		kvm->exceed_c=0;
+		kvm->less_c=0;
+		kvm->latency_ok = 0;
+	}
 
 
 	if(kvm->latency_hit == 0)
@@ -6314,27 +6371,41 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->current_ok_IF = kvm->x02[cur_index];
 		kvm->is_updateW = 1;
 		//kvm->latency_hit++;
+		kvm->latency_ok++;
 		return;
 	} else if (latency_us > target_latency_us + 1000) {
 		kvm->exceed_c++;
 	} else if (latency_us < target_latency_us - 1000) {
 		kvm->less_c++;
 	}
-/*
+
 	if(kvm->latency_hit == 1)
 		kvm->n_latency_c++;
 
-	int less_f = kvm->less_c*100/kvm->latency_total;
-	int exceed_f = kvm->exceed_c*100/kvm->latency_total;
+//	int less_f = kvm->less_c*100/kvm->latency_total;
+//	int exceed_f = kvm->exceed_c*100/kvm->latency_total;
+	int less_f = kvm->less_c*100/(kvm->latency_ok+kvm->less_c+kvm->exceed_c);
+	int exceed_f = kvm->exceed_c*100/(kvm->latency_ok+kvm->less_c+kvm->exceed_c);
 
 	int adj = (exceed_f-less_f)*100;
-*/
 
+	if(kvm->latency_hit == 0)
+	if(!(adj <= 100 && adj >= -100) /*&& kvm->latency_total < 50000*/) {
+		int w3 = kvm->w3;
+		w3 += adj;
+		if (w3 < 5000)
+			w3 = 5000;
+		kvm->w3 = w3;
+
+	}
 
 
 //	if(update->dirty_page==0  || (kvm->w0 <= 1000 && kvm->w1 <= 1000) ) {
 	if(kvm->latency_hit == 0)
-	if(update->dirty_page==0) {
+//	if(update->dirty_page==0) {
+//	if(update->dirty_page==0  || (kvm->w0 <= 1000 && kvm->w1 <= 1000) ) {
+//	if(update->dirty_page==0 || kvm->x00[cur_index] == 0 || kvm->x01[cur_index] == 0 /*|| (kvm->w0 <= 1000 && kvm->w1 <= 1000)*/ ) {
+	if(update->dirty_page==0 && real_trans > update->e_trans) {
 		/*if(kvm->lcc > 50)  {
 			kvm->lcc = 0;
 			kvm->average_w3 = 0;
@@ -6343,7 +6414,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		int w3 = kvm->w3;
 	//	if(update->trans_us-update->e_trans > 0 ) {
 		//if(adj <= 100 )
-		w3 = kvm->w3 + (update->trans_us - update->e_trans) * 1000;
+//		w3 = kvm->w3 + (update->trans_us - update->e_trans) * 1000;
+//		if(real_trans > update->e_trans)
+			w3 = kvm->w3 + (real_trans - update->e_trans) * 1000;
 	//	kvm->lcc = 0;
 	//	}
 
@@ -6353,21 +6426,32 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//int w3 = kvm->w3 + (update->trans_us - (kvm->x00[cur_index]*kvm->w0+kvm->x01[cur_index]*kvm->w1+kvm->w3)/1000) * 1000;
 		//int w3 = (latency_us-kvm->e_latency)*1000;
 		//int w3 = kvm->w3 - kvm->latency_bias*1000;
-		if (w3 < 0)
-			w3 = 0;
+		if (w3 < 5000)
+			w3 = 5000;
 		kvm->w3 = w3;
 		//return ;
 	}
 
 //	if(e_trans_us < update->trans_us ) {
-	if(e_trans_us < update->trans_us  && kvm->latency_hit == 0) {
+//	if(e_trans_us < update->trans_us  && kvm->latency_hit == 0) {
+//	if(e_trans_us < real_trans-500  && kvm->latency_hit == 0) {
+//	if(latency_us > target_latency_us + 1000  && kvm->latency_hit == 0) {
+	if(/*(latency_us > target_latency_us + 1000) &&*/ e_trans_us < real_trans  && kvm->latency_hit == 0) {
 //	if(e_trans_us < update->trans_us-500 && kvm->latency_hit == 0) {
 //		kvm->latency_total3++;
         //if(update->dirty_page != 0) {
 			kvm->latency_total3++;
 			//if(real_f == 0) {
-		    kvm->w0 = kvm->w0 + (kvm->learningR*kvm->x00[cur_index]*(1))/1000;
-		    kvm->w1 = kvm->w1 + (kvm->learningR*kvm->x01[cur_index]*(1))/1000;
+			int w0 = kvm->w0;
+			int w1 = kvm->w1;
+		    w0 = kvm->w0 + (kvm->learningR*kvm->x00[cur_index]*(1))/1000;
+		    w1 = kvm->w1 + (kvm->learningR*kvm->x01[cur_index]*(1))/1000;
+
+//			if(w0 > 4000) w0 = 4000;
+//			if(w1 > 4000) w1 = 4000;
+			kvm->w0 = w0;
+			kvm->w1 = w1;
+
 
 			kvm->w4 = kvm->w4 + (kvm->learningR*kvm->x02[cur_index]/1000*(1))/1000;
 
@@ -6396,7 +6480,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 //    } else if (latency_us < target_latency_us - 1000) {
 //    } else if (e_trans_us > update->trans_us + trans_bias) {
-    } else if (e_trans_us > update->trans_us && kvm->latency_hit == 0) {
+//    } else if (e_trans_us > update->trans_us && kvm->latency_hit == 0) {
+//    } else if (e_trans_us > real_trans+500 && kvm->latency_hit == 0) {
+    //} else if (latency_us < target_latency_us - 1000 && kvm->latency_hit == 0) {
+    } else if (/*(latency_us < target_latency_us - 1000) &&*/ e_trans_us > real_trans && kvm->latency_hit == 0) {
 //    } else if (e_trans_us > update->trans_us + 500 && kvm->latency_hit == 0) {
 //			kvm->latency_total4++;
         //if(update->dirty_page != 0) {
@@ -6455,6 +6542,20 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		kvm->w3 = w3;
 	}
 */
+	/*
+	int w3;
+	if(real_trans - (kvm->x00[cur_index]*kvm->w0+kvm->x01[cur_index]*kvm->w1+kvm->w3)/1000 > 0) {
+		kvm->w3+=1000;
+	} else if(real_trans - (kvm->x00[cur_index]*kvm->w0+kvm->x01[cur_index]*kvm->w1+kvm->w3)/1000 < 0) {
+		w3 = kvm->w3 - 1000;
+		if (w3 < 0)
+			w3 = 0;
+		kvm->w3 = w3;
+	}
+*/
+
+//	kvm->flush_get_data_ok = 1;
+
 	update->learningR = kvm->learningR;
 //	kvm->learningR = learningR;
 	kvm->is_updateW = 1;

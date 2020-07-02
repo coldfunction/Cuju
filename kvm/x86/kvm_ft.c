@@ -31,8 +31,8 @@
 //#define KNUM 6400
 //#define KNUM 4900
 //#define ENABLE_PRE_DIFF 1
-//#define LEARNRATE 600
-#define LEARNRATE 100;
+#define LEARNRATE 600
+//#define LEARNRATE 100;
 //#define LEARNRATE 50
 //#define LEARNRATE 200;
 //#define LEARNRATE 800;
@@ -1137,7 +1137,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	//int L3cache = (kvm->L3cache_speed+ft_m_trans.L3cache_speed)/2;
 //	int L3cache = (L3cache+kvm->actual_miss_speed)/2;
 
-       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
+       //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
+       beta = kvm->x0*kvm->w0 + kvm->x1*1000 + kvm->w3;
+//       beta = kvm->x0*kvm->w0 + kvm->w3;
 //       beta = kvm->x0+kvm->x0*kvm->w0+kvm->x1+kvm->x1*kvm->w1 + kvm->w3;
 //       beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + L3cache/1000*kvm->w4 + kvm->w3;
 
@@ -2005,7 +2007,8 @@ int kvm_shm_enable(struct kvm *kvm)
 //w0: 1000, w1: 1000 w3: 3104900
 	kvm->w0 = 1000;
 	kvm->w1 = 1000;
-	kvm->w3 = 3104900;
+	//kvm->w3 = 3104900;
+	kvm->w3 = 1956000;
 	kvm->w4 = 381176; //ok
 
 
@@ -6476,22 +6479,23 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		w3 += adj;
 		if (w3 < 5000)
 			w3 = 5000;
-		kvm->w3 = w3;
+		//kvm->w3 = w3;
 
 	}
 
 	}
 //	if(update->dirty_page==0  || (kvm->w0 <= 1000 && kvm->w1 <= 1000) ) {
 	if(kvm->latency_hit == 0 && fix == 0)
-//	if(update->dirty_page==0) {
+	if(update->dirty_page==0) {
 //	if(update->dirty_page==0  || (kvm->w0 <= 1000 && kvm->w1 <= 1000) ) {
+	//if(update->dirty_page==0  || kvm->w0 <= 1000 ) {
 //	if(update->dirty_page==0 || kvm->x00[cur_index] == 0 || kvm->x01[cur_index] == 0 /*|| (kvm->w0 <= 1000 && kvm->w1 <= 1000)*/ ) {
-	if(update->dirty_page==0 && real_trans > update->e_trans) {
-		/*if(kvm->lcc > 50)  {
+//	if(update->dirty_page==0 /*&& real_trans > update->e_trans*/) {
+		if(kvm->lcc > 1000)  {
 			kvm->lcc = 0;
 			kvm->average_w3 = 0;
 		}
-		kvm->lcc++;*/
+		kvm->lcc++;
 		int w3 = kvm->w3;
 	//	if(update->trans_us-update->e_trans > 0 ) {
 		//if(adj <= 100 )
@@ -6500,15 +6504,16 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			w3 = kvm->w3 + (real_trans - update->e_trans) * 1000;
 	//	kvm->lcc = 0;
 	//	}
+		if (w3 < 5000)
+			w3 = 5000;
 
-//		kvm->average_w3 += w3;
-//		w3 = kvm->average_w3/(kvm->lcc);
+		kvm->average_w3 += w3;
+		w3 = kvm->average_w3/(kvm->lcc);
 		//int w3 = update->trans_us * 1000;
 		//int w3 = kvm->w3 + (update->trans_us - (kvm->x00[cur_index]*kvm->w0+kvm->x01[cur_index]*kvm->w1+kvm->w3)/1000) * 1000;
 		//int w3 = (latency_us-kvm->e_latency)*1000;
 		//int w3 = kvm->w3 - kvm->latency_bias*1000;
-		if (w3 < 5000)
-			w3 = 5000;
+
 		kvm->w3 = w3;
 		//return ;
 	}
@@ -6577,10 +6582,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //			if(w1 < 1000 ) w1 = 1000;
 			//if(w0 < 1000+adj ) w0 = 1000+adj;
 			//if(w1 < 1000+adj ) w1 = 1000+adj;
-		//	if(w0 < 1000 ) w0 = 1000;
-//			if(w1 < 1000 ) w1 = 1000;
-			if(w0 < 0 ) w0 = 0;
-			if(w1 < 0 ) w1 = 0;
+			if(w0 < 1000 ) w0 = 1000;
+			if(w1 < 1000 ) w1 = 1000;
+	//		if(w0 < 0 ) w0 = 0;
+	//		if(w1 < 0 ) w1 = 0;
 			//if(w1 < 500 ) w1 = 500;
 			//if(w3 < 1000 ) w3 = 1000;
 //			if(w0 < 0 ) w0 = 0;

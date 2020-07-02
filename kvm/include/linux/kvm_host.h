@@ -641,6 +641,14 @@ struct kvm {
 	int cache_hist[2];
 	int current_cache_speed;
 
+	int subcount;
+	int subhit;
+	unsigned long long phit;
+	unsigned long long phit_count;
+
+	unsigned long long qmiss;
+	unsigned long long qmiss_count;
+	int lasthit;
 
 
     int dirty_bytes_rate;

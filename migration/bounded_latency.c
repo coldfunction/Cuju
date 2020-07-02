@@ -125,7 +125,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	total++;
 	if(id >= 10) {
-	//if(id == 0) {
+//	if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -153,16 +153,18 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			if(trans_us - update.w5 <= 100) {
 //			if(update.w5-trans_us <= 100 && update.w5-trans_us >= -100) {
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
-			//sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
-		//	sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
+//			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
+//			sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
+			//sprintf(pbuf, "%d %d\n", update.w5, update.load_mem_rate);
+			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
 //
-//			sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
+			//sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 
 			//sprintf(pbuf, "%d %d %d %d %d\n", update.w5,  update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         //	fputs(pbuf, pFile);
 			//}
 
-			sprintf(pbuf, "%d %d\n", update.e_dirty_bytes, update.dirty_page);
+			//sprintf(pbuf, "%d %d\n", update.e_dirty_bytes, update.dirty_page);
 			//sprintf(pbuf, "%d %d %d %d %d\n", update.w5,  update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         //	fputs(pbuf, pFile);
         	fputs(pbuf, pFile);

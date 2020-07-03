@@ -650,9 +650,16 @@ struct kvm {
 	unsigned long long qmiss_count;
 	int lasthit;
 
+	s64 last_trans_end[2];
+	s64 current_trans_start;
+
+	unsigned long long snapshot_abrupt_c;
+	unsigned long long trans_too_long_c;
+	int last_trans;
 
     int dirty_bytes_rate;
     int dirty_pages_rate;
+	int trans_rec_index;
 
     int old_dirty_count;
     int old_pages_count;

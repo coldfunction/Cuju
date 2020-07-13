@@ -1405,14 +1405,14 @@ struct kvmft_update_latency {
     int w1;
     int w3;
     int w4;
-    int w5;
+    long long w5;
     int x0;
     int x1;
     int x2;
     int x3;
 
-    int last_load_mem_rate;
-    int load_mem_rate;
+    long long last_load_mem_rate;
+    long long load_mem_rate;
     int last_send_rate;
     int current_send_rate;
     int load_mem_bytes;

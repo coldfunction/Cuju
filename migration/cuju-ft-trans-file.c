@@ -51,6 +51,26 @@ static CujuQEMUFileFtTrans **cuju_ft_trans;
 static int cuju_ft_trans_count;
 static int cuju_ft_trans_current_index;
 
+#define TIMEVAL_TO_DOUBLE(tv)   ((tv).tv_sec + \
+                                ((double)(tv).tv_usec) / 1000000)
+#define TIMEVAL_TO_US(tv)   ((tv).tv_sec * 1000000 + (tv).tv_usec)
+
+static inline double time_in_double(void)
+{
+   struct timespec ts;
+   double ret;
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   ret = ts.tv_sec + ((double)ts.tv_nsec) / 1e9L;
+   return ret;
+
+   qemu_timeval timeval;
+   qemu_gettimeofday(&timeval);
+   return TIMEVAL_TO_DOUBLE(timeval);
+}
+
+
+
+
 static CujuQEMUFileFtTrans *cuju_ft_trans_get_next(CujuQEMUFileFtTrans *s)
 {
     int index = s->index;
@@ -518,11 +538,11 @@ static void cuju_ft_trans_load(CujuQEMUFileFtTrans *s)
     qemu_gettimeofday(&stime);
 #endif
 
-    if (s->ram_hdr_buf_put_off > 0)
+/*    if (s->ram_hdr_buf_put_off > 0)
         kvm_shmem_load_ram_with_hdr(s->ram_buf, s->ram_buf_put_off, s->ram_hdr_buf, s->ram_hdr_buf_put_off);
     else
         kvm_shmem_load_ram(s->ram_buf, s->ram_buf_put_off);
-
+*/
     s->ram_buf_put_off = 0;
     s->ram_hdr_buf_put_off = 0;
     s->ram_buf_expect = -1;
@@ -579,7 +599,14 @@ static int cuju_ft_trans_try_load(CujuQEMUFileFtTrans *s)
             printf("%s send ack failed.\n", __func__);
             goto out;
         }
-        cuju_ft_trans_load(s);
+         //double start = time_in_double();
+
+         cuju_ft_trans_load(s);
+
+       // double end = time_in_double();
+        //printf("@@@@@@@ time = %d\n", (int)((end - start) * 1000000));
+
+
         s = cuju_ft_trans_get_next(s);
         ft_serial++;
 #ifdef ft_debug_mode_enable
@@ -1012,6 +1039,7 @@ void cuju_ft_trans_read_pages(void *opaque)
         s->ram_buf_put_off += ret;
         if (cuju_ft_trans_load_ready(s)) {
             ret = cuju_ft_trans_try_load(s);
+            ret = 1;
             if (ret < 0) {
                 goto clear;
             }

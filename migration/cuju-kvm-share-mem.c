@@ -1062,6 +1062,7 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
     return len;
 }
 
+//static void thread_set_realtime(int index)
 static void thread_set_realtime(void)
 {
     int err;
@@ -1069,8 +1070,8 @@ static void thread_set_realtime(void)
         .sched_priority = 99
     };
 
-    err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-    //err = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
+	err = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+//    err = pthread_setschedparam(pthread_self(), SCHED_RR, &param);
     if (err != 0) {
         printf("%s pthread_setschedparam failed\n", __func__);
         exit(-1);
@@ -1083,6 +1084,7 @@ static void thread_set_realtime(void)
     CPU_ZERO(&cpuset);
     //CPU_SET(6-id, &cpuset);
     CPU_SET(4+id, &cpuset);
+ //   CPU_SET(5+index, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
 
@@ -1107,6 +1109,9 @@ static void* trans_ram_conn_thread_func(void *opaque)
             qemu_mutex_unlock(&d->mutex);
             continue;
         }
+
+//		thread_set_realtime(s->cur_off);
+
 
         ret = dirty_pages_userspace_transfer(s->ram_fds[d->index]);
         assert(ret >= 0);

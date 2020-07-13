@@ -2311,8 +2311,8 @@ static void kvmft_flush_output(MigrationState *s)
 
 
 	if(trans_rate == 0) trans_rate = 100;
-    static unsigned long int mcount = 0;
-    mcount++;
+//    static unsigned long int mcount = 0;
+ //   mcount++;
 
 	//mybdupdate.last_trans_rate = (mybdupdate.last_trans_rate + trans_rate)/2;
 	mybdupdate.last_trans_rate = trans_rate;
@@ -2354,7 +2354,7 @@ static void kvmft_flush_output(MigrationState *s)
 //	s->recv_ack1_time = time_in_double();
 //   	latency_us = (int)((s->recv_ack1_time - s->run_real_start_time) * 1000000);
 
-
+/*
     static unsigned long latency_exceed_count = 0;
     static unsigned long latency_less_count = 0;
     static unsigned long int ok = 0;
@@ -2386,7 +2386,7 @@ static void kvmft_flush_output(MigrationState *s)
 		printf("test less percentage is %lf\n", less_percentage);
 		printf("test exceed percentage is %lf\n", exceed_percentage);
     }
-
+*/
 //	pthread_mutex_lock(&mylock);
     assert(!kvmft_bd_update_latency(s->ram_len, runtime_us, trans_us, latency_us, s));
 //	pthread_mutex_unlock(&mylock);

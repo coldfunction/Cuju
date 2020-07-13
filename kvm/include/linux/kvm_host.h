@@ -468,6 +468,11 @@ struct k_dis {
     long long value;
 };
 
+struct k_dis3 {
+    int index;
+    long long value;
+};
+
 struct k_point {
     int estimated_transtime;
     int L3cache_speed;
@@ -478,6 +483,11 @@ struct k_point2 {
     int current_dirty_byte;
     int current_L3cache_speed;
     int actual_L3cache_speed;
+};
+
+struct k_point3 {
+    long long dirty_byte;
+    long long trans_time;
 };
 
 
@@ -566,14 +576,14 @@ struct kvm {
     wait_queue_head_t calc_event3;
     struct task_struct *ft_cmp_tsk;
     struct task_struct *ft_lc_tsk;
-    int w0;
-    int w1;
+    int w0[2];
+    int w1[2];
     int w2[2];
-    int w3;
+    int w3[2];
     int w4;
     int w5;
-    int x0;
-    int x1;
+    int x0[2];
+    int x1[2];
     int x2;
     int x00[2];
     int x01[2];
@@ -599,10 +609,12 @@ struct kvm {
     int load_mem_bytes;
 
     int e_load_mem_rate;
-    int e_current_send_rate;
+    int e_current_send_rate[2];
     int e_trans_latency[2];
     int e_trans_latency_p[2];
     int e_epoch_runtime[2];
+
+	int isflush_while_trans;
 
     int learningR;
     int last_disspatch_time_smaller_count;
@@ -627,11 +639,14 @@ struct kvm {
     s64 last_load_time;
     s64 timestamp[2][500];
 	s64 trans_start_r[2];
+	s64 trans_stop_r[2];
 	s64 last_trans_time_start;
 	s64 trans_start_kernel[2];
 	int trans_stall[2];
 	int last_esti_trans_time;
 	int latency_ok;
+	int large_trans_rate;
+
 
 	int flush_get_data_ok;
 	int trans_stop;
@@ -656,6 +671,7 @@ struct kvm {
 	unsigned long long snapshot_abrupt_c;
 	unsigned long long trans_too_long_c;
 	int last_trans;
+	int current_trans_rate;
 
     int dirty_bytes_rate;
     int dirty_pages_rate;
@@ -711,9 +727,11 @@ struct kvm {
 	uint64_t cache_end;
     long long cache_time_start;
     struct k_dis *kdis;
+    struct k_dis3 *kdis3;
     int kindex;
     struct k_point *kpoint;
     struct k_point2 *kpoint2;
+    struct k_point3 *kpoint3;
 	int e_round;
 	long long latency_total;
 	long long latency_total2;
@@ -748,11 +766,15 @@ struct kvm {
 	long long sum_actual_miss_speed;
 	long long actual_miss_speed;
 
+	uint64_t total_cache_ok_sum;
+	uint64_t total_cache_less_sum;
+	uint64_t total_cache_exceed_sum;
 	long long cache_rec[30];
 	long long cache_rec_hit[30];
 	int last_knnTime;
 	int iscompress;
 	int kindex2;
+	int kindex3;
 	int oldcache[2];
 	struct tasklet_struct *t3;
 	int mflag;

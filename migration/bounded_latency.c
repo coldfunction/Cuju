@@ -10,7 +10,6 @@ struct kvmft_update_latency mybdupdate;
 int bd_alpha = 0;
 
 
-
 void bd_reset_epoch_timer(void)
 {
 
@@ -90,6 +89,67 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
     int r = kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
 
+
+
+    static unsigned long latency_exceed_count = 0;
+    static unsigned long latency_less_count = 0;
+    static unsigned long int ok = 0;
+    static unsigned long int mcount = 0;
+    static unsigned long int fixok = 0;
+    static unsigned long int predict_exceed = 0;
+    mcount++;
+
+	int guess_runtime = update.e_runtime;
+	int real_runtime = runtime_us;
+
+
+	int original_ok = 0;
+
+	if(latency_us <= 10*1000 + 1000 && latency_us >= 10*1000 - 1000) {
+		ok++;
+		original_ok = 1;
+	}
+	else if (latency_us > 10*1000 + 1000) {
+		latency_exceed_count++;
+	}
+	else {
+		latency_less_count++;
+	}
+
+	latency_us-=real_runtime;
+	latency_us+=guess_runtime;
+	if(!original_ok) {
+		if(latency_us <= 10*1000 + 1000 && latency_us >= 10*1000 - 1000) {
+			fixok++;
+		}
+	}
+
+	if(update.alpha > 10*1000 + 1000)
+		predict_exceed++;
+
+
+
+    if(mcount == 0)
+	mcount = ok = 1;
+
+	double exceed_percentage, less_percentage, ok_percentage, fixok_percentage, predict_exceed_percentage;
+
+    if(mcount%500 == 0) {
+		exceed_percentage = (double) latency_exceed_count/mcount;
+		less_percentage = (double) latency_less_count/mcount;
+    	ok_percentage = (double)ok/mcount;
+    	fixok_percentage = (double)fixok/mcount;
+		predict_exceed_percentage = (double)predict_exceed/mcount;
+
+		printf("test ok percentage is %lf\n", ok_percentage);
+		printf("test less percentage is %lf\n", less_percentage);
+		printf("test exceed percentage is %lf\n", exceed_percentage);
+		printf("test fixok percentage is %lf\n", fixok_percentage);
+		printf("test predict_exceed percentage is %lf\n", predict_exceed_percentage);
+    }
+
+
+
 	int id = get_vm_id();
 /*	static int c0 = 0;
 	static int c01 = 0;
@@ -155,8 +215,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
-			//sprintf(pbuf, "%d %d\n", update.w5, update.load_mem_rate);
-			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
+			sprintf(pbuf, "%lld %lld %lld %d\n", update.w5, update.last_load_mem_rate, update.load_mem_rate, update.dirty_page);
+//			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
 //
 			//sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 

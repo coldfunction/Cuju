@@ -97,6 +97,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     static unsigned long int mcount = 0;
     static unsigned long int fixok = 0;
     static unsigned long int predict_exceed = 0;
+    static unsigned long int predict_error = 0;
     mcount++;
 
 	int guess_runtime = update.e_runtime;
@@ -111,9 +112,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	}
 	else if (latency_us > 10*1000 + 1000) {
 		latency_exceed_count++;
+        if(update.x3 == 777) {
+            predict_error++;
+        }
 	}
 	else {
 		latency_less_count++;
+        if(update.x3 == 777) {
+            predict_error++;
+        }
 	}
 
 	latency_us-=real_runtime;
@@ -133,6 +140,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	mcount = ok = 1;
 
 	double exceed_percentage, less_percentage, ok_percentage, fixok_percentage, predict_exceed_percentage;
+    double predict_error_percentage = 0;
+
 
     if(mcount%500 == 0) {
 		exceed_percentage = (double) latency_exceed_count/mcount;
@@ -140,12 +149,14 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     	ok_percentage = (double)ok/mcount;
     	fixok_percentage = (double)fixok/mcount;
 		predict_exceed_percentage = (double)predict_exceed/mcount;
+		predict_error_percentage = (double)predict_error/mcount;
 
 		printf("test ok percentage is %lf\n", ok_percentage);
 		printf("test less percentage is %lf\n", less_percentage);
 		printf("test exceed percentage is %lf\n", exceed_percentage);
 		printf("test fixok percentage is %lf\n", fixok_percentage);
 		printf("test predict_exceed percentage is %lf\n", predict_exceed_percentage);
+		printf("test predict_error percentage is %lf\n", predict_error_percentage);
     }
 
 
@@ -215,7 +226,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
-			sprintf(pbuf, "%lld %lld %lld %d\n", update.w5, update.last_load_mem_rate, update.load_mem_rate, update.dirty_page);
+			//sprintf(pbuf, "%lld %lld %lld %d\n", update.w5, update.last_load_mem_rate, update.load_mem_rate, update.dirty_page);
+			sprintf(pbuf, "%d\n", update.dirty_page);
 //			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
 //
 			//sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);

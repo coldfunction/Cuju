@@ -640,12 +640,19 @@ struct kvm {
     s64 timestamp[2][500];
 	s64 trans_start_r[2];
 	s64 trans_stop_r[2];
+	s64 current_run_start[2];
 	s64 last_trans_time_start;
 	s64 trans_start_kernel[2];
 	int trans_stall[2];
 	int last_esti_trans_time;
 	int latency_ok;
 	int large_trans_rate;
+
+	long long dirty_byte_r[2][100];
+	long long runtime_r[2][100];
+	long long predic_trans[2][100];
+	int record_count[2];
+
 
 
 	int flush_get_data_ok;

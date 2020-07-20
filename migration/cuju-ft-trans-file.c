@@ -505,7 +505,10 @@ static int cuju_ft_trans_recv_payload(CujuQEMUFileFtTrans *s)
 {
     int ret = -1;
 
+    //printf("@@@@ %d %ld %ld\n", s->header.payload_len, s->buf_max_size, s->get_offset);
+ //   printf("===> %d %d %ld %ld\n", s->state, s->header.payload_len, s->buf_max_size, s->get_offset);
     if (s->header.payload_len > (s->buf_max_size - s->get_offset)) {
+//    printf("@@@@ %d %d %ld %ld\n", s->state, s->header.payload_len, s->buf_max_size, s->get_offset);
         s->buf_max_size += (s->header.payload_len -
                             (s->buf_max_size - s->get_offset));
         s->buf = g_realloc(s->buf, s->buf_max_size);
@@ -537,8 +540,8 @@ static void cuju_ft_trans_load(CujuQEMUFileFtTrans *s)
     qemu_timeval stime, etime;
     qemu_gettimeofday(&stime);
 #endif
-
-/*    if (s->ram_hdr_buf_put_off > 0)
+/*
+    if (s->ram_hdr_buf_put_off > 0)
         kvm_shmem_load_ram_with_hdr(s->ram_buf, s->ram_buf_put_off, s->ram_hdr_buf, s->ram_hdr_buf_put_off);
     else
         kvm_shmem_load_ram(s->ram_buf, s->ram_buf_put_off);
@@ -594,17 +597,18 @@ static int cuju_ft_trans_try_load(CujuQEMUFileFtTrans *s)
 #endif
 
     while (s->ft_serial == ft_serial && cuju_ft_trans_load_ready(s)) {
+//         cuju_ft_trans_load(s);
         ret = cuju_ft_trans_send_header(s, CUJU_QEMU_VM_TRANSACTION_ACK1, 0);
         if (ret < 0) {
             printf("%s send ack failed.\n", __func__);
             goto out;
         }
-         //double start = time_in_double();
+//         double start = time_in_double();
 
          cuju_ft_trans_load(s);
 
-       // double end = time_in_double();
-        //printf("@@@@@@@ time = %d\n", (int)((end - start) * 1000000));
+ //       double end = time_in_double();
+  //      printf("@@@@@@@ time = %d\n", (int)((end - start) * 1000000));
 
 
         s = cuju_ft_trans_get_next(s);
@@ -638,7 +642,7 @@ static int cuju_ft_trans_recv(CujuQEMUFileFtTrans *s)
     }
 
     //if (s->state != QEMU_VM_TRANSACTION_CONTINUE)
-    //    printf("%s received header %d %d\n", __func__, s->state, s->header.payload_len);
+        //printf("%s received header %d %d\n", __func__, s->state, s->header.payload_len);
 
     switch (s->state) {
     case CUJU_QEMU_VM_TRANSACTION_BEGIN:
@@ -975,9 +979,18 @@ void cuju_ft_trans_read_headers(void *opaque)
     CujuQEMUFileFtTrans *s = opaque;
     int ret;
     const int bunk = 4096;
-
+/*
+    exit(1);
+    FILE *pFile;
+    char pbuf[200];
+	sprintf(pbuf, "recv.txt");
+    pFile = fopen(pbuf, "a");
+    fputs("QQQ\n", pFile);
+*/
     do {
         if (s->ram_hdr_buf_size < s->ram_hdr_buf_put_off + bunk) {
+ //           sprintf(pbuf, "%d %d\n", s->ram_hdr_buf_size, s->ram_hdr_buf_put_off);
+        //	fputs(pbuf, pFile);
             s->ram_hdr_buf_size += bunk;
             s->ram_hdr_buf = g_realloc(s->ram_hdr_buf, s->ram_hdr_buf_size);
         }
@@ -1002,8 +1015,10 @@ void cuju_ft_trans_read_headers(void *opaque)
             goto clear;
         }
     } while (1);
+//	fclose(pFile);
     return;
 clear:
+//	fclose(pFile);
     qemu_set_fd_handler(s->ram_hdr_fd, NULL, NULL, NULL);
     close(s->ram_hdr_fd);
     s->ram_hdr_fd = -1;
@@ -1013,14 +1028,17 @@ void cuju_ft_trans_read_pages(void *opaque)
 {
     CujuQEMUFileFtTrans *s = opaque;
     int ret;
-    const int bunk = 4096;
+    //const int bunk = 4096;
+    const int bunk = 64*1024;
 
     do {
         if (s->ram_buf_size < s->ram_buf_put_off + bunk) {
+//		printf("$$$$$$$ %d %d %d\n", s->index, s->ram_buf_size, s->ram_buf_put_off);
             s->ram_buf_size += bunk;
             s->ram_buf = g_realloc(s->ram_buf, s->ram_buf_size);
         }
 
+        cuju_socket_set_nodelay(s->ram_fd);
         ret = recv(s->ram_fd, s->ram_buf + s->ram_buf_put_off, bunk, 0);
         if (ret == 0) {
             printf("%s: disconn\n", __func__);
@@ -1035,7 +1053,7 @@ void cuju_ft_trans_read_pages(void *opaque)
             perror("recv err: ");
             goto clear;
         }
-        cuju_socket_set_quickack(s->ram_fd);
+//        cuju_socket_set_quickack(s->ram_fd);
         s->ram_buf_put_off += ret;
         if (cuju_ft_trans_load_ready(s)) {
             ret = cuju_ft_trans_try_load(s);

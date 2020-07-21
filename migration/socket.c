@@ -178,6 +178,48 @@ static void cuju_socket_start_outgoing_migration(MigrationState *s,
                                             SocketAddress *saddr,
                                             Error **errp)
 {
+
+    int i;
+    int n = get_migration_states_count();
+    QIOChannelSocket *sioc[2*n];
+    struct SocketConnectData *data[2*n];
+    //char *channel_name[2*n];
+    //const char *channel_name[4] = {"cuju-dev-outgoing1", "cuju-ram-outgoing1", "cuju-dev-outgoing2", "cuju-ram-outgoing2"};
+    for(i = 0; i < 2*n; i++) {
+        char channel_name[80];
+        sprintf(channel_name, "cuju-channel%d", i);
+        sioc[i] = qio_channel_socket_new();
+        data[i] = g_new0(struct SocketConnectData, 1);
+        data[i]->s = s;
+        if (saddr->type == SOCKET_ADDRESS_KIND_INET) {
+            data[i]->hostname = g_strdup(saddr->u.inet.data->host);
+        }
+        qio_channel_set_name(QIO_CHANNEL(sioc[i]), channel_name);
+        //use qio_channel_socket_connect_sync instead of qio_channel_socket_connect_async here
+        Error *local_err = NULL;
+        qio_channel_socket_connect_sync(sioc[i], saddr, &local_err);
+        if (local_err) {
+            trace_migration_socket_outgoing_error(error_get_pretty(local_err));
+            data[i]->s->to_dst_file = NULL;
+            migrate_fd_error(data[i]->s, local_err);
+            error_propagate(errp, local_err);
+            goto out;
+        }
+        trace_migration_socket_outgoing_connected(data[i]->hostname);
+		#ifdef ft_debug_mode_enable
+        printf("%s connected\n", channel_name);
+		#endif
+    }
+
+
+    for(i = 0; i < n; i++) {
+        MigrationState *ss = migrate_by_index(i);
+        ss->get_error = socket_errno;
+        ss->write = socket_write;
+        ss->read = socket_read;
+        ss->close = tcp_close;
+    }
+/*
     MigrationState *s2 = migrate_by_index(1);
     QIOChannelSocket *sioc[4];
     const char *channel_name[4] = {"cuju-dev-outgoing1", "cuju-ram-outgoing1", "cuju-dev-outgoing2", "cuju-ram-outgoing2"};
@@ -214,7 +256,7 @@ static void cuju_socket_start_outgoing_migration(MigrationState *s,
     s2->write = socket_write;
     s2->read = socket_read;
     s2->close = tcp_close;
-
+*/
     cuju_migration_channel_connect(data[0]->s, sioc, data[0]->hostname);
 out:
     for (int i=0; i<4; i++) {
@@ -358,7 +400,7 @@ static gboolean cuju_socket_accept_incoming_migration(QIOChannel *ioc,
 out:
     // Close listening socket as its no longer needed
     qio_channel_close(ioc, NULL);
-    return FALSE; // unregister 
+    return FALSE; // unregister
 }
 
 static void cuju_socket_start_incoming_migration(SocketAddress *saddr,

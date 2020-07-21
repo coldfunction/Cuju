@@ -491,6 +491,7 @@ void migrate_ft_trans_send_device_state_header(struct CUJUFTDev *ftdev, QEMUFile
 int qemu_loadvm_dev(QEMUFile *f);
 
 MigrationState *migrate_by_index(int index);
+int get_migration_states_count(void);
 
 void kvmft_calc_ram_hash(void);
 void dirty_page_tracking_logs_start_transfer(MigrationState *s);

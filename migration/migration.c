@@ -193,6 +193,11 @@ static void migrate_fd_get_notify(void *opaque);
 
 int cuju_get_fd_from_QIOChannel(QIOChannel *ioc);
 
+int get_migration_states_count(void) {
+	return migration_states_count;
+}
+
+
 MigrationState *migrate_by_index(int index)
 {
     assert(index < migration_states_count);
@@ -705,6 +710,51 @@ void cuju_migration_channel_connect(MigrationState *s,
                                QIOChannelSocket **ioc,
                                const char *hostname)
 {
+    int n = get_migration_states_count();
+	int i;
+	for(i = 0; i < 2*n; i++) {
+        trace_migration_set_outgoing_channel(
+            ioc[i], object_get_typename(OBJECT(ioc[i])), hostname);
+	}
+
+    // CUJU doesn't support TLS now
+    if (s->parameters.tls_creds &&
+        !object_dynamic_cast(OBJECT(ioc),
+        	                    TYPE_QIO_CHANNEL_TLS)) {
+        Error *local_err = NULL;
+        migration_tls_channel_connect(s, QIO_CHANNEL(ioc[0]), hostname, &local_err);
+        if (local_err) {
+            migrate_fd_error(s, local_err);
+            error_free(local_err);
+        }
+    } else {
+        QEMUFile *f[2*n];
+        for (i=0; i<2*n; i++) {
+            f[i] = qemu_fopen_channel_output(QIO_CHANNEL(ioc[i]));
+        }
+
+        QIOChannelSocket *sioc;
+        for (i=0; i<n; i++) {
+		    MigrationState *s2 = migrate_by_index(i);
+        	sioc = QIO_CHANNEL_SOCKET(f[i]->opaque);
+        	s2->fd = sioc->fd;
+		}
+        for (i=n; i<2*n; i++) {
+			int k = i%n;
+		    MigrationState *s2 = migrate_by_index(k);
+        	sioc = QIO_CHANNEL_SOCKET(f[i]->opaque);
+        	s2->ram_fds = g_malloc0(sizeof(int) * ft_ram_conn_count);
+        	s2->ram_fds[0] = sioc->fd;
+		}
+
+        s->to_dst_file = f[0];
+
+        s->fs = f;
+        migrate_fd_connect(s);
+	}
+
+/*
+
     MigrationState *s2 = migrate_by_index(1);
     for (int i=0; i<4; i++) {
         trace_migration_set_outgoing_channel(
@@ -742,7 +792,7 @@ void cuju_migration_channel_connect(MigrationState *s,
 
         s->fs = f;
         migrate_fd_connect(s);
-    }
+    }*/
 }
 
 /*
@@ -1328,8 +1378,60 @@ void __migrate_init(void)
 
 MigrationState *migrate_init(const MigrationParams *params)
 {
-    MigrationState *s, *s2;
+//    MigrationState *s, *s2;
+    MigrationState *s;
 
+	int n = get_migration_states_count();
+	int i;
+	for(i = 0; i < n; i++) {
+    	s = migrate_by_index(i);
+    	s->state = MIGRATION_STATUS_NONE;
+    	s->xbzrle_cache_size = DEFAULT_MIGRATE_CACHE_SIZE;
+    	s->parameters.compress_threads = DEFAULT_MIGRATE_COMPRESS_LEVEL;
+    	s->parameters.decompress_threads = DEFAULT_MIGRATE_DECOMPRESS_THREAD_COUNT;
+    	s->parameters.cpu_throttle_initial = DEFAULT_MIGRATE_CPU_THROTTLE_INITIAL;
+    	s->parameters.cpu_throttle_increment = DEFAULT_MIGRATE_CPU_THROTTLE_INCREMENT;
+    	s->parameters.max_bandwidth = MAX_THROTTLE;
+    	s->parameters.downtime_limit = DEFAULT_MIGRATE_SET_DOWNTIME;
+    	s->parameters.x_checkpoint_delay = DEFAULT_MIGRATE_X_CHECKPOINT_DELAY;
+    	qemu_mutex_init(&s->src_page_req_mutex);
+
+		s->bytes_xfer = 0;
+    	s->xfer_limit = 0;
+    	s->cleanup_bh = 0;
+    	s->to_dst_file = NULL;
+    	s->state = MIGRATION_STATUS_NONE;
+    	s->params = *params;
+    	s->rp_state.from_dst_file = NULL;
+    	s->rp_state.error = false;
+    	s->mbps = 0.0;
+    	s->downtime = 0;
+    	s->expected_downtime = 0;
+    	s->dirty_pages_rate = 0;
+    	s->dirty_bytes_rate = 0;
+    	s->setup_time = 0;
+    	s->dirty_sync_count = 0;
+    	s->start_postcopy = false;
+    	s->postcopy_after_devices = false;
+    	s->postcopy_requests = 0;
+    	s->migration_thread_running = false;
+    	s->last_req_rb = NULL;
+    	error_free(s->error);
+    	s->error = NULL;
+
+		migrate_set_state(&s->state, MIGRATION_STATUS_NONE, MIGRATION_STATUS_SETUP);
+    	QSIMPLEQ_INIT(&s->src_page_requests);
+    	s->total_time = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
+    	migrate_set_ft_state(s, CUJU_FT_INIT);
+    	alloc_ft_dev(s);
+
+		if(i>0)
+    		migrate_set_ft_state(s, CUJU_FT_TRANSACTION_PRE_RUN);
+	}
+
+	return migrate_by_index(0);
+
+/*
     s = migrate_by_index(0);
     s2 = migrate_by_index(1);
 
@@ -1356,14 +1458,14 @@ MigrationState *migrate_init(const MigrationParams *params)
     s2->parameters.downtime_limit = DEFAULT_MIGRATE_SET_DOWNTIME;
     s2->parameters.x_checkpoint_delay = DEFAULT_MIGRATE_X_CHECKPOINT_DELAY;
     qemu_mutex_init(&s2->src_page_req_mutex);
-
+*/
     //migrate_state_setup
     /*
      * Reinitialise all migration state, except
      * parameters/capabilities that the user set, and
      * locks.
      */
-    s->bytes_xfer = 0;
+ /*   s->bytes_xfer = 0;
     s->xfer_limit = 0;
     s->cleanup_bh = 0;
     s->to_dst_file = NULL;
@@ -1425,7 +1527,8 @@ MigrationState *migrate_init(const MigrationParams *params)
     alloc_ft_dev(s2);
 
     migrate_set_ft_state(s2, CUJU_FT_TRANSACTION_PRE_RUN);
-
+*/
+	/*
 	char vfname[100];
 	sprintf(vfname, "/tmp/sig.txt");
 	int myfd = open(vfname, O_CREAT|O_RDWR,0666);
@@ -1440,8 +1543,8 @@ MigrationState *migrate_init(const MigrationParams *params)
 	lseek(myfd,0,SEEK_SET);
 	s->myfd = myfd;
 	s2->myfd = myfd;
-
-    return s;
+*/
+    //return s;
 }
 
 static GSList *migration_blockers;
@@ -2560,7 +2663,7 @@ static void ft_setup_migrate_state(MigrationState *s, int index)
 static void *migration_thread(void *opaque)
 {
     MigrationState *s = opaque;
-    MigrationState *s2 = migrate_by_index(1);
+    //MigrationState *s2 = migrate_by_index(1);
     /* Used by the bandwidth calcs, updated later */
     int64_t initial_time = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
     int64_t setup_start = qemu_clock_get_ms(QEMU_CLOCK_HOST);
@@ -2715,10 +2818,16 @@ static void *migration_thread(void *opaque)
 		for(i = 0; i < 100; i++)
 			trans_rate_h[i] = 400;
 
-
-
 		ft_setup_migrate_state(s, 0);
-        ft_setup_migrate_state(s2, 1);
+		int n = get_migration_states_count();
+		for(i = 1; i < n; i++) {
+    		MigrationState *s2 = migrate_by_index(i);
+        	ft_setup_migrate_state(s2, 1);
+
+		}
+
+		//ft_setup_migrate_state(s, 0);
+        //ft_setup_migrate_state(s2, 1);
 
 		event_tap_register(NULL);
 
@@ -2749,8 +2858,12 @@ static void *migration_thread(void *opaque)
 
 		assert(!runstate_is_running());
 
-        assert(!kvmft_set_master_slave_sockets(s, ft_ram_conn_count));
-        assert(!kvmft_set_master_slave_sockets(s2, ft_ram_conn_count));
+		for(i = 0; i < n; i++) {
+        //	assert(!kvmft_set_master_slave_sockets(s, ft_ram_conn_count));
+        //	assert(!kvmft_set_master_slave_sockets(s2, ft_ram_conn_count));
+    		MigrationState *s2 = migrate_by_index(i);
+        	assert(!kvmft_set_master_slave_sockets(s2, ft_ram_conn_count));
+		}
 
 		// bounded latency
 		bd_reset_epoch_timer();

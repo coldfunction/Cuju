@@ -14,7 +14,9 @@
 //#define ENABLE_SWAP_PTE 1
 
 // sync with the one in qemu
-#define KVM_SHM_INIT_INDEX  1
+//#define KVM_SHM_INIT_INDEX  1
+#define KVM_SHM_INIT_INDEX (KVM_DIRTY_BITMAP_INIT_COUNT-1)
+
 
 #define KVM_MAX_MIGRATION_DESC  16
 

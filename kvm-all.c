@@ -42,7 +42,7 @@
 #include "hw/boards.h"
 
 // sync with the one in qemu
-#define KVM_SHM_INIT_INDEX  1
+#define KVM_SHM_INIT_INDEX  (KVM_DIRTY_BITMAP_INIT_COUNT-1)
 
 extern bool ft_stopped_cpus;
 
@@ -69,7 +69,7 @@ extern bool ft_stopped_cpus;
 #define KVM_MSI_HASHTAB_SIZE    256
 
 // sync with the one in qemu
-#define KVM_SHM_INIT_INDEX  1
+//#define KVM_SHM_INIT_INDEX  1
 
 struct KVMParkedVcpu {
     unsigned long vcpu_id;

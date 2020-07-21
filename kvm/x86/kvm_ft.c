@@ -1257,7 +1257,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     //int epoch_run_time = ktime_to_us(diff);
     int epoch_run_time = time_in_us()-kvm->current_run_start[ctx->cur_index];
 
-	int tpass = time_in_us() - kvm->trans_start_r[(ctx->cur_index+1)%2];
+	int tpass = time_in_us() - kvm->trans_start_r[(ctx->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 	int extra = kvm->last_esti_trans_time - tpass;
 
 	int total_trans_byte = 0;
@@ -1270,7 +1270,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	   } else {
     	total_trans_byte = current_dirty_byte+kvm->last_dirty;
 		total_T = total_trans_byte/kvm->current_trans_rate;
-		last_start = kvm->trans_start_r[(ctx->cur_index+1)%2];
+		last_start = kvm->trans_start_r[(ctx->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 		expect_end = last_start+total_T;
 		new_beta = expect_end-time_in_us();
 		if(new_beta > 0)
@@ -1442,7 +1442,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 			int c = kvm->current_log_input_index;
 			int p = kvm->load_mem_rate_rec_index[c];
 
-			kvm->current_log_input_index = (kvm->current_log_input_index+1)%2;
+			kvm->current_log_input_index = (kvm->current_log_input_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT;
 			kvm->last_load_rate = 0;
 
 
@@ -5673,10 +5673,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     ctx = &kvm->ft_context;
 
 	s64 current_trans_start = kvm->trans_start_r[update->cur_index];
-	s64 current_trans_start_old = kvm->trans_start_r[(kvm->trans_rec_index+1)%2];
+	s64 current_trans_start_old = kvm->trans_start_r[(kvm->trans_rec_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 	s64 current_run_end = kvm->trans_start_kernel[update->cur_index];
 	s64 current_run_start = kvm->current_run_start[update->cur_index];
-	s64 last_trans_end = kvm->last_trans_end[(update->cur_index+1)%2];
+	s64 last_trans_end = kvm->last_trans_end[(update->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 
 	int pedding = current_trans_start-current_run_end;
 
@@ -5717,8 +5717,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //	printk("@: real trans time = %ld\n", real_trans);
 
 //	if(real_trans < 0) printk("wtf!!\n");
-	s64 otherTrans_start = kvm->trans_start_r[(update->cur_index+1)%2];
-	s64 otherTrans_stop = kvm->trans_stop_r[(update->cur_index+1)%2];
+	s64 otherTrans_start = kvm->trans_start_r[(update->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 otherTrans_stop = kvm->trans_stop_r[(update->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 	s64 thisTrans_start = kvm->trans_start_r[update->cur_index];
 	s64 thisTrans_stop = kvm->trans_stop_r[update->cur_index];
 
@@ -5739,7 +5739,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		//kvm->current_trans_rate = kvm->w2[update->cur_index]/real_trans;
 //	}
 
-	kvm->trans_rec_index = (kvm->trans_rec_index+1)%2;
+	kvm->trans_rec_index = (kvm->trans_rec_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT;
 //	printk("vmid = %d, cocotion: orig = %d, stall = %d, real = %d, e_runtime = %d, runtime = %d\n", kvm->ft_id, update->trans_us, kvm->trans_stall[ctx->cur_index], real_trans, update->e_runtime, update->runtime_us);
 	//if(real_trans > update->trans_us)
 	//	real_trans = update->trans_us;
@@ -5813,14 +5813,14 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 
 		int count = kvm->load_mem_rate_rec_index[cur_index];
-		int cur_index2 = (cur_index+1)%2;
+		int cur_index2 = (cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT;
 
 		int count2 = kvm->load_mem_rate_rec_index[kvm->flush_index];
 		int start1 = 0;
 
 
 	int out_index = kvm->current_log_output_index;
-	kvm->current_log_output_index = (kvm->current_log_output_index+1)%2;
+	kvm->current_log_output_index = (kvm->current_log_output_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT;
 
 
 
@@ -6690,7 +6690,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	}
 
 
-	kvm->flush_index = (kvm->flush_index+1)%2;
+	kvm->flush_index = (kvm->flush_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT;
 
 
 //	if(kvm->latency_total > 50000) {

@@ -3111,19 +3111,32 @@ void *cuju_process_incoming_thread(void *opaque)
 {
     MigrationIncomingState *mis = opaque;
     QEMUFile **fs = mis->cuju_file;
-   	QEMUFile *f, *f2;
+   	//QEMUFile *f, *f2;
 	int s = qio_ft_sock_fd;
+
+	int n = get_migration_states_count();
+	QEMUFile *f[n];
+
+
+
+
 
     cuju_ft_trans_init();
 
-	f = cuju_setup_slave_receiver(s, fs[0], fs[2]);
-	f2 = cuju_setup_slave_receiver(s, fs[1], fs[3]);
+//	f = cuju_setup_slave_receiver(s, fs[0], fs[2]);
+//	f2 = cuju_setup_slave_receiver(s, fs[1], fs[3]);
+//
+	int i;
+	for(i = 0; i < n; i++) {
+		f[i] = cuju_setup_slave_receiver(s, fs[i], fs[i+n]);
+	}
+
 
 	// need to wait sender to setup
 	// send ack
     int ret;
     do {
-        ret = qemu_ft_trans_begin(f);
+        ret = qemu_ft_trans_begin(f[0]);
     } while (ret == -EAGAIN);
     printf("%s qemu_ft_trans_begin returns %d\n", __func__, ret);
     if (ret < 0)
@@ -3134,8 +3147,12 @@ void *cuju_process_incoming_thread(void *opaque)
     qemu_mutex_init(&cuju_load_mutex);
     qemu_cond_init(&cuju_load_cond);
 
-    cuju_ft_trans_set(0, f->opaque);
-    cuju_ft_trans_set(1, f2->opaque);
+    //cuju_ft_trans_set(0, f->opaque);
+    //cuju_ft_trans_set(1, f2->opaque);
+
+	for(i = 0; i < n; i++) {
+		cuju_ft_trans_set(i, f[i]->opaque);
+	}
 
 	return NULL;
 

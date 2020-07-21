@@ -372,6 +372,30 @@ static gboolean cuju_socket_accept_incoming_migration(QIOChannel *ioc,
                                                  GIOCondition condition,
                                                  gpointer opaque)
 {
+
+
+    int n = get_migration_states_count();
+    QIOChannelSocket *sioc[2*n];
+    Error *err = NULL;
+    for (int i=0; i<2*n; i++) {
+        char channel_name[80];
+        sprintf(channel_name, "cuju-channel%d", i);
+        sioc[i] = qio_channel_socket_accept(QIO_CHANNEL_SOCKET(ioc),
+                                 &err);
+        if (!sioc[i]) {
+            error_report("could not accept migration connection (%s)",
+                    error_get_pretty(err));
+            goto out;
+        }
+        trace_cuju_migration_socket_incoming_accepted(i);
+
+        qio_channel_set_name(QIO_CHANNEL(sioc[i]), channel_name);
+        #ifdef ft_debug_mode_enable
+            printf("socket %d connected\n", i);
+        #endif
+    }
+
+/*
     QIOChannelSocket *sioc[4];
     Error *err = NULL;
     const char *channel_name[4] = {"cuju-dev-incoming1", "cuju-ram-incoming1",
@@ -392,7 +416,7 @@ static gboolean cuju_socket_accept_incoming_migration(QIOChannel *ioc,
         printf("socket %d connected\n", i);
 		#endif
     }
-
+*/
     cuju_migration_channel_process_incoming(migrate_get_current(),
                                        sioc);
     object_unref(OBJECT(sioc));

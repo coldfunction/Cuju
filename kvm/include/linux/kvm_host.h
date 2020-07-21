@@ -560,8 +560,8 @@ struct kvm {
     volatile int xmit_serial;
     volatile int xmit_off;
 
-    atomic_t pending_page_num[4];
-    int trans_len[4];
+    atomic_t pending_page_num[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int trans_len[KVM_DIRTY_BITMAP_INIT_COUNT];
     wait_queue_head_t mdt_event;
 
     struct ft_modified_during_transfer_list mdt;
@@ -576,24 +576,24 @@ struct kvm {
     wait_queue_head_t calc_event3;
     struct task_struct *ft_cmp_tsk;
     struct task_struct *ft_lc_tsk;
-    int w0[2];
-    int w1[2];
-    int w2[2];
-    int w3[2];
+    int w0[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int w1[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int w2[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int w3[KVM_DIRTY_BITMAP_INIT_COUNT];
     int w4;
     int w5;
-    int x0[2];
-    int x1[2];
+    int x0[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int x1[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x2;
-    int x00[2];
-    int x01[2];
-    int x02[2];
-    int x03[2];
+    int x00[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int x01[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int x02[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int x03[KVM_DIRTY_BITMAP_INIT_COUNT];
     unsigned long int wn;
     unsigned long int wc;
 
     int last_f;
-    int f0[2];
+    int f0[KVM_DIRTY_BITMAP_INIT_COUNT];
 
     int load_mem_rate;
     int last_load_mem_rate;
@@ -609,10 +609,10 @@ struct kvm {
     int load_mem_bytes;
 
     int e_load_mem_rate;
-    int e_current_send_rate[2];
-    int e_trans_latency[2];
-    int e_trans_latency_p[2];
-    int e_epoch_runtime[2];
+    int e_current_send_rate[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int e_trans_latency[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int e_trans_latency_p[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int e_epoch_runtime[KVM_DIRTY_BITMAP_INIT_COUNT];
 
 	int isflush_while_trans;
 
@@ -620,8 +620,8 @@ struct kvm {
     int last_disspatch_time_smaller_count;
     int latency_bias;
 
-    int real_x0[2];
-    int real_x1[2];
+    int real_x0[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int real_x1[KVM_DIRTY_BITMAP_INIT_COUNT];
     int cur_virtual_trans_time;
     int average_vt;
     int average_e;
@@ -629,38 +629,38 @@ struct kvm {
     int average_de;
     int average_dl;
 
-    uint64_t load_mem_rate_rec[2][500];
-    int load_mem_rate_rec_index[2];
-    int load_mem_rate_rec_index2[2];
+    uint64_t load_mem_rate_rec[KVM_DIRTY_BITMAP_INIT_COUNT][500];
+    int load_mem_rate_rec_index[KVM_DIRTY_BITMAP_INIT_COUNT];
+    int load_mem_rate_rec_index2[KVM_DIRTY_BITMAP_INIT_COUNT];
     int current_log_input_index;
     int current_log_output_index;
 
     int last_load_rate;
     s64 last_load_time;
-    s64 timestamp[2][500];
-	s64 trans_start_r[2];
-	s64 trans_stop_r[2];
-	s64 current_run_start[2];
+    s64 timestamp[KVM_DIRTY_BITMAP_INIT_COUNT][500];
+	s64 trans_start_r[KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 trans_stop_r[KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 current_run_start[KVM_DIRTY_BITMAP_INIT_COUNT];
 	s64 last_trans_time_start;
-	s64 trans_start_kernel[2];
-	int trans_stall[2];
+	s64 trans_start_kernel[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int trans_stall[KVM_DIRTY_BITMAP_INIT_COUNT];
 	int last_esti_trans_time;
 	int latency_ok;
 	int large_trans_rate;
 
-	long long dirty_byte_r[2][100];
-	long long runtime_r[2][100];
-	long long predic_trans[2][100];
-	int record_count[2];
+	long long dirty_byte_r[KVM_DIRTY_BITMAP_INIT_COUNT][100];
+	long long runtime_r[KVM_DIRTY_BITMAP_INIT_COUNT][100];
+	long long predic_trans[KVM_DIRTY_BITMAP_INIT_COUNT][100];
+	int record_count[KVM_DIRTY_BITMAP_INIT_COUNT];
 
 
 
 	int flush_get_data_ok;
 	int trans_stop;
-	int timestamp_index[2];
+	int timestamp_index[KVM_DIRTY_BITMAP_INIT_COUNT];
 	int trans_head;
 	int trans_tail;
-	int cache_hist[2];
+	int cache_hist[KVM_DIRTY_BITMAP_INIT_COUNT];
 	int current_cache_speed;
 
 	int subcount;
@@ -672,7 +672,7 @@ struct kvm {
 	unsigned long long qmiss_count;
 	int lasthit;
 
-	s64 last_trans_end[2];
+	s64 last_trans_end[KVM_DIRTY_BITMAP_INIT_COUNT];
 	s64 current_trans_start;
 
 	unsigned long long snapshot_abrupt_c;
@@ -725,8 +725,8 @@ struct kvm {
     int last_F;
     int IF;
 
-    int measureRecord0[2][5];
-    int measureRecord[2][5];
+    int measureRecord0[KVM_DIRTY_BITMAP_INIT_COUNT][5];
+    int measureRecord[KVM_DIRTY_BITMAP_INIT_COUNT][5];
     int measureRecord_tail;
     int current_ok_IF;
 
@@ -748,7 +748,7 @@ struct kvm {
 	long long total_1c;
 	long long total_1_5c;
 	long long total_2c;
-	int L3cache_speed[2];
+	int L3cache_speed[KVM_DIRTY_BITMAP_INIT_COUNT];
 	int *L3cache_speed_rec;
 	int L3cache_speed_c;
 	int L3cache_speed_max;
@@ -782,7 +782,7 @@ struct kvm {
 	int iscompress;
 	int kindex2;
 	int kindex3;
-	int oldcache[2];
+	int oldcache[KVM_DIRTY_BITMAP_INIT_COUNT];
 	struct tasklet_struct *t3;
 	int mflag;
 	int l3s_start;

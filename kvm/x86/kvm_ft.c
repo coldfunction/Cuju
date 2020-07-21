@@ -102,8 +102,8 @@ struct ft_multi_trans_h {
 	s64 cmp_start;
 	s64 cmp_stop;
 	int dirty_bytes[4];
-	int trans_time[2][4];
-	int predict_trans_time[2][4];
+	int trans_time[KVM_DIRTY_BITMAP_INIT_COUNT][4];
+	int predict_trans_time[KVM_DIRTY_BITMAP_INIT_COUNT][4];
 	s64 trans_start_time[4];
 	s64 trans_stop_time[4];
 	int current_dirty_rate[4];

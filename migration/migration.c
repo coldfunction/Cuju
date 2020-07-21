@@ -529,17 +529,27 @@ static void process_incoming_migration_bh(void *opaque)
 
 static void process_incoming_migration_co(void *opaque)
 {
+
+	int n = get_migration_states_count();
+
     MigrationIncomingState *mis;
     QEMUFile *f;
     if (cuju_ft_mode == CUJU_FT_INIT) {
         QEMUFile **tmp = opaque;
         f = tmp[0];
         mis = migration_incoming_state_new(f);
-        mis->cuju_file = g_malloc(4 * sizeof(QEMUFile*));
+        mis->cuju_file = g_malloc(2*n * sizeof(QEMUFile*));
+
+		int i;
+		for(i = 0; i < 2*n; i++)
+			mis->cuju_file[i] = tmp[i];
+
+		/*mis->cuju_file = g_malloc(4 * sizeof(QEMUFile*));
         mis->cuju_file[0] = tmp[0];
         mis->cuju_file[1] = tmp[1];
         mis->cuju_file[2] = tmp[2];
         mis->cuju_file[3] = tmp[3];
+		*/
     }
     else {
         f = opaque;
@@ -626,9 +636,15 @@ void cuju_migration_fd_process_incoming(QEMUFile **f)
     Coroutine *co = qemu_coroutine_create(process_incoming_migration_co, f);
 
     migrate_decompress_threads_create();
-    for (int i=0; i<4; i++) {
+
+	int n = get_migration_states_count();
+	for (int i=0; i<2*n; i++) {
         qemu_file_set_blocking(f[i], false);
-    }
+	}
+
+   // for (int i=0; i<4; i++) {
+    //    qemu_file_set_blocking(f[i], false);
+   // }
     qemu_coroutine_enter(co);
 }
 
@@ -656,7 +672,11 @@ void migration_channel_process_incoming(MigrationState *s,
 void cuju_migration_channel_process_incoming(MigrationState *s,
                                         QIOChannelSocket **ioc)
 {
-    for (int i=0; i<4; i++) {
+
+	int n = get_migration_states_count();
+
+
+    for (int i=0; i<2*n; i++) {
         trace_migration_set_incoming_channel(
             QIO_CHANNEL(ioc[i]), object_get_typename(OBJECT(QIO_CHANNEL(ioc[i]))));
     }
@@ -671,8 +691,8 @@ void cuju_migration_channel_process_incoming(MigrationState *s,
             error_report_err(local_err);
         }
     } else {
-        QEMUFile *f[4];
-        for (int i=0; i<4; i++) {
+        QEMUFile *f[2*n];
+        for (int i=0; i<2*n; i++) {
             f[i] = qemu_fopen_channel_input(QIO_CHANNEL(ioc[i]));
         }
         cuju_migration_fd_process_incoming(f);

@@ -80,6 +80,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	static int average_de = 263;
 	static int average_dl = 154;
+    static int last_trans_time = 0;
 
 	update.average_e = average_e*1000;
 	update.average_l = average_l*1000;
@@ -98,31 +99,48 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     static unsigned long int fixok = 0;
     static unsigned long int predict_exceed = 0;
     static unsigned long int predict_error = 0;
+    static unsigned long int last_transfer_impact_error = 0;
+//    static unsigned long int predict_trans_rate_error = 0;
+//    static unsigned long int real_runtime_too_long = 0;
+    static unsigned long long int total_dirty = 0;
     mcount++;
 
 	int guess_runtime = update.e_runtime;
 	int real_runtime = runtime_us;
 
 
-	int original_ok = 0;
+//	int original_ok = 0;
 
 	if(latency_us <= 10*1000 + 1000 && latency_us >= 10*1000 - 1000) {
 		ok++;
-		original_ok = 1;
-	}
-	else if (latency_us > 10*1000 + 1000) {
+//		original_ok = 1;
+	} else if (latency_us > 10*1000 + 1000) {
 		latency_exceed_count++;
         if(update.x3 == 777) {
             predict_error++;
         }
-	}
-	else {
+//        if(last_trans_time > runtime_us) {
+ //           last_transfer_impact_error++;
+  //      } //else {
+
+
+           // predict_trans_rate_error++;
+        //}
+	    latency_us-=real_runtime;
+	    latency_us+=guess_runtime;
+//	    if(!original_ok) {
+		    if(latency_us <= 10*1000 + 1000 && latency_us >= 10*1000 - 1000) {
+			    fixok++;
+            } else if(last_trans_time > runtime_us) {
+                last_transfer_impact_error++;
+            }
+    } else {
 		latency_less_count++;
         if(update.x3 == 777) {
             predict_error++;
         }
 	}
-
+/*
 	latency_us-=real_runtime;
 	latency_us+=guess_runtime;
 	if(!original_ok) {
@@ -130,10 +148,11 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			fixok++;
 		}
 	}
-
+*/
 	if(update.alpha > 10*1000 + 1000)
 		predict_exceed++;
 
+    total_dirty+=dirty_page;
 
 
     if(mcount == 0)
@@ -141,6 +160,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	double exceed_percentage, less_percentage, ok_percentage, fixok_percentage, predict_exceed_percentage;
     double predict_error_percentage = 0;
+    double predict_last_transfer_impact_percentage = 0;
+
 
 
     if(mcount%500 == 0) {
@@ -150,16 +171,19 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     	fixok_percentage = (double)fixok/mcount;
 		predict_exceed_percentage = (double)predict_exceed/mcount;
 		predict_error_percentage = (double)predict_error/mcount;
+		predict_last_transfer_impact_percentage = (double)last_transfer_impact_error/mcount;
 
 		printf("test ok percentage is %lf\n", ok_percentage);
 		printf("test less percentage is %lf\n", less_percentage);
 		printf("test exceed percentage is %lf\n", exceed_percentage);
-		printf("test fixok percentage is %lf\n", fixok_percentage);
+		printf("test fixok percentage is (runtime error)%lf\n", fixok_percentage);
 		printf("test predict_exceed percentage is %lf\n", predict_exceed_percentage);
 		printf("test predict_error percentage is %lf\n", predict_error_percentage);
+		printf("test predict_last_transfer_impact_percentage is %lf\n", predict_last_transfer_impact_percentage);
+		printf("average dirty is %lld\n", total_dirty/mcount);
     }
 
-
+    last_trans_time = trans_us;
 
 	int id = get_vm_id();
 /*	static int c0 = 0;
@@ -195,8 +219,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //	static unsigned long int abrupt = 0;
 
 	total++;
-	if(id >= 10) {
-//	if(id == 0) {
+//	if(id >= 10) {
+	if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -227,7 +251,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
 			//sprintf(pbuf, "%lld %lld %lld %d\n", update.w5, update.last_load_mem_rate, update.load_mem_rate, update.dirty_page);
-			sprintf(pbuf, "%d\n", update.dirty_page);
+			sprintf(pbuf, "%d\n", runtime_us);
+        	fputs(pbuf, pFile);
+			sprintf(pbuf, "%d\n", dirty_page);
 //			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
 //
 			//sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);

@@ -70,7 +70,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu);
 static int bd_predic_stop3(void *arg);
 static enum hrtimer_restart kvm_shm_vcpu_timer_callcallback(struct hrtimer *timer);
 DECLARE_TASKLET(calc_dirty_tasklet, bd_predic_stop2, 0);
-DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
+//DECLARE_TASKLET(calc_dirty_tasklet2, bd_predic_stop3, 0);
 static int calc_miss3(unsigned long data);
 //DECLARE_TASKLET(tasklet, calc_miss3, 0);
 //static struct tasklet_struct *t3;
@@ -1186,7 +1186,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	//int L3cache = (kvm->L3cache_speed+ft_m_trans.L3cache_speed)/2;
 //	int L3cache = (L3cache+kvm->actual_miss_speed)/2;
 //	int current_trans_rate = kvm->current_trans_rate;
-	int current_trans_rate = ft_m_trans.current_trans_rate;
+	//int current_trans_rate = ft_m_trans.current_trans_rate;
+	int current_trans_rate = kvm->current_trans_rate;
        //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
        //beta = kvm->x0*kvm->w0 + kvm->x1*1000 + kvm->w3;
 //       beta = kvm->x0[ctx->cur_index]*kvm->w0[ctx->cur_index] + kvm->w3[ctx->cur_index];
@@ -1278,7 +1279,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 		extra = 777;
 	   }
 
-	beta = new_beta;
+	//beta = new_beta;
 
 /*
 	   if(extra < 0) extra = 0;
@@ -1496,8 +1497,9 @@ static enum hrtimer_restart kvm_shm_vcpu_timer_callback(
 	if(kvm->ft_cmp_tsk) {
 		wake_up_process(kvm->ft_cmp_tsk);
 	}
-	kvm->ft_kick = 1;
 	wake_up(&kvm->calc_event);
+	kvm->ft_kick = 1;
+	//wake_up(&kvm->calc_event);
 	//kvm->ft_kick = 1;
 //	printk("cocotion in timer_callback after wake_up_process vmid = %d\n", kvm->ft_id);
 
@@ -2397,7 +2399,6 @@ int kvm_shm_enable(struct kvm *kvm)
 */
 
 
-
 	init_waitqueue_head(&kvm->calc_event);
 	kvm->ft_cmp_tsk = kthread_create(bd_predic_stop3, kvm->vcpus[0], "cmp thread");
 	if(IS_ERR(kvm->ft_cmp_tsk)) {
@@ -2410,27 +2411,31 @@ int kvm_shm_enable(struct kvm *kvm)
 	//wake_up(&kvm->calc_event2);
 
 //	kthread_bind(kvm->ft_cmp_tsk, kvm->ft_id);
-//	if(kvm->ft_id == 0)
-	kthread_bind(kvm->ft_cmp_tsk, 7);
+//	kthread_bind(kvm->ft_cmp_tsk, 7);
+
 //	else
 //	kthread_bind(kvm->ft_cmp_tsk, 3);
 //	kvm->t3 = kzalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
 //	tasklet_init(kvm->t3, calc_miss3, (unsigned long)kvm);
 
 	//if(kvm->ft_id == 0) {
-	kvm->ft_lc_tsk = kthread_create(calc_miss3, (unsigned long)kvm, "lc thread");
-	if(IS_ERR(kvm->ft_lc_tsk)) {
-		kvm->ft_lc_tsk = NULL;
-		return 0;
-	}
-	if(kvm->ft_id == 0)
+	//
+
+
+	//kvm->ft_lc_tsk = kthread_create(calc_miss3, (unsigned long)kvm, "lc thread");
+	//if(IS_ERR(kvm->ft_lc_tsk)) {
+	//	kvm->ft_lc_tsk = NULL;
+	//	return 0;
+	//}
+/*	if(kvm->ft_id == 0)
 		kthread_bind(kvm->ft_lc_tsk, 2);
 	else
 		kthread_bind(kvm->ft_lc_tsk, 6);
 
 	if(kvm->ft_lc_tsk) {
 		wake_up_process(kvm->ft_lc_tsk);
-	}
+	}*/
+
 	//}
 
 
@@ -5729,11 +5734,11 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 //		printk("not real !QQQQQQQQQQQQQQQQ: %d, %d, %d\n", update->dirty_page, update->trans_us, update->dirty_page/update->trans_us);
 //		printk("real !QQQQQQQQQQQQQQQQ: %d, %d, %d\n", update->dirty_page, real_trans, update->dirty_page/real_trans);
 		if(real_trans > 0) {
-		int tr = update->dirty_page/real_trans;
-		if(tr) {
-		kvm->current_trans_rate = tr;
-		ft_m_trans.current_trans_rate = kvm->current_trans_rate;
-		}
+			int tr = update->dirty_page/real_trans;
+			if(tr) {
+				kvm->current_trans_rate = tr;
+				//ft_m_trans.current_trans_rate = kvm->current_trans_rate;
+			}
 		}
 //		}
 		//kvm->current_trans_rate = kvm->w2[update->cur_index]/real_trans;

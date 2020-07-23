@@ -593,7 +593,7 @@ struct kvm {
     unsigned long int wc;
 
     int last_f;
-    int f0[KVM_DIRTY_BITMAP_INIT_COUNT];
+    s64 f0[KVM_DIRTY_BITMAP_INIT_COUNT];
 
     int load_mem_rate;
     int last_load_mem_rate;
@@ -679,6 +679,7 @@ struct kvm {
 	unsigned long long trans_too_long_c;
 	int last_trans;
 	int current_trans_rate;
+	int big_current_trans_rate;
 
     int dirty_bytes_rate;
     int dirty_pages_rate;

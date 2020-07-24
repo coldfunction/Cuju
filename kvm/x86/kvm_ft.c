@@ -1262,9 +1262,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	//int current_trans_rate = ft_m_trans.current_trans_rate;
 	int current_trans_rate = kvm->current_trans_rate;
 
-	int pr = get_predict_trans_rate_s(kvm, current_dirty_byte, 0);
-	if(pr > 0)
-		current_trans_rate = pr;
+//	int pr = get_predict_trans_rate_s(kvm, current_dirty_byte, 0);
+//	if(pr > 0)
+//		current_trans_rate = pr;
 
        //beta = kvm->x0*kvm->w0 + kvm->x1*kvm->w1 + kvm->w3;
        //beta = kvm->x0*kvm->w0 + kvm->x1*1000 + kvm->w3;
@@ -1350,16 +1350,17 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	   } else {
     	total_trans_byte = current_dirty_byte+kvm->last_dirty;
 		//total_T = total_trans_byte/current_trans_rate;
-		int pr = get_predict_trans_rate_b(kvm, total_trans_byte, 0);
-		if(pr == 0) pr = kvm->big_current_trans_rate;
+		total_T = total_trans_byte/kvm->big_current_trans_rate;
+		//int pr = get_predict_trans_rate_b(kvm, total_trans_byte, 0);
+		//if(pr == 0) pr = kvm->big_current_trans_rate;
 		//total_T = total_trans_byte/kvm->big_current_trans_rate;
-		total_T = total_trans_byte/pr;
+	//	total_T = total_trans_byte/pr;
 		last_start = kvm->trans_start_r[(ctx->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
 		expect_end = last_start+total_T;
 		new_beta = expect_end-time_in_us();
 		if(new_beta > 0)
 			new_beta*=1000;
-		    extra = kvm->last_dirty;
+		extra = kvm->last_dirty;
 	   }
 
 	beta = new_beta;
@@ -5829,10 +5830,12 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		} else if (real_trans > 0) {
 			long tt = trans_stop_time - kvm->f0[update->cur_index]	;
 			long td = kvm->x03[update->cur_index]+update->dirty_page;
-			if(tt > 0) {
+			if(tt > 0 && td > 0) {
 				kvm->big_current_trans_rate = td/tt;
-				this_dirty_bytes_b = td;
-				this_trans_rate_b = kvm->big_current_trans_rate;
+				//kvm->current_trans_rate = td/tt;
+			//	kvm->big_current_trans_rate = td/tt;
+			//	this_dirty_bytes_b = td;
+			//	this_trans_rate_b = kvm->big_current_trans_rate;
 			}
 		}
 

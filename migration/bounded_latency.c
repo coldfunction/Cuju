@@ -231,10 +231,15 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 //			sprintf(pbuf, "%d %d %d %d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 //			sprintf(pbuf, "%d %d\n", update.w5, update.last_load_mem_rate);
 			//sprintf(pbuf, "%lld %lld %lld %d\n", update.w5, update.last_load_mem_rate, update.load_mem_rate, update.dirty_page);
-			sprintf(pbuf, "%d\n", dirty_page);
-        	fputs(pbuf, pFile);
-			sprintf(pbuf, "%d\n", runtime_us);
-//			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
+			//sprintf(pbuf, "%d\n", dirty_page);
+        	//fputs(pbuf, pFile);
+			//sprintf(pbuf, "%d\n", runtime_us);
+            if(update.w0 != -1) {
+                sprintf(pbuf, "%d %d\n", update.w0, update.w1);
+        	    fputs(pbuf, pFile);
+            }
+
+            //			sprintf(pbuf, "%d %d\n", update.load_mem_rate, dirty_page);
 //
 			//sprintf(pbuf, "%d\n%d\n%d\n%d\n", update.last_load_mem_rate, update.load_mem_rate, update.w5, trans_us);
 
@@ -245,7 +250,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			//sprintf(pbuf, "%d %d\n", update.e_dirty_bytes, update.dirty_page);
 			//sprintf(pbuf, "%d %d %d %d %d\n", update.w5,  update.dirty_page, update.trans_us, update.last_send_rate, update.current_send_rate);
         //	fputs(pbuf, pFile);
-        	fputs(pbuf, pFile);
+        	//fputs(pbuf, pFile);
 
 
 

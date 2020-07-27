@@ -654,6 +654,12 @@ struct kvm {
 	int record_count[KVM_DIRTY_BITMAP_INIT_COUNT];
 
 
+	//when overlapped trans, the last trans start, stop
+	s64 wot_last_trans_start[KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 wot_last_trans_stop[KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 wot_esti_trans_time[KVM_DIRTY_BITMAP_INIT_COUNT];
+	s64 wot_overlapped_time[KVM_DIRTY_BITMAP_INIT_COUNT];
+
 
 	int flush_get_data_ok;
 	int trans_stop;

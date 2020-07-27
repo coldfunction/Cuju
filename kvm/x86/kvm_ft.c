@@ -1344,10 +1344,10 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int total_T = 0;
 	s64 last_start = 0;
 	s64 expect_end = 0;
-	   if(kvm->trans_stop )  {
+	if(kvm->trans_stop )  {
 		   //extra = 0;
-		   extra = -999;
-	   } else {
+		extra = -999;
+	} else {
     	total_trans_byte = current_dirty_byte+kvm->last_dirty;
 		//total_T = total_trans_byte/current_trans_rate;
 		total_T = total_trans_byte/kvm->big_current_trans_rate;
@@ -1356,12 +1356,19 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 		//total_T = total_trans_byte/kvm->big_current_trans_rate;
 	//	total_T = total_trans_byte/pr;
 		last_start = kvm->trans_start_r[(ctx->cur_index+1)%KVM_DIRTY_BITMAP_INIT_COUNT];
-		expect_end = last_start+total_T;
-		new_beta = expect_end-time_in_us();
-		if(new_beta > 0)
-			new_beta*=1000;
-		extra = kvm->last_dirty;
-	   }
+//		kvm->wot_last_trans_start[ctx->cur_index] = last_start;
+		int alreadyGo = time_in_us() - last_start;
+		kvm->wot_overlapped_time[ctx->cur_index] = kvm->last_esti_trans_time-alreadyGo;
+		if(kvm->wot_overlapped_time[ctx->cur_index] > 0) {
+			expect_end = last_start+total_T;
+			new_beta = expect_end-time_in_us();
+			if(new_beta > 0)
+				new_beta*=1000;
+			extra = kvm->last_dirty;
+		} else {
+			extra = -999;
+		}
+	}
 
 	beta = new_beta;
 
@@ -5827,6 +5834,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				this_dirty_bytes_s = update->dirty_page;
 				this_trans_rate_s = tr;
 			}
+			update->w0 = -1;
 		} else if (real_trans > 0) {
 			long tt = trans_stop_time - kvm->f0[update->cur_index]	;
 			long td = kvm->x03[update->cur_index]+update->dirty_page;
@@ -5836,6 +5844,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			//	kvm->big_current_trans_rate = td/tt;
 			//	this_dirty_bytes_b = td;
 			//	this_trans_rate_b = kvm->big_current_trans_rate;
+				update->w0 = kvm->wot_overlapped_time[update->cur_index];
+				update->w1 = td/tt;
 			}
 		}
 
@@ -5898,8 +5908,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 
 	int cur_index = update->cur_index;
 
-    update->w0 = kvm->w0[cur_index];
-    update->w1 = kvm->w1[cur_index];
+    //update->w0 = kvm->w0[cur_index];
+    //update->w1 = kvm->w1[cur_index];
     update->w3 = kvm->w3[cur_index];
     update->w4 = kvm->w4;
     update->w5 = kvm->w5;

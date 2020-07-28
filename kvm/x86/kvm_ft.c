@@ -116,6 +116,9 @@ struct ft_multi_trans_h {
 	int L3cache_speed_c;
 	int callsnapshot;
 	int current_trans_rate;
+	int compress_copy[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int compress_copy_c;
+	int flush_c;
 };
 
 struct ft_multi_trans_h ft_m_trans = {ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0),0, 0, 0, 3000, 3000};
@@ -1158,9 +1161,20 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
     current_dirty_byte = bd_calc_dirty_bytes(kvm, ctx, dlist);
 
 	int dt = time_in_us()-istart;
+
+	int guest_compress_dt = 0;
+	int guest_load_r = 0;
+	if(kvm->f_count) {
+		guest_compress_dt = (dt*1000/kvm->f_count)*dlist->put_off;
+		//printk("@@!->    %d\n", guest_compress_dt);
+		if(guest_compress_dt) {
+			guest_load_r = dlist->put_off*4096*1000/guest_compress_dt;
+		}
+	}
+
 	if(dt > 0) {
-	    //kvm->load_mem_rate = kvm->f_count*4096/dt;
-	    kvm->load_mem_rate = dlist->put_off/2*4096/dt;
+	    kvm->load_mem_rate = kvm->f_count*4096/dt;
+	    //kvm->load_mem_rate = dlist->put_off/2*4096/dt;
     }
 //	printk("real load_mem_rate = %d\n", kvm->load_mem_rate);
 
@@ -1260,7 +1274,8 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 //	int L3cache = (L3cache+kvm->actual_miss_speed)/2;
 //	int current_trans_rate = kvm->current_trans_rate;
 	//int current_trans_rate = ft_m_trans.current_trans_rate;
-	int current_trans_rate = kvm->current_trans_rate;
+	//int current_trans_rate = kvm->current_trans_rate[ctx->cur_index];
+	int current_trans_rate = kvm->current_trans_rate[0];
 
 //	int pr = get_predict_trans_rate_s(kvm, current_dirty_byte, 0);
 //	if(pr > 0)
@@ -1344,6 +1359,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	int total_T = 0;
 	s64 last_start = 0;
 	s64 expect_end = 0;
+/*
 	if(kvm->trans_stop )  {
 		   //extra = 0;
 		extra = -999;
@@ -1371,7 +1387,7 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
 	}
 
 	beta = new_beta;
-
+*/
 /*
 	   if(extra < 0) extra = 0;
 	   beta+=extra*1000;
@@ -1506,6 +1522,9 @@ static struct kvm_vcpu* bd_predic_stop2(struct kvm_vcpu *vcpu)
         	kvm->x00[ctx->cur_index] = kvm->x0[ctx->cur_index];
         	kvm->x01[ctx->cur_index] = kvm->x1[ctx->cur_index];
 			kvm->w2[ctx->cur_index] = current_dirty_byte;
+			kvm->w5[ctx->cur_index] = dlist->put_off*4096;
+			kvm->w6[ctx->cur_index] = guest_compress_dt;
+			kvm->x6[ctx->cur_index] = guest_load_r;
 			kvm->e_latency = beta;
 			kvm->e_trans_latency[ctx->cur_index] = beta2;
 //			kvm->e_trans_latency_p[ctx->cur_index] = beta3;
@@ -2213,8 +2232,13 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->ft_kick2 = 0;
 
 
-	kvm->current_trans_rate = 1000;
+	kvm->current_trans_rate[0] = 1000;
+	kvm->current_trans_rate[1] = 1000;
 	kvm->big_current_trans_rate = 1000;
+
+	ft_m_trans.compress_copy_c = 0;
+	ft_m_trans.flush_c = 0;
+
 /*
 	kvm->w0 = 3819;
 	kvm->w1 = 1943;
@@ -2290,7 +2314,7 @@ int kvm_shm_enable(struct kvm *kvm)
 	kvm->err_2 = 0;
 	kvm->err_2_b = 0;
 
-	kvm->w5 = 1000;
+	//kvm->w5 = 1000;
 	kvm->wc = 0;
 	kvm->wn = 0;
     kvm->x00[0] = 0;
@@ -4183,11 +4207,15 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
 
     for (i = 0; i < 4096; i += 32) {
 		//udelay(ft_m_trans.cmp_difftime/128);
-        //if (memcmp_avx_32(backup + i, page + i)) {
+        if (memcmp_avx_32(backup + i, page + i)) {
             header->h[i / 256] |= (1 << ((i % 256) / 32));
             memcpy(block, page + i, 32);
             block += 32;
-        //}
+
+			int index = ft_m_trans.compress_copy_c;
+			ft_m_trans.compress_copy[index]++;
+			ft_m_trans.compress_copy_c = (ft_m_trans.compress_copy_c+1)%2;
+        }
     }
 
 
@@ -5821,12 +5849,15 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		int this_trans_rate_s = 1000;
 		int this_dirty_bytes_b = 0;
 		int this_trans_rate_b = 1000;
-	//if(update->trans_us>0 && real_trans>0) {
-	//if(update->trans_us>0 && real_trans>0 && update->latency_us <= target_latency_us + 1000 ) {
-//	if(update->trans_us>0 && real_trans>0 && !(otherTrans_stop<thisTrans_stop && otherTrans_stop>thisTrans_start) || (otherTrans_start<thisTrans_stop && otherTrans_start>thisTrans_start)) {
-//		printk("not real !QQQQQQQQQQQQQQQQ: %d, %d, %d\n", update->dirty_page, update->trans_us, update->dirty_page/update->trans_us);
-//		printk("real !QQQQQQQQQQQQQQQQ: %d, %d, %d\n", update->dirty_page, real_trans, update->dirty_page/real_trans);
-		if(real_trans > 0 && kvm->x03[update->cur_index]==-999) {
+
+			if(real_trans > 0) {
+				int tr = update->dirty_page/real_trans;
+				if(tr)
+					//kvm->current_trans_rate[update->cur_index] = tr;
+					kvm->current_trans_rate[0] = tr;
+			}
+
+/*		if(real_trans > 0 && kvm->x03[update->cur_index]==-999) {
 			int tr = update->dirty_page/real_trans;
 			if(tr) {
 				kvm->current_trans_rate = tr;
@@ -5848,7 +5879,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 				update->w1 = td/tt;
 			}
 		}
-
+*/
 
 //		}
 		//kvm->current_trans_rate = kvm->w2[update->cur_index]/real_trans;
@@ -5912,7 +5943,7 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
     //update->w1 = kvm->w1[cur_index];
     update->w3 = kvm->w3[cur_index];
     update->w4 = kvm->w4;
-    update->w5 = kvm->w5;
+    update->w5 = kvm->w5[cur_index];
     update->x0 = kvm->x00[cur_index];
     update->x1 = kvm->x01[cur_index];
     update->x2 = kvm->x02[cur_index];
@@ -6837,6 +6868,9 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	int rc = kvm->record_count[cur_index];
 	kvm->record_count[cur_index] = 0;
 
+	int fc = ft_m_trans.flush_c;
+
+
 
 	if(kvm->latency_hit == 0 && fix == 0/*&& kvm->latency_total < 50000*/) {
 	if(latency_us <= target_latency_us + 1000 && latency_us >= target_latency_us -1000) {
@@ -6852,10 +6886,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		if(kvm->ft_id == 0) {
 			printk("------okokok-------------------------@@@ start\n");
 			printk("predic tranbyte = %d, real transbyte = %d\n", kvm->w2[cur_index], update->dirty_page);
+			if(update->dirty_page)
+				printk("uncompress tranbyte = %d, real transbyte = %d, compress_rate = %d\n", kvm->w5[cur_index], update->dirty_page, kvm->w5[cur_index]*100/update->dirty_page);
 			printk("predic transrate = %d, real transrate = %d\n", kvm->oldcache[cur_index], update->dirty_page/real_trans);
 			printk("predic runtime = %d, real runtime = %d\n", kvm->e_epoch_runtime[cur_index], update->runtime_us);
 			printk("predic trans = %d, real trans = %d\n", kvm->e_trans_latency[cur_index]/1000, update->trans_us);
 			printk("predic latency = %d, real latency = %d ", kvm->e_epoch_runtime[cur_index]+kvm->e_trans_latency[cur_index]/1000, update->latency_us);
+			printk("total copy in compress = %d\n", ft_m_trans.compress_copy[fc]);
 			printk("no pendding latency = %d \n", update->runtime_us+real_trans);
 			printk("predic chache = %d, real cache = %d\n", predCache, kvm->current_cache_speed);
 			printk("update->trans = %d, real trans = %d\n", update->trans_us, real_trans);
@@ -6867,6 +6904,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			printk("current run start = %ld, in kernel runtime = %ld\n", current_run_start, current_run_end-current_run_start);
 
 			printk("extra = %d\n", extra);
+			printk("gdt = %d\n", kvm->w6[cur_index]/1000);
+			printk("gload_r = %d\n", kvm->x6[cur_index]/1000);
 			printk("-------------------------------@@@ end\n");
 		}
 		return;
@@ -6877,10 +6916,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		if(kvm->ft_id == 0) {
 			printk("------too long-------------------------@@@ start\n");
 			printk("predic tranbyte = %d, real transbyte = %d\n", kvm->w2[cur_index], update->dirty_page);
+			if(update->dirty_page)
+				printk("uncompress tranbyte = %d, real transbyte = %d, compress_rate = %d\n", kvm->w5[cur_index], update->dirty_page, kvm->w5[cur_index]*100/update->dirty_page);
 			printk("predic transrate = %d, real transrate = %d\n", kvm->oldcache[cur_index], update->dirty_page/update->trans_us);
 			printk("predic runtime = %d, real runtime = %d\n", kvm->e_epoch_runtime[cur_index], update->runtime_us);
 			printk("predic trans = %d, real trans = %d\n", kvm->e_trans_latency[cur_index]/1000, update->trans_us);
 			printk("predic latency = %d, real latency = %d ", kvm->e_epoch_runtime[cur_index]+kvm->e_trans_latency[cur_index]/1000, update->latency_us);
+			printk("total copy in compress = %d\n", ft_m_trans.compress_copy[fc]);
 			printk("no pendding latency = %d \n", update->runtime_us+real_trans);
 			printk("predic chache = %d, real cache = %d\n", predCache, kvm->current_cache_speed);
 			printk("update->trans = %d, real trans = %d\n", update->trans_us, real_trans);
@@ -6891,6 +6933,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			printk("current run end = %ld, current trans start = %ld\n", current_run_end, current_trans_start);
 			printk("current run start = %ld, in kernel runtime = %ld\n", current_run_start, current_run_end-current_run_start);
 			printk("extra = %d\n", extra);
+			printk("gdt = %d\n", kvm->w6[cur_index]/1000);
+			printk("gload_r = %d\n", kvm->x6[cur_index]/1000);
 			int i;
 /*			for(i = 0; i < rc; i++) {
 				printk("%d, runtime = %d\n", i, kvm->runtime_r[cur_index][i]);
@@ -6910,10 +6954,13 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 		if(kvm->ft_id == 0) {
 			printk("------too short-------------------------@@@ start\n");
 			printk("predic tranbyte = %d, real transbyte = %d\n", kvm->w2[cur_index], update->dirty_page);
+			if(update->dirty_page)
+				printk("uncompress tranbyte = %d, real transbyte = %d, compress_rate = %d\n", kvm->w5[cur_index], update->dirty_page, kvm->w5[cur_index]*100/update->dirty_page);
 			printk("predic transrate = %d, real transrate = %d\n", kvm->oldcache[cur_index], update->dirty_page/update->trans_us);
 			printk("predic runtime = %d, real runtime = %d\n", kvm->e_epoch_runtime[cur_index], update->runtime_us);
 			printk("predic trans = %d, real trans = %d\n", kvm->e_trans_latency[cur_index]/1000, update->trans_us);
 			printk("predic latency = %d, real latency = %d ", kvm->e_epoch_runtime[cur_index]+kvm->e_trans_latency[cur_index]/1000, update->latency_us);
+			printk("total copy in compress = %d\n", ft_m_trans.compress_copy[fc]);
 			printk("no pendding latency = %d \n", update->runtime_us+real_trans);
 			printk("predic chache = %d, real cache = %d\n", predCache, kvm->current_cache_speed);
 			printk("update->trans = %d, real trans = %d\n", update->trans_us, real_trans);
@@ -6924,6 +6971,8 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			printk("current run end = %ld, current trans start = %ld\n", current_run_end, current_trans_start);
 			printk("current run start = %ld, in kernel runtime = %ld\n", current_run_start, current_run_end-current_run_start);
 			printk("extra = %d\n", extra);
+			printk("gdt = %d\n", kvm->w6[cur_index]/1000);
+			printk("gload_r = %d\n", kvm->x6[cur_index]/1000);
 			printk("-------------------------------@@@ end\n");
 		}
 	}
@@ -6931,7 +6980,10 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 	if(kvm->latency_hit == 1)
 		kvm->n_latency_c++;
 
-//	int less_f = kvm->less_c*100/kvm->latency_total;
+
+	ft_m_trans.flush_c = (ft_m_trans.flush_c+1)%2;
+
+	//	int less_f = kvm->less_c*100/kvm->latency_total;
 //	int exceed_f = kvm->exceed_c*100/kvm->latency_total;
 	int less_f = kvm->less_c*100/(kvm->latency_ok+kvm->less_c+kvm->exceed_c);
 	int exceed_f = kvm->exceed_c*100/(kvm->latency_ok+kvm->less_c+kvm->exceed_c);
@@ -7211,7 +7263,8 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
         kunmap_atomic(backup);
 	}
 */
-/*
+//	return  dlist->put_off*4096;
+
     for (i = n; i < dlist->put_off; i+=(n+p)) {
         for(k = 0; (k < p) && (i+k < dlist->put_off); k++){
  //
@@ -7246,11 +7299,11 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
 
         kernel_fpu_begin();
         for (j = 0; j < 4096; j += 32) {
-    //        len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+            len += 32 * (!!memcmp_avx_32(backup + j, page + j));
         	//if (memcmp_avx_32(backup + j, page + j)) { //test
     //        	memcpy(block, page + i, 32);
 		//		real_count++;
-				len+=32;
+				//len+=32;
         	//}
 		}
         kernel_fpu_end();
@@ -7274,17 +7327,17 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
         total_dirty_bytes += len+28;
         }
     }
-	*/
+
     //total_dirty_bytes += 28*count;
 
-	/*if(real_count != 0)
+	if(real_count != 0)
 	    total_dirty_bytes = (total_dirty_bytes/real_count)*dlist->put_off;
 
 	kvm->f_count = real_count;
-*/
+
 	//kfree(block);
 
-	return  dlist->put_off*4096;
+//	return  dlist->put_off*4096;
 
     if (count > 0) {
         return total_dirty_bytes;

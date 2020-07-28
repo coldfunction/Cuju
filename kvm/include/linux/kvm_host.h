@@ -581,7 +581,7 @@ struct kvm {
     int w2[KVM_DIRTY_BITMAP_INIT_COUNT];
     int w3[KVM_DIRTY_BITMAP_INIT_COUNT];
     int w4;
-    int w5;
+    int w5[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x0[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x1[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x2;
@@ -589,6 +589,10 @@ struct kvm {
     int x01[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x02[KVM_DIRTY_BITMAP_INIT_COUNT];
     int x03[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int w6[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int x6[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int w7[KVM_DIRTY_BITMAP_INIT_COUNT];
+	int x7[KVM_DIRTY_BITMAP_INIT_COUNT];
     unsigned long int wn;
     unsigned long int wc;
 
@@ -684,7 +688,7 @@ struct kvm {
 	unsigned long long snapshot_abrupt_c;
 	unsigned long long trans_too_long_c;
 	int last_trans;
-	int current_trans_rate;
+	int current_trans_rate[KVM_DIRTY_BITMAP_INIT_COUNT];
 	int big_current_trans_rate;
 
     int dirty_bytes_rate;

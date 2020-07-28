@@ -540,12 +540,12 @@ static void cuju_ft_trans_load(CujuQEMUFileFtTrans *s)
     qemu_timeval stime, etime;
     qemu_gettimeofday(&stime);
 #endif
-/*
+
     if (s->ram_hdr_buf_put_off > 0)
         kvm_shmem_load_ram_with_hdr(s->ram_buf, s->ram_buf_put_off, s->ram_hdr_buf, s->ram_hdr_buf_put_off);
     else
         kvm_shmem_load_ram(s->ram_buf, s->ram_buf_put_off);
-*/
+
     s->ram_buf_put_off = 0;
     s->ram_hdr_buf_put_off = 0;
     s->ram_buf_expect = -1;

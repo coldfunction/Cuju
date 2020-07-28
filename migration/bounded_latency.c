@@ -101,12 +101,17 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
     static unsigned long int predict_error = 0;
     static unsigned long int last_transfer_impact_error = 0;
     static unsigned long long int total_dirty = 0;
+    static unsigned long long int total_runtime = 0;
+    static unsigned long long int total_dirty_page = 0;
+
+    total_dirty_page += s->dirty_pfns_len;
 
     mcount++;
 
 	int guess_runtime = update.e_runtime;
 	int real_runtime = runtime_us;
 
+    total_runtime+= runtime_us;
 
 	if(latency_us <= 10*1000 + 1000 && latency_us >= 10*1000 - 1000) {
 		ok++;
@@ -160,6 +165,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 		printf("test predict_error percentage is %lf\n", predict_error_percentage);
 		printf("test predict_last_transfer_impact_percentage is %lf\n", predict_last_transfer_impact_percentage);
 		printf("average dirty is %lld\n", total_dirty/mcount);
+		printf("ave uncompress dirty is %lld\n", total_dirty_page*4096/mcount);
+		printf("average runtime is %lld\n", total_runtime/mcount);
 
     }
 

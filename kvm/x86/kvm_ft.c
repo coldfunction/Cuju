@@ -28,7 +28,7 @@
 //#define KNUM3 50 //current ok
 #define KNUM3 10 //current ok
 //#define KNUM3 5 //current ok
-#define KNUM4 200 //current ok
+#define KNUM4 100 //current ok
 //#define KNUM 1600 //current best
 //#define KNUM 3200 //current best
 //#define KNUM 6400

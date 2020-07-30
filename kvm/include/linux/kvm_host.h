@@ -490,6 +490,12 @@ struct k_point3 {
     long long trans_time;
 };
 
+struct k_rpoint {
+    long long dirty_pfns_len;
+    long long dirty_len;
+    long long trans_rate;
+};
+
 
 struct kvm {
 	spinlock_t mmu_lock;
@@ -750,6 +756,7 @@ struct kvm {
     struct k_point *kpoint;
     struct k_point2 *kpoint2;
     struct k_point3 *kpoint3;
+    struct k_rpoint **krpoint;
 	int e_round;
 	long long latency_total;
 	long long latency_total2;
@@ -793,6 +800,8 @@ struct kvm {
 	int iscompress;
 	int kindex2;
 	int kindex3;
+	int *krindex;
+	int *krindex_ok;
 	int oldcache[KVM_DIRTY_BITMAP_INIT_COUNT];
 	struct tasklet_struct *t3;
 	int mflag;

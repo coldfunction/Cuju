@@ -78,13 +78,14 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	static float average_e = 0.99;
 	static float average_l = 0.69;
 
-	static int average_de = 263;
+//	static int average_de = 263;
 	static int average_dl = 154;
     static int last_trans_time = 0;
 
 	update.average_e = average_e*1000;
 	update.average_l = average_l*1000;
-	update.average_de = average_de;
+//	update.average_de = average_de;
+	update.average_de = s->dirty_pfns_len;
 	update.average_dl = average_dl;
 
 //    return kvm_vm_ioctl(kvm_state, KVMFT_BD_UPDATE_LATENCY, &update);
@@ -128,6 +129,9 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
         } else if(last_trans_time > runtime_us) {
             last_transfer_impact_error++;
         }
+
+        if(update.alpha > 10*1000 + 1000)
+		    predict_exceed++;
 	} else {
 		latency_less_count++;
         if(update.x3 == 777) {
@@ -136,8 +140,8 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 	}
 
 
-	if(update.alpha > 10*1000 + 1000)
-		predict_exceed++;
+//	if(update.alpha > 10*1000 + 1000)
+//		predict_exceed++;
 
     total_dirty+=dirty_page;
 
@@ -207,7 +211,7 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 
 	total++;
 	if(id >= 10) {
-//	if(id == 0) {
+	//if(id == 0) {
 		FILE *pFile;
    		char pbuf[200];
 		sprintf(pbuf, "runtime_latency_trans_rate%d.txt", id);
@@ -241,8 +245,12 @@ int kvmft_bd_update_latency(int dirty_page, int runtime_us, int trans_us, int la
 			//sprintf(pbuf, "%d\n", dirty_page);
         	//fputs(pbuf, pFile);
 			//sprintf(pbuf, "%d\n", runtime_us);
-            if(update.w0 != -1) {
-                sprintf(pbuf, "%d %d\n", update.w0, update.w1);
+            //if(update.w0 != -1) {
+             //   sprintf(pbuf, "%d %d\n", update.w0, update.w1);
+        	  //  fputs(pbuf, pFile);
+            //}
+            if(trans_us) {
+                sprintf(pbuf, "%d %d\n", s->dirty_pfns_len, s->dirty_pfns_len*4096/trans_us);
         	    fputs(pbuf, pFile);
             }
 

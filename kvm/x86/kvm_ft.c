@@ -3690,9 +3690,9 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
 	real_count = total_dirty_bytes = 0;
 	k = 0;
 
-	for (i = 0; i < dlist->put_off/8; i++ ){
-//	for (i = n; i < dlist->put_off; i+=(n+p)) {
- //       for(k = 0; (k < p) && (i+k < dlist->put_off); k++){
+//	for (i = 0; i < dlist->put_off/8; i++ ){
+	for (i = n; i < dlist->put_off; i+=(n+p)) {
+        for(k = 0; (k < p) && (i+k < dlist->put_off); k++){
  //
         	real_count++;
 //			printk("@@ real_count = %d\n", real_count);
@@ -3751,7 +3751,7 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
 
 		//}
         	total_dirty_bytes += (len+28);
-        //}
+        }
 //			printk("len = %d total_dirty_bytes = %d\n", len, total_dirty_bytes);
     }
 

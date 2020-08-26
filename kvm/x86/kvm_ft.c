@@ -2672,18 +2672,18 @@ static int __diff_to_buf(unsigned long gfn, struct page *page1,
     kernel_fpu_begin();
 
 
-	int k = 0;
+//	int k = 0;
     for (i = 0; i < 4096; i += 32) {
-       // if (memcmp_avx_32(backup + i, page + i)) {
-	   memcmp_avx_32(backup + i, page + i);
+        if (memcmp_avx_32(backup + i, page + i)) {
+	  // memcmp_avx_32(backup + i, page + i);
 	   //if(give_dirty == 1) {
-	   if(k%4 == 0) {
+	  // if(k%4 == 0) {
             header->h[i / 256] |= (1 << ((i % 256) / 32));
             memcpy(block, page + i, 32);
             block += 32;
-	   }
-	   k++;
-       // }
+	   //}
+	   //k++;
+        }
     }
 
     kernel_fpu_end();
@@ -3723,14 +3723,14 @@ long long bd_calc_dirty_bytes(struct kvm *kvm, struct kvmft_context *ctx, struct
 
 
         	kernel_fpu_begin();
-			int s = 0;
+			//int s = 0;
         	for (j = 0; j < 4096; j += 32) {
-            	//len += 32 * (!!memcmp_avx_32(backup + j, page + j));
-				memcmp_avx_32(backup + j, page + j);
-				if(s%4 == 0) {
-            		len += 32;
-				}
-				s++;
+            	len += 32 * (!!memcmp_avx_32(backup + j, page + j));
+				//memcmp_avx_32(backup + j, page + j);
+				//if(s%4 == 0) {
+            	//	len += 32;
+				//}
+				//s++;
         	//if (memcmp_avx_32(backup + j, page + j)) { //test
     //        	memcpy(block, page + i, 32);
 		//		real_count++;

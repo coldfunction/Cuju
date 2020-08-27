@@ -296,7 +296,8 @@ static struct kvm_vcpu* bd_predic_stop(struct kvm_vcpu *vcpu)
 	}
 	mr = kvm->last_compress_r;
 	if(mr) {
-		trans += dlist->put_off*4096/mr;
+		//trans += dlist->put_off*4096/mr;
+		trans += (dlist->put_off*4096+current_dirty_byte)/mr;
 	}
 
 	if(trans == 0) trans = kvm->bo;
@@ -4068,19 +4069,20 @@ void kvmft_bd_update_latency(struct kvm *kvm, struct kvmft_update_latency *updat
 			kvm->compress_r_count++;
 			kvm->compress_r_sum+=dirty_pfns_len*4096/rest_ct;
 			//kvm->last_compress_r = dirty_pfns_len*4096/rest_ct;
+			kvm->last_compress_r = (dirty_pfns_len*4096+dirty_len)/rest_ct;
 		}
 		int send_t = trans-rest_ct;
 		if(send_t) {
 			kvm->send_r_count++;
 			kvm->send_r_sum+=dirty_len/send_t;
-//			kvm->last_send_r = dirty_len/send_t;
+			kvm->last_send_r = dirty_len/send_t;
 		}
 
 		if(kvm->compress_r_count) {
-			kvm->last_compress_r = kvm->compress_r_sum/kvm->compress_r_count;
+//			kvm->last_compress_r = kvm->compress_r_sum/kvm->compress_r_count;
 		}
 		if(kvm->send_r_count) {
-			kvm->last_send_r = kvm->send_r_sum/kvm->send_r_count;
+//			kvm->last_send_r = kvm->send_r_sum/kvm->send_r_count;
 		}
 
 		if(kvm->compress_r_count == 2000) {

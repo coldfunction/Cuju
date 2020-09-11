@@ -39,6 +39,8 @@ static unsigned int dirty_pages_userspace[1024];
 static unsigned int dirty_pages_userspace_committed[1024];
 static uint8_t dirty_pages_userspace_copy[1024][4096];
 
+int create_vm_id(void);
+
 static void dirty_pages_userspace_add(unsigned long gfn)
 {
     int i, cnt;
@@ -1090,6 +1092,11 @@ static inline int transfer_flat_page(int fd, unsigned int gfn, void *page)
     return len;
 }
 
+int create_vm_id(void)
+{
+	return kvm_vm_ioctl(kvm_state, KVMFT_BD_CREATE_VM_ID, NULL);
+}
+
 static void thread_set_realtime(void)
 {
     int err;
@@ -1103,9 +1110,11 @@ static void thread_set_realtime(void)
         exit(-1);
     }
 
+   	int id = create_vm_id();
+	printf("ft id = %d\n", id);
 	cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(4, &cpuset);
+    CPU_SET(4+id, &cpuset);
 //    CPU_SET(1, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 

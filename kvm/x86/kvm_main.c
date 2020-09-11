@@ -3058,6 +3058,9 @@ static long kvm_vm_ioctl_check_extension_generic(struct kvm *kvm, long arg)
 	return kvm_vm_ioctl_check_extension(kvm, arg);
 }
 
+
+atomic_t ft_vm_count = {ATOMIC_INIT(-1)};
+
 static long kvm_vm_ioctl(struct file *filp,
 			   unsigned int ioctl, unsigned long arg)
 {
@@ -3509,6 +3512,12 @@ out_free_irq_routing:
 		if (copy_to_user(argp, &update, sizeof update))
 			goto out;
         r = 0;
+		break;
+	}
+	case KVMFT_BD_CREATE_VM_ID: {
+		//kvm->ft_id = atomic_read(&ft_vm_count);
+		kvm->ft_id = atomic_inc_return(&ft_vm_count);
+		r =  kvm->ft_id;
 		break;
 	}
 	default:

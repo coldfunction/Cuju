@@ -105,7 +105,7 @@ int kvmft_bd_update_latency(MigrationState *s)
 
 	total_trans_r+=update.alpha;
 
-		int fix_b_ok = 0;
+//		int fix_b_ok = 0;
 
 		int m1 = update.x2;
 		int m2 = update.x3;
@@ -123,13 +123,13 @@ int kvmft_bd_update_latency(MigrationState *s)
 		if( fixlatency <= latency_us + target_latency/10 && fixlatency >= latency_us - target_latency/10) {
 			//printf("fix latency = %d\n", fixlatency);
 			latency_fix_ok++;
-			fix_b_ok = 1;
+//			fix_b_ok = 1;
 		} else {
 			latency_fix_err++;
 		}
 
 
-
+/*
 		FILE *pFile;
    		char pbuf[200];
 		//if(latency_us <= target_latency + target_latency/10 && latency_us >= target_latency - target_latency/10) {
@@ -157,7 +157,7 @@ int kvmft_bd_update_latency(MigrationState *s)
         	printf("no profile\n");
 
 		fclose(pFile);
-
+*/
 
 
 	//if(latency_us <= target_latency + 1000 && latency_us >= target_latency - 1000) {
@@ -308,3 +308,6 @@ int kvmft_bd_update_latency(MigrationState *s)
 //	printf("runtime = %d\n", runtime_us);
 	return r;
 }
+
+
+

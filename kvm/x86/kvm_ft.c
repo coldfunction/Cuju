@@ -2811,9 +2811,9 @@ static int kvmft_transfer_list(struct kvm *kvm, struct socket *sock,
 
         if (len >= 64 * 1024) {
             ret = ktcp_send(sock, buf, len);
-			block_num++;
-			kvm->record_send_queue_sum_time[trans_index] += (time_in_us()-start_wait);
-			start_wait = time_in_us();
+			//block_num++;
+			//kvm->record_send_queue_sum_time[trans_index] += (time_in_us()-start_wait);
+			//start_wait = time_in_us();
 
             if (ret < 0)
                 goto free;
